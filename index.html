@@ -20,218 +20,198 @@
 <script type="text/babel">
 const {useState,useEffect,useMemo,useCallback,useRef} = React;
 
-// ─── CONFIGURE AQUI ──────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbz8rptQ6aUu8r11WTZuFQhn4-w6XtZaLNZpwLKZcPGqDzQycmckuOvGikmL6_iZA-x9jA/exec";
-const INVITE_CODE = "fabrica2026"; // mesmo código do Apps Script
+// ── CONFIGURE AQUI ────────────────────────────────────────────
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbykE-WiHl6-wfIPp-dE2jQJRt74S-p5LrS-tKvqtL7ylP1M_J0QreNZlPq4ja6MlgS61w/exec";
+const INVITE_CODE = "fabrica2026";
 
 const MACHINES = [
-  {id:1, name:"HORIZONTAL 1",                       hasMeta:true, meta:500},
-  {id:2, name:"HORIZONTAL 2",                       hasMeta:true, meta:500},
-  {id:3, name:"VERTICAL PLACAS / SUP. 1",           hasMeta:true, meta:400},
-  {id:4, name:"VERTICAL PLACAS / SUP. 2",           hasMeta:true, meta:400},
-  {id:5, name:"VERTICAL MÓDULOS 1",                 hasMeta:true, meta:350},
-  {id:6, name:"VERTICAL MÓDULOS 2",                 hasMeta:true, meta:350},
-  {id:7, name:"A GRANEL",                           hasMeta:true, meta:600},
-  {id:8, name:"MÁQUINA INTERRUPTOR",                hasMeta:true, meta:300},
-  {id:9, name:"TESTE INTERRUPTORES",                hasMeta:true, meta:250},
-  {id:10,name:"MANUAL INTERRUPTOR",                 hasMeta:true, meta:200},
-  {id:11,name:"MONTAGEM DIVERSOS",                  hasMeta:true, meta:150},
-  {id:12,name:"MONTAGEM PLACA REFINATTO",           hasMeta:true, meta:180},
-  {id:13,name:"KIT 1 PARAFUSO",                     hasMeta:true, meta:220},
-  {id:14,name:"KIT 2 PARAFUSO",                     hasMeta:true, meta:220},
-  {id:15,name:"MONTAGEM TOMADAS MANUAL",            hasMeta:true, meta:160},
-  {id:16,name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      hasMeta:true, meta:500},
-  {id:17,name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:false,meta:0},
-  {id:18,name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:false,meta:0},
-  {id:19,name:"RETRABALHO GERAL",                   hasMeta:false,meta:0},
+  {id:1, name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
+  {id:2, name:"HORIZONTAL 2",                       hasMeta:true,  defaultMeta:500},
+  {id:3, name:"VERTICAL PLACAS / SUP. 1",           hasMeta:true,  defaultMeta:400},
+  {id:4, name:"VERTICAL PLACAS / SUP. 2",           hasMeta:true,  defaultMeta:400},
+  {id:5, name:"VERTICAL MÓDULOS 1",                 hasMeta:true,  defaultMeta:350},
+  {id:6, name:"VERTICAL MÓDULOS 2",                 hasMeta:true,  defaultMeta:350},
+  {id:7, name:"A GRANEL",                           hasMeta:true,  defaultMeta:600},
+  {id:8, name:"MÁQUINA INTERRUPTOR",                hasMeta:true,  defaultMeta:300},
+  {id:9, name:"TESTE INTERRUPTORES",                hasMeta:true,  defaultMeta:250},
+  {id:10,name:"MANUAL INTERRUPTOR",                 hasMeta:true,  defaultMeta:200},
+  {id:11,name:"MONTAGEM DIVERSOS",                  hasMeta:true,  defaultMeta:150},
+  {id:12,name:"MONTAGEM PLACA REFINATTO",           hasMeta:true,  defaultMeta:180},
+  {id:13,name:"KIT 1 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
+  {id:14,name:"KIT 2 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
+  {id:15,name:"MONTAGEM TOMADAS MANUAL",            hasMeta:true,  defaultMeta:160},
+  {id:16,name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      hasMeta:true,  defaultMeta:500},
+  {id:17,name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:false, defaultMeta:0},
+  {id:18,name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:false, defaultMeta:0},
+  {id:19,name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0},
 ];
 const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
+const META_KEY = "prod_metas_v1";
 
-// ─── HELPERS ─────────────────────────────────────────────────
-const C = {green:"#22c55e",yellow:"#f59e0b",red:"#ef4444",blue:"#3b82f6",
-           gray:"#6b7280",purple:"#8b5cf6",teal:"#14b8a6",navy:"#1e3a5f"};
-const fmt   = d => d.toISOString().slice(0,10);
-const today = () => fmt(new Date());
-const parseD= s => new Date(s+"T00:00:00");
-const dispD = s => { const[y,m,d]=s.split("-"); return`${d}/${m}/${y}`; };
-const pctCol= p => p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
-const IS = {border:"1px solid #d1d5db",borderRadius:6,padding:"7px 11px",fontSize:14,background:"#fff",outline:"none",width:"100%"};
-const SS = {...IS,cursor:"pointer"};
-const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
+const C={green:"#22c55e",yellow:"#f59e0b",red:"#ef4444",blue:"#3b82f6",gray:"#6b7280",purple:"#8b5cf6",teal:"#14b8a6",navy:"#1e3a5f"};
+const fmt   = d=>d.toISOString().slice(0,10);
+const today = ()=>fmt(new Date());
+const parseD= s=>new Date(s+"T00:00:00");
+const dispD = s=>{ if(!s||!s.includes("-")) return s||""; const[y,m,d]=s.split("-"); return`${d}/${m}/${y}`; };
+const pctCol= p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
+const n     = v=>{ const x=Number(v); return isNaN(x)?0:x; };
 
-// ─── API ──────────────────────────────────────────────────────
+const IS={border:"1px solid #d1d5db",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none"};
+const SS={...IS,cursor:"pointer"};
+const BTN=(bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
+
+// ── API ───────────────────────────────────────────────────────
 async function api(action, body={}) {
-  const payload = btoa(unescape(encodeURIComponent(JSON.stringify({action,...body}))));
-  const url = `${SCRIPT_URL}?payload=${encodeURIComponent(payload)}&t=${Date.now()}`;
-  const res = await fetch(url);
+  const obj     = JSON.stringify({action,...body});
+  const encoded = btoa(encodeURIComponent(obj).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode(parseInt(p,16))));
+  const url     = `${SCRIPT_URL}?payload=${encodeURIComponent(encoded)}&t=${Date.now()}`;
+  const res     = await fetch(url);
   if (!res.ok) throw new Error("HTTP "+res.status);
   const j = await res.json();
   if (!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
 }
 
-// ─── PERSIST SESSION ─────────────────────────────────────────
-const SESSION_KEY = "prod_session_v1";
-const loadSession = () => { try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); }catch{ return null; } };
-const saveSession = u => { try{ localStorage.setItem(SESSION_KEY, JSON.stringify(u)); }catch{} };
-const clearSession= () => { try{ localStorage.removeItem(SESSION_KEY); }catch{} };
+// ── SESSION ───────────────────────────────────────────────────
+const SK = "prod_session_v2";
+const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SK)||"null"); }catch{ return null; } };
+const saveSession = u=>{ try{ localStorage.setItem(SK,JSON.stringify(u)); }catch{} };
+const clearSession= ()=>{ try{ localStorage.removeItem(SK); }catch{} };
 
-// ─── COMPONENTS UTILITÁRIOS ───────────────────────────────────
+// ── METAS locais (editáveis) ──────────────────────────────────
+function loadMetas() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(META_KEY)||"{}");
+    const m={};
+    MACHINES.forEach(mac=>{ m[mac.id]=saved[mac.id]!==undefined?saved[mac.id]:mac.defaultMeta; });
+    return m;
+  } catch { const m={}; MACHINES.forEach(mac=>m[mac.id]=mac.defaultMeta); return m; }
+}
+function saveMetas(m){ try{ localStorage.setItem(META_KEY,JSON.stringify(m)); }catch{} }
+
+// ── UTILS UI ──────────────────────────────────────────────────
 function MiniBar({pct,color}){
   return <div style={{background:"#e5e7eb",borderRadius:4,height:10,overflow:"hidden"}}>
     <div style={{width:`${Math.min(pct??0,100)}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s"}}/>
   </div>;
 }
-
-function Field({label,children}){
+function Field({label,hint,children}){
   return <div style={{marginBottom:14}}>
-    <div style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:5,letterSpacing:.5}}>{label}</div>
+    <div style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:5}}>{label}</div>
     {children}
+    {hint&&<div style={{fontSize:11,color:C.gray,marginTop:3}}>{hint}</div>}
   </div>;
 }
-
 function Alert({type,msg}){
   if(!msg) return null;
-  const colors = {error:{bg:"#fef2f2",border:"#fca5a5",text:C.red}, success:{bg:"#f0fdf4",border:"#86efac",text:"#16a34a"}, info:{bg:"#eff6ff",border:"#bfdbfe",text:"#1d4ed8"}};
-  const s = colors[type]||colors.info;
-  return <div style={{background:s.bg,border:`1px solid ${s.border}`,borderRadius:8,padding:"10px 14px",fontSize:13,color:s.text,marginTop:10,fontWeight:500}}>
+  const s={error:{bg:"#fef2f2",br:"#fca5a5",tx:C.red},success:{bg:"#f0fdf4",br:"#86efac",tx:"#16a34a"},info:{bg:"#eff6ff",br:"#bfdbfe",tx:"#1d4ed8"}}[type]||{bg:"#eff6ff",br:"#bfdbfe",tx:"#1d4ed8"};
+  return <div style={{background:s.bg,border:`1px solid ${s.br}`,borderRadius:8,padding:"10px 14px",fontSize:13,color:s.tx,marginTop:10,fontWeight:500}}>
     {type==="error"?"⚠ ":type==="success"?"✔ ":"ℹ "}{msg}
   </div>;
 }
 
-// ─── TELA DE AUTH (LOGIN + CADASTRO) ─────────────────────────
+// ── LOGIN / CADASTRO ──────────────────────────────────────────
 function AuthScreen({onLogin}){
-  const [mode,setMode]   = useState("login"); // login | register
-  const [nome,setNome]   = useState("");
-  const [senha,setSenha] = useState("");
+  const [mode,setMode]    = useState("login");
+  const [nome,setNome]    = useState("");
+  const [senha,setSenha]  = useState("");
   const [senha2,setSenha2]= useState("");
   const [codigo,setCodigo]= useState("");
   const [showPw,setShowPw]= useState(false);
-  const [loading,setLoading]= useState(false);
-  const [alert,setAlert] = useState({type:"",msg:""});
+  const [loading,setLoading]=useState(false);
+  const [alert,setAlert]  = useState({type:"",msg:""});
 
-  function setErr(msg){ setAlert({type:"error",msg}); }
-  function setOk(msg) { setAlert({type:"success",msg}); }
+  const setErr=msg=>setAlert({type:"error",msg});
+  const setOk =msg=>setAlert({type:"success",msg});
 
-  async function handleLogin(e){
+  async function submit(e){
     e.preventDefault();
-    if(!nome||!senha){ setErr("Preencha nome e senha."); return; }
+    if(!nome||!senha){ setErr("Preencha todos os campos."); return; }
+    if(mode==="register"){
+      if(nome.length<3){ setErr("Nome muito curto (mín. 3 caracteres)."); return; }
+      if(senha.length<4){ setErr("Senha muito curta (mín. 4 caracteres)."); return; }
+      if(senha!==senha2){ setErr("As senhas não coincidem."); return; }
+    }
     setLoading(true); setAlert({type:"",msg:""});
     try{
-      const r = await api("login",{nome,senha});
-      saveSession(r.user);
-      onLogin(r.user);
+      const r = await api(mode==="login"?"login":"register",{nome,senha,codigo});
+      setOk(mode==="login"?"Bem-vindo!":"Conta criada!");
+      setTimeout(()=>{ saveSession(r.user); onLogin(r.user); },800);
     }catch(e){ setErr(e.message); }
     finally{ setLoading(false); }
   }
-
-  async function handleRegister(e){
-    e.preventDefault();
-    if(!nome||!senha||!senha2||!codigo){ setErr("Preencha todos os campos."); return; }
-    if(nome.length<3){ setErr("Nome deve ter ao menos 3 caracteres."); return; }
-    if(senha.length<4){ setErr("Senha deve ter ao menos 4 caracteres."); return; }
-    if(senha!==senha2){ setErr("As senhas não coincidem."); return; }
-    setLoading(true); setAlert({type:"",msg:""});
-    try{
-      const r = await api("register",{nome,senha,codigo});
-      setOk("Conta criada com sucesso! Fazendo login...");
-      setTimeout(()=>{ saveSession(r.user); onLogin(r.user); },1200);
-    }catch(e){ setErr(e.message); }
-    finally{ setLoading(false); }
-  }
-
-  const isLogin = mode==="login";
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%)"}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#1e3a5f,#2563eb)"}}>
       <div style={{background:"#fff",borderRadius:18,padding:"36px 32px",width:380,boxShadow:"0 12px 40px #0005"}}>
-        {/* Logo */}
-        <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{textAlign:"center",marginBottom:26}}>
           <div style={{fontSize:42}}>🏭</div>
           <div style={{fontSize:21,fontWeight:800,color:C.navy,marginTop:6}}>Dashboard de Produção</div>
-          <div style={{fontSize:13,color:C.gray,marginTop:3}}>{isLogin?"Faça login para continuar":"Crie sua conta de acesso"}</div>
+          <div style={{fontSize:13,color:C.gray,marginTop:3}}>{mode==="login"?"Faça login para continuar":"Crie sua conta de acesso"}</div>
         </div>
-
-        {/* Toggle */}
-        <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,padding:4,marginBottom:24}}>
+        <div style={{display:"flex",background:"#f1f5f9",borderRadius:10,padding:4,marginBottom:22}}>
           {[["login","Entrar"],["register","Criar Conta"]].map(([k,l])=>(
-            <button key={k} onClick={()=>{setMode(k);setAlert({type:"",msg:""}); setSenha(""); setSenha2(""); setCodigo("");}}
+            <button key={k} onClick={()=>{setMode(k);setAlert({type:"",msg:""});setSenha("");setSenha2("");setCodigo("");}}
               style={{flex:1,padding:"8px",border:"none",borderRadius:7,cursor:"pointer",fontWeight:700,fontSize:14,
                 background:mode===k?"#fff":"transparent",color:mode===k?C.navy:C.gray,
-                boxShadow:mode===k?"0 1px 4px #0002":"none",transition:"all .2s"}}>
-              {l}
-            </button>
+                boxShadow:mode===k?"0 1px 4px #0002":"none",transition:"all .2s"}}>{l}</button>
           ))}
         </div>
-
-        <form onSubmit={isLogin?handleLogin:handleRegister}>
+        <form onSubmit={submit}>
           <Field label="NOME DE USUÁRIO">
-            <input value={nome} onChange={e=>setNome(e.target.value)} placeholder="Seu nome" style={IS} autoFocus/>
+            <input value={nome} onChange={e=>setNome(e.target.value)} placeholder="Seu nome" style={{...IS,width:"100%"}} autoFocus/>
           </Field>
-
           <Field label="SENHA">
             <div style={{position:"relative"}}>
               <input type={showPw?"text":"password"} value={senha} onChange={e=>setSenha(e.target.value)}
-                placeholder="Mínimo 4 caracteres" style={{...IS,paddingRight:42}}/>
-              <span onClick={()=>setShowPw(!showPw)}
-                style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",fontSize:18,userSelect:"none"}}>
-                {showPw?"🙈":"👁"}
-              </span>
+                placeholder="Mínimo 4 caracteres" style={{...IS,width:"100%",paddingRight:42}}/>
+              <span onClick={()=>setShowPw(!showPw)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",fontSize:18}}>{showPw?"🙈":"👁"}</span>
             </div>
           </Field>
-
-          {!isLogin&&<>
+          {mode==="register"&&<>
             <Field label="CONFIRMAR SENHA">
-              <input type={showPw?"text":"password"} value={senha2} onChange={e=>setSenha2(e.target.value)}
-                placeholder="Repita a senha" style={IS}/>
+              <input type={showPw?"text":"password"} value={senha2} onChange={e=>setSenha2(e.target.value)} placeholder="Repita a senha" style={{...IS,width:"100%"}}/>
             </Field>
-            <Field label="CÓDIGO DE ACESSO">
-              <input value={codigo} onChange={e=>setCodigo(e.target.value)}
-                placeholder="Código fornecido pelo administrador" style={IS}/>
-              <div style={{fontSize:11,color:C.gray,marginTop:4}}>Não tem o código? Solicite ao administrador.</div>
+            <Field label="CÓDIGO DE ACESSO" hint="Solicite ao administrador caso não tenha.">
+              <input value={codigo} onChange={e=>setCodigo(e.target.value)} placeholder="Código de convite" style={{...IS,width:"100%"}}/>
             </Field>
           </>}
-
           <Alert type={alert.type} msg={alert.msg}/>
-
-          <button type="submit" disabled={loading}
-            style={{...BTN("#2563eb"),width:"100%",marginTop:18,padding:"11px",fontSize:15,opacity:loading?.7:1}}>
-            {loading?"⏳ Aguarde...":(isLogin?"Entrar →":"Criar Conta")}
+          <button type="submit" disabled={loading} style={{...BTN("#2563eb"),width:"100%",marginTop:18,padding:"11px",fontSize:15,opacity:loading?.7:1}}>
+            {loading?"⏳ Aguarde...":(mode==="login"?"Entrar →":"Criar Conta")}
           </button>
         </form>
-
-        {isLogin&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:C.gray}}>
-          Esqueceu a senha? Fale com o <b>administrador</b> para redefinição.
-        </div>}
+        {mode==="login"&&<div style={{marginTop:14,textAlign:"center",fontSize:12,color:C.gray}}>Esqueceu a senha? Fale com o <b>administrador</b>.</div>}
       </div>
     </div>
   );
 }
 
-// ─── MODAL EDIÇÃO ─────────────────────────────────────────────
-function EditModal({rec,onSave,onClose,saving}){
-  const mac = MACHINES.find(m=>m.id===rec.machineId);
-  const [val,setVal] = useState(String(rec.producao));
-  const pct = mac?.hasMeta&&val!==""?Math.round(Number(val)/mac.meta*100):null;
+// ── MODAL EDIÇÃO ──────────────────────────────────────────────
+function EditModal({rec,metas,onSave,onClose,saving}){
+  const mac=MACHINES.find(m=>m.id===Number(rec.machineId));
+  const metaVal=metas[mac?.id]||0;
+  const [val,setVal]=useState(String(rec.producao));
+  const pct=mac?.hasMeta&&val!==""?Math.round(n(val)/metaVal*100):null;
   return (
     <div style={{position:"fixed",inset:0,background:"#0008",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}}>
-      <div style={{background:"#fff",borderRadius:14,padding:30,width:380,boxShadow:"0 8px 32px #0005"}}>
+      <div style={{background:"#fff",borderRadius:14,padding:30,width:400,boxShadow:"0 8px 32px #0005"}}>
         <div style={{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}}>✏️ Editar Apontamento</div>
-        <div style={{fontSize:13,color:C.gray,marginBottom:20}}>{mac?.name} · {dispD(rec.date)} · {rec.turno}</div>
+        <div style={{fontSize:13,color:C.gray,marginBottom:18}}>{mac?.name} · {dispD(rec.date)} · {rec.turno}</div>
         <Field label="PRODUÇÃO (peças)">
           <input type="number" min="0" value={val} onChange={e=>setVal(e.target.value)}
-            style={{...IS,fontSize:22,fontWeight:800,textAlign:"center",padding:"10px"}} autoFocus/>
+            style={{...IS,width:"100%",fontSize:22,fontWeight:800,textAlign:"center",padding:"10px"}} autoFocus/>
         </Field>
-        {pct!==null&&<div style={{textAlign:"center",fontSize:13,color:C.gray,marginBottom:4}}>
-          Meta: {mac.meta.toLocaleString("pt-BR")} · <b style={{color:pctCol(pct)}}>{pct}% da meta</b>
+        {pct!==null&&<div style={{textAlign:"center",fontSize:13,color:C.gray,marginBottom:8}}>
+          Meta: {metaVal.toLocaleString("pt-BR")} · <b style={{color:pctCol(pct)}}>{pct}% da meta</b>
         </div>}
-        {rec.savedBy&&<div style={{fontSize:11,color:C.gray,textAlign:"center",marginBottom:16}}>
-          Criado por {rec.savedBy} em {rec.savedAt}
-          {rec.editUser&&<><br/>Última edição: {rec.editUser} em {rec.editTime}</>}
+        {rec.savedBy&&<div style={{fontSize:11,color:C.gray,textAlign:"center",marginBottom:14}}>
+          Criado por <b>{rec.savedBy}</b> em {rec.savedAt}
+          {rec.editUser&&<><br/>Última edição: <b>{rec.editUser}</b> em {rec.editTime}</>}
         </div>}
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{...BTN(C.gray),flex:1}}>Cancelar</button>
-          <button onClick={()=>onSave(Number(val))} disabled={saving||val===""} style={{...BTN("#2563eb"),flex:2,opacity:saving||val===""?.6:1}}>
+          <button onClick={()=>onSave(n(val))} disabled={saving||val===""} style={{...BTN("#2563eb"),flex:2,opacity:saving||val===""?.6:1}}>
             {saving?"⏳ Salvando...":"💾 Salvar edição"}
           </button>
         </div>
@@ -240,38 +220,54 @@ function EditModal({rec,onSave,onClose,saving}){
   );
 }
 
-// ─── PAINEL ADMIN ─────────────────────────────────────────────
+// ── MODAL EXCLUIR ─────────────────────────────────────────────
+function DeleteModal({rec,onConfirm,onClose,deleting}){
+  const mac=MACHINES.find(m=>m.id===Number(rec.machineId));
+  return (
+    <div style={{position:"fixed",inset:0,background:"#0008",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1001}}>
+      <div style={{background:"#fff",borderRadius:14,padding:30,width:380,boxShadow:"0 8px 32px #0005"}}>
+        <div style={{fontWeight:800,fontSize:17,color:C.red,marginBottom:8}}>🗑️ Excluir Apontamento</div>
+        <div style={{fontSize:14,color:"#374151",marginBottom:20,lineHeight:1.6}}>
+          Tem certeza que deseja excluir o apontamento de<br/>
+          <b>{mac?.name}</b> em <b>{dispD(rec.date)}</b> — <b>{rec.turno}</b>?<br/>
+          <span style={{color:C.red,fontSize:13}}>Esta ação não pode ser desfeita.</span>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{...BTN(C.gray),flex:1}}>Cancelar</button>
+          <button onClick={onConfirm} disabled={deleting} style={{...BTN(C.red),flex:2,opacity:deleting?.6:1}}>
+            {deleting?"⏳ Excluindo...":"🗑️ Confirmar Exclusão"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PAINEL ADMIN ──────────────────────────────────────────────
 function AdminPanel({user,onClose}){
-  const [users,setUsers]     = useState([]);
-  const [loading,setLoading] = useState(true);
-  const [msg,setMsg]         = useState({type:"",text:""});
-  const [resetTarget,setResetTarget] = useState("");
-  const [newPw,setNewPw]     = useState("");
-  const [resetting,setResetting] = useState(false);
+  const [users,setUsers]    =useState([]);
+  const [loading,setLoading]=useState(true);
+  const [msg,setMsg]        =useState({type:"",text:""});
+  const [rTarget,setRTarget]=useState("");
+  const [newPw,setNewPw]    =useState("");
+  const [resetting,setResetting]=useState(false);
 
   useEffect(()=>{
-    api("listUsers",{adminNome:user.nome,adminSenha:user._senha})
+    api("listUsers",{adminNome:user.nome,adminSenha:user._pw})
       .then(r=>setUsers(r.users||[]))
       .catch(e=>setMsg({type:"error",text:e.message}))
       .finally(()=>setLoading(false));
   },[]);
 
   async function toggle(nome){
-    try{
-      const r = await api("toggleUser",{adminNome:user.nome,adminSenha:user._senha,targetNome:nome});
-      setUsers(u=>u.map(x=>x.nome===nome?{...x,status:r.newStatus}:x));
-      setMsg({type:"success",text:`Usuário ${nome} ${r.newStatus==="ativo"?"ativado":"bloqueado"}.`});
-    }catch(e){ setMsg({type:"error",text:e.message}); }
+    try{ const r=await api("toggleUser",{adminNome:user.nome,adminSenha:user._pw,targetNome:nome}); setUsers(u=>u.map(x=>x.nome===nome?{...x,status:r.newStatus}:x)); setMsg({type:"success",text:`${nome} ${r.newStatus==="ativo"?"ativado":"bloqueado"}.`}); }
+    catch(e){ setMsg({type:"error",text:e.message}); }
   }
-
   async function resetPw(){
-    if(!resetTarget||!newPw){ setMsg({type:"error",text:"Selecione o usuário e informe a nova senha."}); return; }
+    if(!rTarget||!newPw){ setMsg({type:"error",text:"Selecione usuário e informe a nova senha."}); return; }
     setResetting(true);
-    try{
-      await api("resetPassword",{adminNome:user.nome,adminSenha:user._senha,targetNome:resetTarget,novaSenha:newPw});
-      setMsg({type:"success",text:`Senha de "${resetTarget}" redefinida com sucesso.`});
-      setResetTarget(""); setNewPw("");
-    }catch(e){ setMsg({type:"error",text:e.message}); }
+    try{ await api("resetPassword",{adminNome:user.nome,adminSenha:user._pw,targetNome:rTarget,novaSenha:newPw}); setMsg({type:"success",text:`Senha de "${rTarget}" redefinida.`}); setRTarget(""); setNewPw(""); }
+    catch(e){ setMsg({type:"error",text:e.message}); }
     finally{ setResetting(false); }
   }
 
@@ -280,20 +276,17 @@ function AdminPanel({user,onClose}){
       <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px #0005"}}>
         <div style={{background:C.navy,color:"#fff",padding:"16px 20px",borderRadius:"14px 14px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontWeight:800,fontSize:16}}>⚙️ Painel do Administrador</span>
-          <button onClick={onClose} style={{background:"#ffffff22",border:"none",color:"#fff",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontWeight:700}}>✕ Fechar</button>
+          <button onClick={onClose} style={{background:"#ffffff22",border:"none",color:"#fff",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontWeight:700}}>✕</button>
         </div>
         <div style={{padding:22}}>
           {msg.text&&<Alert type={msg.type} msg={msg.text}/>}
-
-          {/* Lista de usuários */}
-          <div style={{fontWeight:700,fontSize:15,color:C.navy,margin:"16px 0 10px"}}>👥 Usuários cadastrados</div>
+          <div style={{fontWeight:700,fontSize:15,color:C.navy,margin:"16px 0 10px"}}>👥 Usuários</div>
           {loading?<div style={{color:C.gray,textAlign:"center",padding:20}}>⏳ Carregando...</div>:(
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{background:"#f1f5f9"}}>
                 <th style={{padding:"8px 10px",textAlign:"left"}}>Nome</th>
                 <th style={{padding:"8px 10px",textAlign:"center"}}>Perfil</th>
                 <th style={{padding:"8px 10px",textAlign:"center"}}>Status</th>
-                <th style={{padding:"8px 10px",textAlign:"center"}}>Criado em</th>
                 <th style={{padding:"8px 10px",textAlign:"center"}}>Ação</th>
               </tr></thead>
               <tbody>
@@ -301,20 +294,14 @@ function AdminPanel({user,onClose}){
                   <tr key={u.nome} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}}>
                     <td style={{padding:"8px 10px",fontWeight:600,color:C.navy}}>{u.nome}</td>
                     <td style={{padding:"8px 10px",textAlign:"center"}}>
-                      <span style={{background:u.role==="admin"?"#fef3c7":"#e0e7ff",color:u.role==="admin"?"#92400e":"#3730a3",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}}>
-                        {u.role==="admin"?"Admin":"Operador"}
-                      </span>
+                      <span style={{background:u.role==="admin"?"#fef3c7":"#e0e7ff",color:u.role==="admin"?"#92400e":"#3730a3",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}}>{u.role==="admin"?"Admin":"Operador"}</span>
                     </td>
                     <td style={{padding:"8px 10px",textAlign:"center"}}>
-                      <span style={{background:u.status==="ativo"?C.green+"22":C.red+"22",color:u.status==="ativo"?C.green:C.red,borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}}>
-                        {u.status==="ativo"?"✔ Ativo":"✘ Bloqueado"}
-                      </span>
+                      <span style={{background:u.status==="ativo"?C.green+"22":C.red+"22",color:u.status==="ativo"?C.green:C.red,borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}}>{u.status==="ativo"?"✔ Ativo":"✘ Bloqueado"}</span>
                     </td>
-                    <td style={{padding:"8px 10px",textAlign:"center",color:C.gray,fontSize:12}}>{u.criadoEm||"—"}</td>
                     <td style={{padding:"8px 10px",textAlign:"center"}}>
-                      {u.nome!=="Admin"&&<button onClick={()=>toggle(u.nome)}
-                        style={{background:u.status==="ativo"?C.red+"22":"#f0fdf4",color:u.status==="ativo"?C.red:C.green,border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                        {u.status==="ativo"?"🚫 Bloquear":"✔ Ativar"}
+                      {u.nome!=="Admin"&&<button onClick={()=>toggle(u.nome)} style={{background:u.status==="ativo"?C.red+"22":"#f0fdf4",color:u.status==="ativo"?C.red:C.green,border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>
+                        {u.status==="ativo"?"Bloquear":"Ativar"}
                       </button>}
                     </td>
                   </tr>
@@ -322,31 +309,24 @@ function AdminPanel({user,onClose}){
               </tbody>
             </table>
           )}
-
-          {/* Reset de senha */}
-          <div style={{marginTop:24,padding:18,background:"#fafafa",borderRadius:10,border:"1px solid #e5e7eb"}}>
-            <div style={{fontWeight:700,fontSize:15,color:C.navy,marginBottom:14}}>🔑 Redefinir Senha</div>
+          <div style={{marginTop:22,padding:16,background:"#fafafa",borderRadius:10,border:"1px solid #e5e7eb"}}>
+            <div style={{fontWeight:700,color:C.navy,marginBottom:12}}>🔑 Redefinir Senha</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
               <div>
-                <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>USUÁRIO</div>
-                <select value={resetTarget} onChange={e=>setResetTarget(e.target.value)} style={SS}>
+                <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>USUÁRIO</div>
+                <select value={rTarget} onChange={e=>setRTarget(e.target.value)} style={{...SS,width:"100%"}}>
                   <option value="">Selecione...</option>
                   {users.filter(u=>u.nome!==user.nome).map(u=><option key={u.nome}>{u.nome}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>NOVA SENHA</div>
-                <input value={newPw} onChange={e=>setNewPw(e.target.value)} placeholder="Mínimo 4 caracteres" style={IS}/>
+                <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}}>NOVA SENHA</div>
+                <input value={newPw} onChange={e=>setNewPw(e.target.value)} placeholder="Mín. 4 caracteres" style={{...IS,width:"100%"}}/>
               </div>
             </div>
             <button onClick={resetPw} disabled={resetting} style={{...BTN("#2563eb"),opacity:resetting?.7:1}}>
-              {resetting?"⏳ Redefinindo...":"🔑 Redefinir Senha"}
+              {resetting?"⏳ Redefinindo...":"🔑 Redefinir"}
             </button>
-          </div>
-
-          {/* Info do código de convite */}
-          <div style={{marginTop:16,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1d4ed8"}}>
-            💡 <b>Código de acesso atual:</b> <code style={{background:"#dbeafe",padding:"1px 6px",borderRadius:4}}>{INVITE_CODE}</code> — para alterar, edite o arquivo <code>index.html</code> (linha com <code>INVITE_CODE</code>) e o Apps Script (linha com <code>INVITE_CODE</code>).
           </div>
         </div>
       </div>
@@ -354,32 +334,43 @@ function AdminPanel({user,onClose}){
   );
 }
 
-// ─── APP PRINCIPAL ────────────────────────────────────────────
+// ── APP PRINCIPAL ─────────────────────────────────────────────
 function App(){
-  const [user,setUser]         = useState(()=>loadSession());
-  const [records,setRecords]   = useState([]);
-  const [tab,setTab]           = useState("entrada");
-  const [entryDate,setEntryDate]   = useState(today());
-  const [entryTurno,setEntryTurno] = useState("TURNO 1");
-  const [inputs,setInputs]     = useState({});
-  const [dirty,setDirty]       = useState({});
-  const [syncSt,setSyncSt]     = useState(null);
-  const [loading,setLoading]   = useState(false);
-  const [lastSync,setLastSync] = useState(null);
-  const [editRec,setEditRec]   = useState(null);
-  const [editSaving,setEditSaving] = useState(false);
-  const [showAdmin,setShowAdmin]   = useState(false);
-  const [dfIni,setDfIni] = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
-  const [dfFim,setDfFim] = useState(today());
-  const [dfMac,setDfMac] = useState("TODAS");
-  const [dfTur,setDfTur] = useState("TODOS");
-  const [dView,setDView] = useState("resumo");
-  const pollRef = useRef(null);
+  const [user,setUser]           = useState(()=>loadSession());
+  const [metas,setMetasState]    = useState(loadMetas);
+  const [records,setRecords]     = useState([]);
+  const [tab,setTab]             = useState("entrada");
+  const [entryDate,setEntryDate] = useState(today());
+  const [entryTurno,setEntryTurno]=useState("TURNO 1");
+  // inputs: armazenados por chave "machId_date_turno" para não perder ao mudar filtro
+  const [inputs,setInputs]       = useState({});
+  const [syncSt,setSyncSt]       = useState(null);
+  const [loading,setLoading]     = useState(false);
+  const [lastSync,setLastSync]   = useState(null);
+  const [editRec,setEditRec]     = useState(null);
+  const [deleteRec,setDeleteRec] = useState(null);
+  const [editSaving,setEditSaving]=useState(false);
+  const [deleting,setDeleting]   = useState(false);
+  const [showAdmin,setShowAdmin] = useState(false);
+  const [dfIni,setDfIni]         = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
+  const [dfFim,setDfFim]         = useState(today());
+  const [dfMac,setDfMac]         = useState("TODAS");
+  const [dfTur,setDfTur]         = useState("TODOS");
+  const [dView,setDView]         = useState("resumo");
+  const [metaEditMode,setMetaEditMode]=useState(false);
+  const pollRef=useRef(null);
 
-  const loadAll = useCallback(async(silent=false)=>{
+  // ── persiste metas ──
+  function updateMeta(machId,val){
+    const m={...metas,[machId]:n(val)};
+    setMetasState(m); saveMetas(m);
+  }
+
+  // ── carrega produção do Sheets ──
+  const loadAll=useCallback(async(silent=false)=>{
     if(!silent) setLoading(true);
     try{
-      const r = await api("getAll");
+      const r=await api("getAll");
       setRecords(r.data||[]);
       setLastSync(new Date());
     }catch(e){ if(!silent) setSyncSt("error"); }
@@ -387,57 +378,93 @@ function App(){
   },[]);
 
   useEffect(()=>{
-    if(user){ loadAll(); pollRef.current=setInterval(()=>loadAll(true),20000); }
+    if(user){ loadAll(); pollRef.current=setInterval(()=>loadAll(true),25000); }
     return()=>clearInterval(pollRef.current);
   },[user,loadAll]);
 
-  // preenche inputs ao mudar data/turno/records
-  useEffect(()=>{
-    const ni={},nd={};
-    MACHINES.forEach(m=>{
-      const saved = records.find(r=>String(r.machineId)==String(m.id)&&r.date===entryDate&&r.turno===entryTurno);
-      ni[m.id]=saved?String(saved.producao):"";
-      nd[m.id]=false;
-    });
-    setInputs(ni); setDirty(nd);
-  },[entryDate,entryTurno,records]);
+  // ── chave única por célula ──
+  const cellKey=(machId,date,turno)=>`${machId}_${date}_${turno}`;
 
-  function setVal(machId,val){ setInputs(p=>({...p,[machId]:val})); setDirty(p=>({...p,[machId]:true})); }
+  // ── valor exibido: input local tem prioridade, depois o do Sheets ──
+  function getVal(machId){
+    const k=cellKey(machId,entryDate,entryTurno);
+    if(inputs[k]!==undefined) return inputs[k];
+    const saved=records.find(r=>String(r.machineId)===String(machId)&&r.date===entryDate&&r.turno===entryTurno);
+    return saved?String(saved.producao):"";
+  }
 
+  function setVal(machId,val){
+    const k=cellKey(machId,entryDate,entryTurno);
+    setInputs(p=>({...p,[k]:val}));
+  }
+
+  // ── salva todos os inputs preenchidos para data/turno atual ──
   async function handleSave(){
     setSyncSt("syncing");
     const toSend=[];
     MACHINES.forEach(m=>{
-      const v=inputs[m.id];
-      if(v===""||v===undefined) return;
-      toSend.push({machineId:m.id,machineName:m.name,date:entryDate,turno:entryTurno,
-        producao:Number(v),meta:m.hasMeta?m.meta:0,
-        savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR")});
+      const k=cellKey(m.id,entryDate,entryTurno);
+      const val=inputs[k];
+      // só envia se o usuário digitou algo nesta sessão
+      if(val===undefined||val==="") return;
+      toSend.push({
+        date:entryDate, turno:entryTurno,
+        machineId:m.id, machineName:m.name,
+        meta:m.hasMeta?metas[m.id]:0,
+        producao:n(val),
+        savedBy:user.nome,
+        savedAt:new Date().toLocaleString("pt-BR"),
+        editUser:"", editTime:""
+      });
     });
     if(!toSend.length){ setSyncSt(null); return; }
     try{
-      for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)});
+      // lotes de 4 para não estourar URL
+      for(let i=0;i<toSend.length;i+=4)
+        await api("upsert",{records:toSend.slice(i,i+4)});
+      // limpa inputs das células salvas
+      setInputs(prev=>{
+        const next={...prev};
+        toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]);
+        return next;
+      });
       await loadAll(true);
-      setDirty(p=>{ const n={...p}; Object.keys(n).forEach(k=>n[k]=false); return n; });
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
     }catch(e){ setSyncSt("error"); setTimeout(()=>setSyncSt(null),4000); }
   }
 
+  // ── edita apontamento existente ──
   async function handleEdit(newVal){
     setEditSaving(true);
     try{
-      await api("upsert",{records:[{...editRec,producao:newVal,
-        editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
+      await api("upsert",{records:[{
+        date:editRec.date, turno:editRec.turno,
+        machineId:editRec.machineId, machineName:editRec.machineName,
+        meta:editRec.meta, producao:newVal,
+        savedBy:editRec.savedBy, savedAt:editRec.savedAt,
+        editUser:user.nome, editTime:new Date().toLocaleString("pt-BR")
+      }]});
       await loadAll(true);
       setEditRec(null);
     }catch(e){ alert("Erro ao salvar: "+e.message); }
     finally{ setEditSaving(false); }
   }
 
-  function handleLogout(){ clearSession(); setUser(null); setRecords([]); }
+  // ── exclui apontamento ──
+  async function handleDelete(){
+    setDeleting(true);
+    try{
+      await api("delete",{date:deleteRec.date,turno:deleteRec.turno,machineId:deleteRec.machineId});
+      await loadAll(true);
+      setDeleteRec(null);
+    }catch(e){ alert("Erro ao excluir: "+e.message); }
+    finally{ setDeleting(false); }
+  }
 
-  // dashboard data
-  const dashData = useMemo(()=>{
+  function handleLogout(){ clearSession(); setUser(null); setRecords([]); clearInterval(pollRef.current); }
+
+  // ── dashboard ──
+  const dashData=useMemo(()=>{
     const dI=parseD(dfIni),dF=parseD(dfFim);
     return records.filter(r=>{
       const d=parseD(r.date);
@@ -448,35 +475,55 @@ function App(){
     });
   },[records,dfIni,dfFim,dfTur,dfMac]);
 
-  const machAgg = useMemo(()=>{
+  const machAgg=useMemo(()=>{
     const agg={};
     dashData.forEach(r=>{
       const id=Number(r.machineId);
-      if(!agg[id]){ const mac=MACHINES.find(m=>m.id===id); agg[id]={name:r.machineName,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
-      agg[id].totalProd+=Number(r.producao);
+      if(!agg[id]){ const mac=MACHINES.find(m=>m.id===id); agg[id]={name:r.machineName||mac?.name,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
+      agg[id].totalProd+=n(r.producao);
       agg[id].dias.add(r.date);
-      agg[id].turnos[r.turno]=(agg[id].turnos[r.turno]||0)+Number(r.producao);
+      agg[id].turnos[r.turno]=(agg[id].turnos[r.turno]||0)+n(r.producao);
       if(!agg[id].byDate[r.date]) agg[id].byDate[r.date]={};
-      agg[id].byDate[r.date][r.turno]=Number(r.producao);
+      agg[id].byDate[r.date][r.turno]=n(r.producao);
     });
     Object.entries(agg).forEach(([id,a])=>{
       a.diasCount=a.dias.size;
-      const mac=MACHINES.find(m=>m.id===Number(id));
-      a.totalMeta=a.hasMeta?(mac?.meta||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
+      a.totalMeta=a.hasMeta?(metas[Number(id)]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
       a.pct=a.totalMeta>0?Math.round(a.totalProd/a.totalMeta*100):null;
     });
     return agg;
-  },[dashData,dfTur]);
+  },[dashData,metas,dfTur]);
 
-  const totProd=useMemo(()=>dashData.reduce((s,r)=>s+Number(r.producao),0),[dashData]);
+  const totProd=useMemo(()=>dashData.reduce((s,r)=>s+n(r.producao),0),[dashData]);
   const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
-  const pendingCount=Object.values(dirty).filter(Boolean).length;
 
-  if(!user) return <AuthScreen onLogin={u=>{ setUser(u); saveSession(u); }}/>;
+  // inputs pendentes para a data/turno atual
+  const pendingCount=MACHINES.filter(m=>{ const k=cellKey(m.id,entryDate,entryTurno); return inputs[k]!==undefined&&inputs[k]!==""; }).length;
+
+  if(!user) return <AuthScreen onLogin={u=>{ saveSession(u); setUser(u); }}/>;
+
+  // ── filtros compartilhados (dashboard + histórico) ──
+  const FilterBar=()=>(
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 4px #0001",marginBottom:16,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>DE</div><input type="date" value={dfIni} onChange={e=>setDfIni(e.target.value)} style={{...IS,width:"auto"}}/></div>
+      <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>ATÉ</div><input type="date" value={dfFim} onChange={e=>setDfFim(e.target.value)} style={{...IS,width:"auto"}}/></div>
+      <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>MÁQUINA</div>
+        <select value={dfMac} onChange={e=>setDfMac(e.target.value)} style={{...SS,maxWidth:200,width:"auto"}}>
+          <option value="TODAS">TODAS</option>
+          {MACHINES.map(m=><option key={m.id}>{m.name}</option>)}
+        </select></div>
+      <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>TURNO</div>
+        <select value={dfTur} onChange={e=>setDfTur(e.target.value)} style={{...SS,width:"auto"}}>
+          <option value="TODOS">TODOS</option>
+          {TURNOS.map(t=><option key={t}>{t}</option>)}
+        </select></div>
+    </div>
+  );
 
   return (
     <div style={{fontFamily:"'Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}}>
-      {editRec&&<EditModal rec={editRec} onSave={handleEdit} onClose={()=>setEditRec(null)} saving={editSaving}/>}
+      {editRec&&<EditModal rec={editRec} metas={metas} onSave={handleEdit} onClose={()=>setEditRec(null)} saving={editSaving}/>}
+      {deleteRec&&<DeleteModal rec={deleteRec} onConfirm={handleDelete} onClose={()=>setDeleteRec(null)} deleting={deleting}/>}
       {showAdmin&&<AdminPanel user={user} onClose={()=>setShowAdmin(false)}/>}
 
       {/* Header */}
@@ -499,8 +546,8 @@ function App(){
 
       {/* Tabs */}
       <div style={{background:C.navy,display:"flex",paddingLeft:18,overflowX:"auto"}}>
-        {[["entrada","📝 Apontamento"],["dashboard","📊 Dashboard"],["historico","📋 Histórico"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{padding:"10px 20px",border:"none",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:tab===k?"#f1f5f9":"transparent",color:tab===k?C.navy:"#93c5fd",borderRadius:tab===k?"8px 8px 0 0":0,fontSize:14}}>{l}</button>
+        {[["entrada","📝 Apontamento"],["dashboard","📊 Dashboard"],["historico","📋 Histórico"],["metas","🎯 Metas"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)} style={{padding:"10px 18px",border:"none",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:tab===k?"#f1f5f9":"transparent",color:tab===k?C.navy:"#93c5fd",borderRadius:tab===k?"8px 8px 0 0":0,fontSize:14}}>{l}</button>
         ))}
       </div>
 
@@ -509,39 +556,41 @@ function App(){
         {/* ── APONTAMENTO ── */}
         {tab==="entrada"&&(
           <div>
-            <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-              <div>
-                <div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>DATA</div>
-                <input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} style={{...IS,width:"auto"}}/>
-              </div>
-              <div>
-                <div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>TURNO</div>
+            <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 4px #0001",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>DATA</div>
+                <input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} style={{...IS,width:"auto"}}/></div>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>TURNO</div>
                 <select value={entryTurno} onChange={e=>setEntryTurno(e.target.value)} style={{...SS,width:"auto"}}>
                   {TURNOS.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
+                </select></div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                <button onClick={handleSave} disabled={syncSt==="syncing"} style={BTN(syncSt==="ok"?C.green:syncSt==="error"?C.red:"#2563eb",{fontSize:15,padding:"9px 28px"})}>
-                  {syncSt==="syncing"?"⏳ Salvando...":syncSt==="ok"?"✔ Salvo!":syncSt==="error"?"✘ Erro!":"💾 Salvar Apontamentos"}
+                <button onClick={handleSave} disabled={syncSt==="syncing"||pendingCount===0}
+                  style={BTN(syncSt==="ok"?C.green:syncSt==="error"?C.red:"#2563eb",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})}>
+                  {syncSt==="syncing"?"⏳ Salvando...":syncSt==="ok"?"✔ Salvo!":syncSt==="error"?"✘ Erro!":
+                    `💾 Salvar Apontamentos${pendingCount>0?` (${pendingCount})`:""`}
                 </button>
-                {pendingCount>0&&<div style={{fontSize:12,color:C.yellow,fontWeight:600,textAlign:"center"}}>⚠ {pendingCount} não salva(s)</div>}
+                {pendingCount>0&&<div style={{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}}>⚠ {pendingCount} não salvo(s) — não feche a página!</div>}
               </div>
+              <div style={{fontSize:12,color:C.gray}}><b>{dispD(entryDate)}</b> · <b>{entryTurno}</b></div>
             </div>
+
             <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}}>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr style={{background:C.navy,color:"#fff"}}>
                   <th style={{padding:"11px 14px",textAlign:"left",  fontSize:13}}>MÁQUINA</th>
-                  <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,width:130}}>META/TURNO</th>
+                  <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,width:120}}>META/TURNO</th>
                   <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,width:160}}>PRODUÇÃO</th>
                   <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,width:100}}>% META</th>
                   <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,width:90}}>STATUS</th>
                 </tr></thead>
                 <tbody>
                   {MACHINES.map((m,i)=>{
-                    const val=inputs[m.id]??"";
-                    const saved=records.find(r=>String(r.machineId)==String(m.id)&&r.date===entryDate&&r.turno===entryTurno);
-                    const isDirty=dirty[m.id];
-                    const pct=m.hasMeta&&val!==""?Math.round(Number(val)/m.meta*100):null;
+                    const k=cellKey(m.id,entryDate,entryTurno);
+                    const val=getVal(m.id);
+                    const isLocal=inputs[k]!==undefined;
+                    const isSaved=!isLocal&&records.some(r=>String(r.machineId)===String(m.id)&&r.date===entryDate&&r.turno===entryTurno);
+                    const metaVal=metas[m.id]||0;
+                    const pct=m.hasMeta&&val!==""?Math.round(n(val)/metaVal*100):null;
                     const col=pctCol(pct);
                     return (
                       <tr key={m.id} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}}>
@@ -549,22 +598,23 @@ function App(){
                           {m.name}{!m.hasMeta&&<span style={{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}}>sem meta</span>}
                         </td>
                         <td style={{padding:"8px 14px",textAlign:"center",fontSize:14,color:"#374151"}}>
-                          {m.hasMeta?m.meta.toLocaleString("pt-BR"):<span style={{color:"#9ca3af"}}>—</span>}
+                          {m.hasMeta?metaVal.toLocaleString("pt-BR"):<span style={{color:"#9ca3af"}}>—</span>}
                         </td>
                         <td style={{padding:"6px 14px",textAlign:"center"}}>
-                          <input type="number" min="0" placeholder="0" value={val} onChange={e=>setVal(m.id,e.target.value)}
+                          <input type="number" min="0" placeholder="0" value={val}
+                            onChange={e=>setVal(m.id,e.target.value)}
                             style={{...IS,width:110,textAlign:"center",fontSize:15,fontWeight:700,
-                              borderColor:isDirty?C.yellow:saved?C.blue:"#d1d5db",
-                              borderWidth:isDirty||saved?2:1}}/>
+                              borderColor:isLocal?C.yellow:isSaved?C.blue:"#d1d5db",
+                              borderWidth:isLocal||isSaved?2:1}}/>
                         </td>
                         <td style={{padding:"8px 14px",textAlign:"center"}}>
                           {pct!==null?<span style={{background:col+"22",color:col,borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}}>{pct}%</span>
-                          :val!==""?<span style={{background:"#e0e7ff",color:"#4338ca",borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}}>{Number(val).toLocaleString("pt-BR")} pç</span>
+                          :val!==""?<span style={{background:"#e0e7ff",color:"#4338ca",borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}}>{n(val).toLocaleString("pt-BR")} pç</span>
                           :<span style={{color:"#d1d5db"}}>—</span>}
                         </td>
                         <td style={{padding:"8px 14px",textAlign:"center",fontSize:12}}>
-                          {isDirty?<span style={{color:C.yellow,fontWeight:700}}>● pendente</span>
-                          :saved?<span style={{color:C.green,fontWeight:700}}>✔ salvo</span>
+                          {isLocal?<span style={{color:C.yellow,fontWeight:700}}>● pendente</span>
+                          :isSaved?<span style={{color:C.green,fontWeight:700}}>✔ salvo</span>
                           :<span style={{color:"#d1d5db"}}>—</span>}
                         </td>
                       </tr>
@@ -579,26 +629,28 @@ function App(){
         {/* ── DASHBOARD ── */}
         {tab==="dashboard"&&(
           <div>
-            <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>DE</div><input type="date" value={dfIni} onChange={e=>setDfIni(e.target.value)} style={{...IS,width:"auto"}}/></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>ATÉ</div><input type="date" value={dfFim} onChange={e=>setDfFim(e.target.value)} style={{...IS,width:"auto"}}/></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>MÁQUINA</div>
-                <select value={dfMac} onChange={e=>setDfMac(e.target.value)} style={{...SS,maxWidth:220,width:"auto"}}>
+            <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 4px #0001",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>DE</div><input type="date" value={dfIni} onChange={e=>setDfIni(e.target.value)} style={{...IS,width:"auto"}}/></div>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>ATÉ</div><input type="date" value={dfFim} onChange={e=>setDfFim(e.target.value)} style={{...IS,width:"auto"}}/></div>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>MÁQUINA</div>
+                <select value={dfMac} onChange={e=>setDfMac(e.target.value)} style={{...SS,maxWidth:200,width:"auto"}}>
                   <option value="TODAS">TODAS</option>
                   {MACHINES.map(m=><option key={m.id}>{m.name}</option>)}
                 </select></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>TURNO</div>
+              <div><div style={{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}}>TURNO</div>
                 <select value={dfTur} onChange={e=>setDfTur(e.target.value)} style={{...SS,width:"auto"}}>
                   <option value="TODOS">TODOS</option>
                   {TURNOS.map(t=><option key={t}>{t}</option>)}
                 </select></div>
               <div style={{display:"flex",gap:6}}>
                 {[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"]].map(([k,l])=>(
-                  <button key={k} onClick={()=>setDView(k)} style={{padding:"6px 14px",border:`2px solid ${dView===k?"#2563eb":"#e5e7eb"}`,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#2563eb":"#fff",color:dView===k?"#fff":"#374151"}}>{l}</button>
+                  <button key={k} onClick={()=>setDView(k)} style={{padding:"6px 12px",border:`2px solid ${dView===k?"#2563eb":"#e5e7eb"}`,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#2563eb":"#fff",color:dView===k?"#fff":"#374151"}}>{l}</button>
                 ))}
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:18}}>
+
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:16}}>
               {[
                 {label:"PRODUÇÃO TOTAL",value:totProd.toLocaleString("pt-BR"),sub:"peças",    color:C.blue},
                 {label:"META TOTAL",    value:totMeta.toLocaleString("pt-BR"),sub:"peças",    color:C.purple},
@@ -606,8 +658,8 @@ function App(){
                 {label:"REGISTROS",     value:dashData.length,               sub:"lançamentos",color:C.teal},
                 {label:"MÁQUINAS ATIVAS",value:Object.keys(machAgg).length,  sub:`de ${MACHINES.length}`,color:C.yellow},
               ].map(k=>(
-                <div key={k.label} style={{background:"#fff",borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${k.color}`}}>
-                  <div style={{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:1}}>{k.label}</div>
+                <div key={k.label} style={{background:"#fff",borderRadius:12,padding:"12px 14px",boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${k.color}`}}>
+                  <div style={{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.5}}>{k.label}</div>
                   <div style={{fontSize:22,fontWeight:800,color:k.color,marginTop:4}}>{k.value}</div>
                   <div style={{fontSize:11,color:"#9ca3af"}}>{k.sub}</div>
                 </div>
@@ -623,7 +675,7 @@ function App(){
                     <th style={{padding:"11px 14px",textAlign:"center",fontSize:13}}>PRODUÇÃO</th>
                     <th style={{padding:"11px 14px",textAlign:"center",fontSize:13}}>META</th>
                     <th style={{padding:"11px 14px",textAlign:"center",fontSize:13}}>%</th>
-                    <th style={{padding:"11px 14px",textAlign:"left",  fontSize:13,minWidth:110}}>PROGRESSO</th>
+                    <th style={{padding:"11px 14px",textAlign:"left",  fontSize:13,minWidth:100}}>PROGRESSO</th>
                   </tr></thead>
                   <tbody>
                     {MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
@@ -655,14 +707,14 @@ function App(){
                       <span style={{fontSize:13,color:"#93c5fd"}}>Total: {a.totalProd.toLocaleString("pt-BR")} pç{a.pct!=null?` — ${a.pct}% meta`:""}</span>
                     </div>
                     <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",borderCollapse:"collapse",minWidth:440}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",minWidth:400}}>
                         <thead><tr style={{background:"#e0e7ff"}}>
                           <th style={{padding:"7px 14px",textAlign:"left",fontSize:12,color:"#3730a3"}}>DATA</th>
                           {TURNOS.map(t=><th key={t} style={{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>{t}</th>)}
                           <th style={{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>TOTAL DIA</th>
                         </tr></thead>
                         <tbody>
-                          {Object.keys(a.byDate).sort().map((date,i)=>{
+                          {Object.keys(a.byDate).sort().reverse().map((date,i)=>{
                             const dt=TURNOS.reduce((s,t)=>s+(a.byDate[date][t]||0),0);
                             return (
                               <tr key={date} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}}>
@@ -722,61 +774,52 @@ function App(){
         {/* ── HISTÓRICO ── */}
         {tab==="historico"&&(
           <div>
-            <div style={{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}}>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>DE</div><input type="date" value={dfIni} onChange={e=>setDfIni(e.target.value)} style={{...IS,width:"auto"}}/></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>ATÉ</div><input type="date" value={dfFim} onChange={e=>setDfFim(e.target.value)} style={{...IS,width:"auto"}}/></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>MÁQUINA</div>
-                <select value={dfMac} onChange={e=>setDfMac(e.target.value)} style={{...SS,maxWidth:220,width:"auto"}}>
-                  <option value="TODAS">TODAS</option>
-                  {MACHINES.map(m=><option key={m.id}>{m.name}</option>)}
-                </select></div>
-              <div><div style={{fontSize:12,color:C.gray,marginBottom:4,fontWeight:600}}>TURNO</div>
-                <select value={dfTur} onChange={e=>setDfTur(e.target.value)} style={{...SS,width:"auto"}}>
-                  <option value="TODOS">TODOS</option>
-                  {TURNOS.map(t=><option key={t}>{t}</option>)}
-                </select></div>
-            </div>
+            <FilterBar/>
             <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}}>
               <div style={{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span>📋 Apontamentos Salvos</span>
                 <span style={{fontSize:12,color:"#93c5fd"}}>{dashData.length} registros</span>
               </div>
               <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+                <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
                   <thead><tr style={{background:"#e0e7ff"}}>
-                    <th style={{padding:"10px 14px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>DATA</th>
-                    <th style={{padding:"10px 14px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>TURNO</th>
-                    <th style={{padding:"10px 14px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>MÁQUINA</th>
-                    <th style={{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>PRODUÇÃO</th>
-                    <th style={{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>META</th>
-                    <th style={{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>%</th>
-                    <th style={{padding:"10px 14px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>SALVO POR</th>
-                    <th style={{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#3730a3"}}>AÇÃO</th>
+                    <th style={{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>DATA</th>
+                    <th style={{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>TURNO</th>
+                    <th style={{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>MÁQUINA</th>
+                    <th style={{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}}>META</th>
+                    <th style={{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}}>PRODUÇÃO</th>
+                    <th style={{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}}>%</th>
+                    <th style={{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}}>SALVO POR</th>
+                    <th style={{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}}>AÇÕES</th>
                   </tr></thead>
                   <tbody>
-                    {dashData.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:"#9ca3af"}}>Nenhum apontamento encontrado para o período.</td></tr>}
+                    {dashData.length===0&&<tr><td colSpan={8} style={{padding:32,textAlign:"center",color:"#9ca3af"}}>Nenhum apontamento no período.</td></tr>}
                     {[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
                       const mac=MACHINES.find(m=>m.id==r.machineId);
-                      const pct=mac?.hasMeta&&r.meta>0?Math.round(Number(r.producao)/Number(r.meta)*100):null;
+                      const metaVal=n(r.meta);
+                      const prod=n(r.producao);
+                      const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
                       return (
                         <tr key={i} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}}>
-                          <td style={{padding:"9px 14px",fontSize:13,fontWeight:600}}>{dispD(r.date)}</td>
-                          <td style={{padding:"9px 14px",fontSize:13}}>{r.turno}</td>
-                          <td style={{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}}>{r.machineName}</td>
-                          <td style={{padding:"9px 14px",textAlign:"center",fontSize:14,fontWeight:700}}>{Number(r.producao).toLocaleString("pt-BR")}</td>
-                          <td style={{padding:"9px 14px",textAlign:"center",fontSize:13,color:C.gray}}>{r.meta>0?Number(r.meta).toLocaleString("pt-BR"):"—"}</td>
-                          <td style={{padding:"9px 14px",textAlign:"center"}}>
+                          <td style={{padding:"9px 12px",fontSize:13,fontWeight:600}}>{dispD(r.date)}</td>
+                          <td style={{padding:"9px 12px",fontSize:13}}>{r.turno}</td>
+                          <td style={{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}}>{r.machineName}</td>
+                          <td style={{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}}>{metaVal>0?metaVal.toLocaleString("pt-BR"):"—"}</td>
+                          <td style={{padding:"9px 12px",textAlign:"center",fontSize:14,fontWeight:700}}>{prod.toLocaleString("pt-BR")}</td>
+                          <td style={{padding:"9px 12px",textAlign:"center"}}>
                             {pct!==null?<span style={{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}}>{pct}%</span>:<span style={{color:"#d1d5db"}}>—</span>}
                           </td>
-                          <td style={{padding:"9px 14px",fontSize:12,color:C.gray}}>
+                          <td style={{padding:"9px 12px",fontSize:12,color:C.gray}}>
                             {r.savedBy||"—"}
-                            {r.editUser&&<div style={{fontSize:11,color:C.yellow}}>✏ {r.editUser} · {r.editTime}</div>}
+                            {r.editUser&&<div style={{fontSize:11,color:C.yellow}}>✏ {r.editUser}</div>}
                           </td>
-                          <td style={{padding:"9px 14px",textAlign:"center"}}>
-                            <button onClick={()=>setEditRec({...r,machineId:Number(r.machineId),producao:Number(r.producao),meta:Number(r.meta)})}
-                              style={{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                              ✏ Editar
-                            </button>
+                          <td style={{padding:"9px 12px",textAlign:"center"}}>
+                            <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+                              <button onClick={()=>setEditRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal})}
+                                style={{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>✏ Editar</button>
+                              <button onClick={()=>setDeleteRec({...r,machineId:Number(r.machineId)})}
+                                style={{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}}>🗑 Excluir</button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -787,6 +830,60 @@ function App(){
             </div>
           </div>
         )}
+
+        {/* ── METAS ── */}
+        {tab==="metas"&&(
+          <div>
+            <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}}>
+              <div style={{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontWeight:700,fontSize:15}}>🎯 Metas por Máquina</span>
+                <button onClick={()=>setMetaEditMode(!metaEditMode)}
+                  style={{background:metaEditMode?"#22c55e22":"#ffffff22",border:`1px solid ${metaEditMode?"#22c55e":"#ffffff44"}`,color:metaEditMode?"#86efac":"#fff",borderRadius:7,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}}>
+                  {metaEditMode?"✔ Salvo automaticamente":"✏ Editar Metas"}
+                </button>
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"#e0e7ff"}}>
+                  <th style={{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#3730a3"}}>MÁQUINA</th>
+                  <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#3730a3"}}>META / TURNO</th>
+                  <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#3730a3"}}>META / DIA (3 turnos)</th>
+                  <th style={{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#3730a3"}}>META / MÊS (22 dias)</th>
+                </tr></thead>
+                <tbody>
+                  {MACHINES.map((m,i)=>(
+                    <tr key={m.id} style={{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}}>
+                      <td style={{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}}>
+                        {m.name}
+                        {!m.hasMeta&&<span style={{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}}>sem meta</span>}
+                      </td>
+                      <td style={{padding:"7px 14px",textAlign:"center"}}>
+                        {metaEditMode&&m.hasMeta?(
+                          <input type="number" min="0" value={metas[m.id]??0}
+                            onChange={e=>updateMeta(m.id,e.target.value)}
+                            style={{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}}/>
+                        ):(
+                          <span style={{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#9ca3af"}}>
+                            {m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—"}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#374151"}}>
+                        {m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"}
+                      </td>
+                      <td style={{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#374151"}}>
+                        {m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{padding:"12px 16px",background:"#f8fafc",borderTop:"1px solid #e5e7eb",fontSize:12,color:C.gray}}>
+                💡 As metas ficam salvas neste navegador. Clique em <b>"Editar Metas"</b> para alterar os valores.
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
