@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Produção</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useCallback, useEffect, useRef } = React;
+
+    const MACHINES = [
+      { id: 1,  name: "HORIZONTAL 1",                          hasMeta: true,  defaultMeta: 500 },
+      { id: 2,  name: "HORIZONTAL 2",                          hasMeta: true,  defaultMeta: 500 },
+      { id: 3,  name: "VERTICAL PLACAS / SUP. 1",              hasMeta: true,  defaultMeta: 400 },
+      { id: 4,  name: "VERTICAL PLACAS / SUP. 2",              hasMeta: true,  defaultMeta: 400 },
+      { id: 5,  name: "VERTICAL MÓDULOS 1",                    hasMeta: true,  defaultMeta: 350 },
+      { id: 6,  name: "VERTICAL MÓDULOS 2",                    hasMeta: true,  defaultMeta: 350 },
+      { id: 7,  name: "A GRANEL",                              hasMeta: true,  defaultMeta: 600 },
+      { id: 8,  name: "MÁQUINA INTERRUPTOR",                   hasMeta: true,  defaultMeta: 300 },
+      { id: 9,  name: "TESTE INTERRUPTORES",                   hasMeta: true,  defaultMeta: 250 },
+      { id: 10, name: "MANUAL INTERRUPTOR",                    hasMeta: true,  defaultMeta: 200 },
+      { id: 11, name: "MONTAGEM DIVERSOS",                     hasMeta: true,  defaultMeta: 150 },
+      { id: 12, name: "MONTAGEM PLACA REFINATTO",              hasMeta: true,  defaultMeta: 180 },
+      { id: 13, name: "KIT 1 PARAFUSO",                        hasMeta: true,  defaultMeta: 220 },
+      { id: 14, name: "KIT 2 PARAFUSO",                        hasMeta: true,  defaultMeta: 220 },
+      { id: 15, name: "MONTAGEM TOMADAS MANUAL",               hasMeta: true,  defaultMeta: 160 },
+      { id: 16, name: "MÁQUINA DE TOMADAS AUTOMÁTICA",         hasMeta: true,  defaultMeta: 500 },
+      { id: 17, name: "INSERÇÃO DOS CONTATOS INTERRUPTOR",     hasMeta: false, defaultMeta: 0   },
+      { id: 18, name: "FECHAMENTO TECLA INTERRUPTORES",        hasMeta: false, defaultMeta: 0   },
+      { id: 19, name: "RETRABALHO GERAL",                      hasMeta: false, defaultMeta: 0   },
+    ];
+
+    const TURNOS = ["TURNO 1", "TURNO 2", "TURNO 3"];
+    const C = { green:"#22c55e", yellow:"#f59e0b", red:"#ef4444", blue:"#3b82f6", gray:"#6b7280", purple:"#8b5cf6", teal:"#14b8a6" };
+
+    const fmt    = d => d.toISOString().slice(0,10);
+    const today  = () => fmt(new Date());
+    const parseD = s => new Date(s + "T00:00:00");
+    const dispD  = s => { const [y,m,d] = s.split("-"); return `${d}/${m}/${y}`; };
+    const pctCol = p => p === null ? C.gray : p >= 100 ? C.green : p >= 80 ? C.yellow : C.red;
+
+    const CFG_KEY = "sheets_cfg_v2";
+    const loadCfg = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY)||"null"); } catch { return null; } };
+    const saveCfg = c => { try { localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch {} };
+
+    const iStyle = { border:"1px solid #d1d5db", borderRadius:6, padding:"6px 10px", fontSize:14, outline:"none", background:"#fff" };
+    const sStyle = { ...iStyle, cursor:"pointer" };
+
+    function MiniBar({ pct, color }) {
+      return (
+        <div style={{ background:"#e5e7eb", borderRadius:4, height:10, width:"100%", overflow:"hidden" }}>
+          <div style={{ width:`${Math.min(pct??0,100)}%`, height:"100%", background:color, borderRadius:4, transition:"width .4s" }} />
+        </div>
+      );
+    }
+
+    // ── Google Apps Script helpers ────────────────────────────────────────────
+    async function gasGet(url) {
+      const res = await fetch(url + "?t=" + Date.now());
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "Erro");
+      return j.data;
+    }
+
+    async function gasSend(url, payload) {
+      // Workaround CORS: envia dados como query param base64 via GET
+      const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+      const res = await fetch(`${url}?data=${encoded}&t=${Date.now()}`);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "Erro no servidor");
+      return j;
+    }
+
+    // ── Setup Wizard ──────────────────────────────────────────────────────────
+    function SetupWizard({ onDone }) {
+      const [step, setStep]         = useState(1);
+      const [url, setUrl]           = useState("");
+      const [nome, setNome]         = useState("");
+      const [testSt, setTestSt]     = useState(null);
+      const [copied, setCopied]     = useState(false);
+      const [showCode, setShowCode] = useState(false);
+
+      async function testar() {
+        setTestSt("testing");
+        try { await gasGet(url); setTestSt("ok"); }
+        catch { setTestSt("error"); }
+      }
+
+      function copiar() {
+        navigator.clipboard.writeText(GAS_SCRIPT).then(() => { setCopied(true); setTimeout(()=>setCopied(false),2000); });
+      }
+
+      const dot = n => ({
+        width:28, height:28, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
+        fontWeight:700, fontSize:13, flexShrink:0,
+        background: step>n ? C.green : step===n ? "#2563eb" : "#e5e7eb",
+        color: step>=n ? "#fff" : "#6b7280",
+      });
+
+      return (
+        <div style={{ fontFamily:"'Segoe UI',sans-serif", background:"#f1f5f9", minHeight:"100vh" }}>
+          <div style={{ background:"linear-gradient(135deg,#1e3a5f,#2563eb)", padding:"18px 32px" }}>
+            <div style={{ color:"#fff", fontSize:22, fontWeight:700 }}>🏭 DASHBOARD DE PRODUÇÃO</div>
+            <div style={{ color:"#93c5fd", fontSize:13 }}>Configuração inicial — Google Sheets</div>
+          </div>
+          <div style={{ maxWidth:700, margin:"40px auto", padding:"0 16px" }}>
+            <div style={{ background:"#fff", borderRadius:14, boxShadow:"0 2px 12px #0002", overflow:"hidden" }}>
+              {/* step bar */}
+              <div style={{ display:"flex", alignItems:"center", padding:"16px 28px", background:"#f8fafc", borderBottom:"1px solid #e5e7eb", gap:0 }}>
+                {[1,2,3].map((n,i) => (
+                  <div key={n} style={{ display:"flex", alignItems:"center", flex:i<2?1:0 }}>
+                    <div style={dot(n)}>{step>n?"✓":n}</div>
+                    {i<2 && <div style={{ flex:1, height:3, background:step>n?C.green:"#e5e7eb", margin:"0 8px" }} />}
+                  </div>
+                ))}
+                <div style={{ marginLeft:14, fontSize:13, color:"#374151", fontWeight:600 }}>
+                  {step===1&&"Criar script no Apps Script"}
+                  {step===2&&"Implantar como Web App"}
+                  {step===3&&"Colar URL e conectar"}
+                </div>
+              </div>
+
+              <div style={{ padding:28 }}>
+                {step===1 && (
+                  <div>
+                    <h3 style={{ margin:"0 0 14px", color:"#1e3a5f" }}>Passo 1 — Criar o Google Apps Script</h3>
+                    <ol style={{ paddingLeft:20, lineHeight:2.1, fontSize:14, color:"#374151" }}>
+                      <li>Abra o <a href="https://sheets.google.com" target="_blank" rel="noreferrer" style={{ color:"#2563eb" }}>Google Sheets</a> e crie uma planilha nova</li>
+                      <li>No menu: <b>Extensões</b> → <b>Apps Script</b></li>
+                      <li>Apague o código padrão e cole o código abaixo</li>
+                      <li>Salve com <b>Ctrl+S</b></li>
+                    </ol>
+                    <button onClick={()=>setShowCode(!showCode)} style={{ marginTop:14, background:"#f1f5f9", border:"1px solid #d1d5db", borderRadius:8, padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600 }}>
+                      {showCode?"▲ Ocultar código":"▼ Ver código Apps Script"}
+                    </button>
+                    {showCode && (
+                      <div style={{ position:"relative", marginTop:10 }}>
+                        <pre style={{ background:"#1e293b", color:"#e2e8f0", borderRadius:10, padding:14, fontSize:11, overflowX:"auto", maxHeight:300, lineHeight:1.6 }}>
+                          {GAS_SCRIPT}
+                        </pre>
+                        <button onClick={copiar} style={{ position:"absolute", top:8, right:8, background:copied?C.green:"#334155", color:"#fff", border:"none", borderRadius:6, padding:"4px 12px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+                          {copied?"✔ Copiado!":"📋 Copiar"}
+                        </button>
+                      </div>
+                    )}
+                    <button onClick={()=>setStep(2)} style={{ marginTop:20, background:"#2563eb", color:"#fff", border:"none", borderRadius:8, padding:"10px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>Próximo →</button>
+                  </div>
+                )}
+
+                {step===2 && (
+                  <div>
+                    <h3 style={{ margin:"0 0 14px", color:"#1e3a5f" }}>Passo 2 — Implantar como Web App</h3>
+                    <ol style={{ paddingLeft:20, lineHeight:2.2, fontSize:14, color:"#374151" }}>
+                      <li>No Apps Script clique em <b>Implantar</b> → <b>Nova implantação</b></li>
+                      <li>Clique na engrenagem ⚙ e escolha <b>App da Web</b></li>
+                      <li><b>"Executar como"</b>: <span style={{ background:"#fef3c7", padding:"1px 6px", borderRadius:4, fontWeight:600 }}>Eu mesmo</span></li>
+                      <li><b>"Quem tem acesso"</b>: <span style={{ background:"#fef3c7", padding:"1px 6px", borderRadius:4, fontWeight:600 }}>Qualquer pessoa</span></li>
+                      <li>Clique em <b>Implantar</b> e autorize as permissões</li>
+                      <li>Copie a <b>URL do app da web</b> gerada</li>
+                    </ol>
+                    <div style={{ background:"#fef9c3", border:"1px solid #fde68a", borderRadius:8, padding:"10px 14px", marginTop:12, fontSize:13 }}>
+                      ⚠️ A cada alteração no código, crie sempre uma <b>nova implantação</b> — nunca edite a existente.
+                    </div>
+                    <div style={{ display:"flex", gap:10, marginTop:20 }}>
+                      <button onClick={()=>setStep(1)} style={{ background:"#f1f5f9", color:"#374151", border:"1px solid #d1d5db", borderRadius:8, padding:"10px 20px", fontWeight:600, fontSize:14, cursor:"pointer" }}>← Voltar</button>
+                      <button onClick={()=>setStep(3)} style={{ background:"#2563eb", color:"#fff", border:"none", borderRadius:8, padding:"10px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>Próximo →</button>
+                    </div>
+                  </div>
+                )}
+
+                {step===3 && (
+                  <div>
+                    <h3 style={{ margin:"0 0 14px", color:"#1e3a5f" }}>Passo 3 — Conectar ao Dashboard</h3>
+                    <div style={{ marginBottom:14 }}>
+                      <label style={{ fontSize:13, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>Seu nome</label>
+                      <input value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: João — Turno 1"
+                        style={{ ...iStyle, width:"100%", fontSize:15 }} />
+                    </div>
+                    <div style={{ marginBottom:16 }}>
+                      <label style={{ fontSize:13, fontWeight:600, color:"#374151", display:"block", marginBottom:6 }}>URL do Web App</label>
+                      <input value={url} onChange={e=>setUrl(e.target.value)}
+                        placeholder="https://script.google.com/macros/s/.../exec"
+                        style={{ ...iStyle, width:"100%", fontSize:13 }} />
+                    </div>
+                    <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                      <button onClick={()=>setStep(2)} style={{ background:"#f1f5f9", color:"#374151", border:"1px solid #d1d5db", borderRadius:8, padding:"10px 20px", fontWeight:600, fontSize:14, cursor:"pointer" }}>← Voltar</button>
+                      <button onClick={testar} disabled={!url} style={{ background:"#0891b2", color:"#fff", border:"none", borderRadius:8, padding:"10px 20px", fontWeight:600, fontSize:14, cursor:"pointer", opacity:!url?.5:1 }}>
+                        {testSt==="testing"?"⏳ Testando...":"🔌 Testar conexão"}
+                      </button>
+                      {testSt==="ok"    && <span style={{ color:C.green, fontWeight:700, display:"flex", alignItems:"center" }}>✔ Conexão OK!</span>}
+                      {testSt==="error" && <span style={{ color:C.red,   fontWeight:700, display:"flex", alignItems:"center" }}>✘ Falhou — verifique a URL</span>}
+                      <button onClick={()=>onDone({ scriptUrl:url, userName:nome })} disabled={!url||!nome}
+                        style={{ background:C.green, color:"#fff", border:"none", borderRadius:8, padding:"10px 28px", fontWeight:700, fontSize:14, cursor:"pointer", opacity:(!url||!nome)?.5:1 }}>
+                        ✔ Conectar
+                      </button>
+                    </div>
+                    <div style={{ marginTop:14, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#1e40af" }}>
+                      💡 Compartilhe a URL desta página com as 10 pessoas. Cada uma coloca seu nome aqui na primeira vez.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Main App ──────────────────────────────────────────────────────────────
+    function App() {
+      const [cfg, setCfg]               = useState(loadCfg);
+      const [records, setRecords]       = useState({});
+      const [loading, setLoading]       = useState(false);
+      const [syncSt, setSyncSt]         = useState(null);
+      const [lastSync, setLastSync]     = useState(null);
+      const [tab, setTab]               = useState("entrada");
+      const [entryDate, setEntryDate]   = useState(today());
+      const [entryTurno, setEntryTurno] = useState("TURNO 1");
+      const [entryVals, setEntryVals]   = useState({});
+      const [saved, setSaved]           = useState(false);
+      const [metas, setMetas]           = useState(() => { const m={}; MACHINES.forEach(mac=>m[mac.id]=mac.defaultMeta); return m; });
+      const [dfIni, setDfIni]           = useState(() => { const d=new Date(); d.setDate(1); return fmt(d); });
+      const [dfFim, setDfFim]           = useState(today());
+      const [dfMac, setDfMac]           = useState("TODAS");
+      const [dfTur, setDfTur]           = useState("TODOS");
+      const [dView, setDView]           = useState("resumo");
+      const pollRef = useRef(null);
+
+      const loadRecords = useCallback(async (url, silent=false) => {
+        if (!url) return;
+        if (!silent) setLoading(true);
+        try {
+          const data = await gasGet(url);
+          const map = {};
+          data.forEach(r => {
+            if (!r.date||!r.turno||!r.machineId) return;
+            const k = `${r.machineId}_${r.date}_${r.turno}`;
+            map[k] = { date:r.date, turno:r.turno, machineId:Number(r.machineId), machineName:r.machineName, producao:Number(r.producao), meta:Number(r.meta) };
+          });
+          setRecords(map);
+          setLastSync(new Date());
+        } catch(e) {
+          if (!silent) setSyncSt("error");
+        } finally {
+          if (!silent) setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => {
+        if (cfg?.scriptUrl) {
+          loadRecords(cfg.scriptUrl);
+          pollRef.current = setInterval(() => loadRecords(cfg.scriptUrl, true), 30000);
+        }
+        return () => clearInterval(pollRef.current);
+      }, [cfg?.scriptUrl, loadRecords]);
+
+      useEffect(() => {
+        const vals = {};
+        MACHINES.forEach(m => { const k=`${m.id}_${entryDate}_${entryTurno}`; vals[m.id]=records[k]?.producao??""; });
+        setEntryVals(vals);
+      }, [entryDate, entryTurno, records]);
+
+      async function handleSave() {
+        if (!cfg?.scriptUrl) return;
+        setSyncSt("syncing");
+        const toSend = [];
+        MACHINES.forEach(m => {
+          const val = entryVals[m.id];
+          if (val===""||val===undefined||val===null) return;
+          toSend.push({ date:entryDate, turno:entryTurno, machineId:m.id, machineName:m.name, producao:Number(val), meta:m.hasMeta?(metas[m.id]||0):0 });
+        });
+        try {
+          await gasSend(cfg.scriptUrl, { action:"upsert", records:toSend, user:cfg.userName });
+          await loadRecords(cfg.scriptUrl, true);
+          setSyncSt("ok"); setSaved(true);
+          setTimeout(()=>{ setSyncSt(null); setSaved(false); }, 3000);
+        } catch(e) {
+          setSyncSt("error");
+          setTimeout(()=>setSyncSt(null), 4000);
+        }
+      }
+
+      function handleDone(c) { setCfg(c); saveCfg(c); }
+
+      if (!cfg) return <SetupWizard onDone={handleDone} />;
+
+      // ── Dashboard computed ──────────────────────────────────────────────────
+      const dashData = useMemo(() => {
+        const dI=parseD(dfIni), dF=parseD(dfFim);
+        return Object.values(records).filter(r => {
+          const d=parseD(r.date);
+          if (d<dI||d>dF) return false;
+          if (dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+          if (dfMac!=="TODAS") { const mac=MACHINES.find(m=>m.id===r.machineId); if (!mac||mac.name!==dfMac) return false; }
+          return true;
+        });
+      }, [records, dfIni, dfFim, dfTur, dfMac]);
+
+      const machAgg = useMemo(() => {
+        const agg = {};
+        dashData.forEach(r => {
+          if (!agg[r.machineId]) { const mac=MACHINES.find(m=>m.id===r.machineId); agg[r.machineId]={ name:r.machineName, hasMeta:mac?.hasMeta??false, totalProd:0, dias:new Set(), turnos:{}, byDate:{} }; }
+          agg[r.machineId].totalProd += r.producao;
+          agg[r.machineId].dias.add(r.date);
+          agg[r.machineId].turnos[r.turno] = (agg[r.machineId].turnos[r.turno]||0) + r.producao;
+          if (!agg[r.machineId].byDate[r.date]) agg[r.machineId].byDate[r.date]={};
+          agg[r.machineId].byDate[r.date][r.turno] = r.producao;
+        });
+        Object.entries(agg).forEach(([id,a]) => {
+          a.diasCount = a.dias.size;
+          a.totalMeta = a.hasMeta ? (metas[Number(id)]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1) : 0;
+          a.pct = a.totalMeta>0 ? Math.round((a.totalProd/a.totalMeta)*100) : null;
+        });
+        return agg;
+      }, [dashData, metas, dfTur]);
+
+      const totProd = useMemo(() => dashData.reduce((s,r)=>s+r.producao,0), [dashData]);
+      const totMeta = useMemo(() => Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0), [machAgg]);
+
+      return (
+        <div style={{ fontFamily:"'Segoe UI',sans-serif", background:"#f1f5f9", minHeight:"100vh" }}>
+          {/* Header */}
+          <div style={{ background:"linear-gradient(135deg,#1e3a5f,#2563eb)", padding:"14px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ color:"#fff", fontSize:20, fontWeight:700 }}>🏭 DASHBOARD DE PRODUÇÃO</div>
+              <div style={{ color:"#93c5fd", fontSize:12 }}>
+                {cfg.userName && `${cfg.userName} · `}
+                {lastSync ? `Sync: ${lastSync.toLocaleTimeString("pt-BR")}` : "Conectando..."}
+                {loading && " ⏳"}
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {syncSt==="syncing" && <span style={{ color:"#fde68a", fontSize:13 }}>⏳ Salvando...</span>}
+              {syncSt==="ok"      && <span style={{ color:"#86efac", fontSize:13 }}>✔ Salvo!</span>}
+              {syncSt==="error"   && <span style={{ color:"#fca5a5", fontSize:13 }}>✘ Erro!</span>}
+              <button onClick={()=>loadRecords(cfg.scriptUrl)} style={{ background:"#ffffff22", border:"1px solid #ffffff44", color:"#fff", borderRadius:7, padding:"5px 12px", cursor:"pointer", fontSize:12 }}>🔄 Atualizar</button>
+              <button onClick={()=>{ setCfg(null); saveCfg(null); }} style={{ background:"#ffffff11", border:"1px solid #ffffff33", color:"#93c5fd", borderRadius:7, padding:"5px 10px", cursor:"pointer", fontSize:12 }}>⚙ Reconectar</button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ background:"#1e3a5f", display:"flex", paddingLeft:20 }}>
+            {[["entrada","📝 Entrada"],["dashboard","📊 Dashboard"],["metas","🎯 Metas"]].map(([k,label]) => (
+              <button key={k} onClick={()=>setTab(k)} style={{ padding:"10px 20px", border:"none", cursor:"pointer", fontWeight:tab===k?700:400, background:tab===k?"#f1f5f9":"transparent", color:tab===k?"#1e3a5f":"#93c5fd", borderRadius:tab===k?"8px 8px 0 0":0, fontSize:14 }}>{label}</button>
+            ))}
+          </div>
+
+          <div style={{ padding:22 }}>
+
+            {/* ── ENTRADA ── */}
+            {tab==="entrada" && (
+              <div>
+                <div style={{ background:"#fff", borderRadius:12, padding:16, boxShadow:"0 1px 4px #0001", marginBottom:16, display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
+                  <div>
+                    <div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>DATA</div>
+                    <input type="date" value={entryDate} style={iStyle} onChange={e=>setEntryDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>TURNO</div>
+                    <select value={entryTurno} style={sStyle} onChange={e=>setEntryTurno(e.target.value)}>
+                      {TURNOS.map(t=><option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={handleSave} disabled={syncSt==="syncing"} style={{ background:saved?C.green:syncSt==="error"?C.red:"#2563eb", color:"#fff", border:"none", borderRadius:8, padding:"8px 28px", fontWeight:700, fontSize:15, cursor:"pointer" }}>
+                    {syncSt==="syncing"?"⏳ Salvando...":saved?"✔ Salvo!":syncSt==="error"?"✘ Erro!":"💾 Salvar no Sheets"}
+                  </button>
+                </div>
+
+                <div style={{ background:"#fff", borderRadius:12, boxShadow:"0 1px 4px #0001", overflow:"hidden" }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                    <thead>
+                      <tr style={{ background:"#1e3a5f", color:"#fff" }}>
+                        <th style={{ padding:"11px 14px", textAlign:"left",   fontSize:13 }}>MÁQUINA</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13, width:140 }}>META / TURNO</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13, width:160 }}>PRODUÇÃO</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13, width:110 }}>% META</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {MACHINES.map((m,i) => {
+                        const val  = entryVals[m.id]??"";
+                        const meta = m.hasMeta ? (metas[m.id]||0) : null;
+                        const pct  = meta && val!=="" ? Math.round((Number(val)/meta)*100) : null;
+                        const col  = pctCol(pct);
+                        return (
+                          <tr key={m.id} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #e5e7eb" }}>
+                            <td style={{ padding:"8px 14px", fontSize:13, fontWeight:600, color:"#1e3a5f" }}>
+                              {m.name}
+                              {!m.hasMeta && <span style={{ marginLeft:8, fontSize:11, color:C.gray, fontWeight:400 }}>sem meta</span>}
+                            </td>
+                            <td style={{ padding:"8px 14px", textAlign:"center", fontSize:14, color:"#374151" }}>
+                              {meta!==null ? meta.toLocaleString("pt-BR") : <span style={{ color:"#9ca3af" }}>—</span>}
+                            </td>
+                            <td style={{ padding:"6px 14px", textAlign:"center" }}>
+                              <input type="number" min="0" placeholder="0" value={val}
+                                onChange={e=>setEntryVals(v=>({...v,[m.id]:e.target.value}))}
+                                style={{ ...iStyle, width:100, textAlign:"center", fontSize:15, fontWeight:600, borderColor:pct!==null?col:"#d1d5db" }} />
+                            </td>
+                            <td style={{ padding:"8px 14px", textAlign:"center" }}>
+                              {pct!==null
+                                ? <span style={{ background:col+"22", color:col, borderRadius:20, padding:"3px 12px", fontSize:13, fontWeight:700 }}>{pct}%</span>
+                                : val!=="" ? <span style={{ background:"#e0e7ff", color:"#4338ca", borderRadius:20, padding:"3px 12px", fontSize:13, fontWeight:700 }}>{Number(val).toLocaleString("pt-BR")} pç</span>
+                                : <span style={{ color:"#d1d5db" }}>—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ── DASHBOARD ── */}
+            {tab==="dashboard" && (
+              <div>
+                {/* Filtros */}
+                <div style={{ background:"#fff", borderRadius:12, padding:16, boxShadow:"0 1px 4px #0001", marginBottom:18, display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
+                  <div><div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>DATA INICIAL</div><input type="date" value={dfIni} style={iStyle} onChange={e=>setDfIni(e.target.value)} /></div>
+                  <div><div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>DATA FINAL</div><input type="date" value={dfFim} style={iStyle} onChange={e=>setDfFim(e.target.value)} /></div>
+                  <div><div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>MÁQUINA</div>
+                    <select value={dfMac} style={{ ...sStyle, maxWidth:220 }} onChange={e=>setDfMac(e.target.value)}>
+                      <option value="TODAS">TODAS</option>
+                      {MACHINES.map(m=><option key={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                  <div><div style={{ fontSize:12, color:"#6b7280", marginBottom:4, fontWeight:600 }}>TURNO</div>
+                    <select value={dfTur} style={sStyle} onChange={e=>setDfTur(e.target.value)}>
+                      <option value="TODOS">TODOS</option>
+                      {TURNOS.map(t=><option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    {[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"]].map(([k,l])=>(
+                      <button key={k} onClick={()=>setDView(k)} style={{ padding:"6px 14px", border:"2px solid", borderRadius:8, cursor:"pointer", fontSize:13, fontWeight:600, borderColor:dView===k?"#2563eb":"#e5e7eb", background:dView===k?"#2563eb":"#fff", color:dView===k?"#fff":"#374151" }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* KPIs */}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:14, marginBottom:20 }}>
+                  {[
+                    { label:"PRODUÇÃO TOTAL",   value:totProd.toLocaleString("pt-BR"),                                                                  sub:"peças",    color:C.blue   },
+                    { label:"META TOTAL",        value:totMeta.toLocaleString("pt-BR"),                                                                  sub:"peças",    color:C.purple },
+                    { label:"% ATINGIMENTO",     value:totMeta>0?`${Math.round((totProd/totMeta)*100)}%`:"—",                                            sub:"geral",    color:totMeta>0?pctCol(Math.round((totProd/totMeta)*100)):C.gray },
+                    { label:"LANÇAMENTOS",       value:dashData.length,                                                                                  sub:"registros",color:C.teal   },
+                    { label:"MÁQUINAS ATIVAS",   value:Object.keys(machAgg).length,                                                                      sub:`de ${MACHINES.length}`, color:C.yellow },
+                  ].map(k=>(
+                    <div key={k.label} style={{ background:"#fff", borderRadius:12, padding:"14px 16px", boxShadow:"0 1px 4px #0001", borderLeft:`4px solid ${k.color}` }}>
+                      <div style={{ fontSize:10, color:"#6b7280", fontWeight:700, letterSpacing:1 }}>{k.label}</div>
+                      <div style={{ fontSize:22, fontWeight:800, color:k.color, marginTop:4 }}>{k.value}</div>
+                      <div style={{ fontSize:11, color:"#9ca3af" }}>{k.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {dView==="resumo" && (
+                  <div style={{ background:"#fff", borderRadius:12, boxShadow:"0 1px 4px #0001", overflow:"hidden" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                      <thead><tr style={{ background:"#1e3a5f", color:"#fff" }}>
+                        <th style={{ padding:"11px 14px", textAlign:"left",   fontSize:13 }}>MÁQUINA</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13 }}>DIAS</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13 }}>PRODUÇÃO</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13 }}>META</th>
+                        <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13 }}>%</th>
+                        <th style={{ padding:"11px 14px", textAlign:"left",   fontSize:13, minWidth:120 }}>PROGRESSO</th>
+                      </tr></thead>
+                      <tbody>
+                        {MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
+                          const a=machAgg[m.id];
+                          return (
+                            <tr key={m.id} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #e5e7eb" }}>
+                              <td style={{ padding:"9px 14px", fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{m.name}</td>
+                              <td style={{ padding:"9px 14px", textAlign:"center", fontSize:13 }}>{a?.diasCount??0}</td>
+                              <td style={{ padding:"9px 14px", textAlign:"center", fontSize:15, fontWeight:700, color:"#1e3a5f" }}>{(a?.totalProd??0).toLocaleString("pt-BR")}</td>
+                              <td style={{ padding:"9px 14px", textAlign:"center", fontSize:13, color:"#6b7280" }}>{m.hasMeta?(a?.totalMeta??0).toLocaleString("pt-BR"):"—"}</td>
+                              <td style={{ padding:"9px 14px", textAlign:"center" }}>
+                                {a?.pct!=null ? <span style={{ background:pctCol(a.pct)+"22", color:pctCol(a.pct), borderRadius:20, padding:"2px 10px", fontSize:12, fontWeight:700 }}>{a.pct}%</span> : <span style={{ color:"#d1d5db" }}>—</span>}
+                              </td>
+                              <td style={{ padding:"9px 14px" }}>
+                                {a?.pct!=null ? <MiniBar pct={a.pct} color={pctCol(a.pct)} /> : <span style={{ color:"#d1d5db", fontSize:11 }}>sem meta</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {dView==="detalhado" && (
+                  <div>
+                    {Object.values(machAgg).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>(
+                      <div key={a.name} style={{ background:"#fff", borderRadius:12, boxShadow:"0 1px 4px #0001", marginBottom:14, overflow:"hidden" }}>
+                        <div style={{ background:"#1e3a5f", color:"#fff", padding:"10px 16px", display:"flex", justifyContent:"space-between" }}>
+                          <span style={{ fontWeight:700 }}>{a.name}</span>
+                          <span style={{ fontSize:13, color:"#93c5fd" }}>Total: {a.totalProd.toLocaleString("pt-BR")} pç{a.pct!=null?` — ${a.pct}% meta`:""}</span>
+                        </div>
+                        <div style={{ overflowX:"auto" }}>
+                          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:460 }}>
+                            <thead><tr style={{ background:"#e0e7ff" }}>
+                              <th style={{ padding:"7px 14px", textAlign:"left",   fontSize:12, color:"#3730a3" }}>DATA</th>
+                              {TURNOS.map(t=><th key={t} style={{ padding:"7px 14px", textAlign:"center", fontSize:12, color:"#3730a3" }}>{t}</th>)}
+                              <th style={{ padding:"7px 14px", textAlign:"center", fontSize:12, color:"#3730a3" }}>TOTAL</th>
+                            </tr></thead>
+                            <tbody>
+                              {Object.keys(a.byDate).sort().map((date,i)=>{
+                                const dt = TURNOS.reduce((s,t)=>s+(a.byDate[date][t]||0),0);
+                                return (
+                                  <tr key={date} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #e5e7eb" }}>
+                                    <td style={{ padding:"7px 14px", fontSize:13, fontWeight:600 }}>{dispD(date)}</td>
+                                    {TURNOS.map(t=><td key={t} style={{ padding:"7px 14px", textAlign:"center", fontSize:13 }}>{a.byDate[date][t]!==undefined?a.byDate[date][t].toLocaleString("pt-BR"):<span style={{ color:"#d1d5db" }}>—</span>}</td>)}
+                                    <td style={{ padding:"7px 14px", textAlign:"center", fontWeight:700 }}>{dt.toLocaleString("pt-BR")}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                    {Object.keys(machAgg).length===0 && <div style={{ background:"#fff", borderRadius:12, padding:40, textAlign:"center", color:"#9ca3af" }}>Nenhum dado encontrado.</div>}
+                  </div>
+                )}
+
+                {dView==="comparativo" && (
+                  <div style={{ background:"#fff", borderRadius:12, boxShadow:"0 1px 4px #0001", overflow:"hidden" }}>
+                    <div style={{ background:"#1e3a5f", color:"#fff", padding:"11px 16px", fontWeight:700 }}>Comparativo por Turno</div>
+                    <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                      <thead><tr style={{ background:"#e0e7ff" }}>
+                        <th style={{ padding:"10px 14px", textAlign:"left",   fontSize:13, color:"#3730a3" }}>MÁQUINA</th>
+                        {TURNOS.map(t=><th key={t} style={{ padding:"10px 14px", textAlign:"center", fontSize:13, color:"#3730a3" }}>{t}</th>)}
+                        <th style={{ padding:"10px 14px", textAlign:"center", fontSize:13, color:"#3730a3" }}>TOTAL</th>
+                        <th style={{ padding:"10px 14px", textAlign:"center", fontSize:13, color:"#3730a3" }}>MELHOR</th>
+                      </tr></thead>
+                      <tbody>
+                        {MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
+                          const a=machAgg[m.id];
+                          const tp=TURNOS.map(t=>({t,v:a?.turnos[t]||0}));
+                          const best=tp.reduce((b,x)=>x.v>b.v?x:b,{t:"—",v:-1});
+                          const total=a?.totalProd??0;
+                          return (
+                            <tr key={m.id} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #e5e7eb" }}>
+                              <td style={{ padding:"9px 14px", fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{m.name}</td>
+                              {tp.map(({t,v})=>(
+                                <td key={t} style={{ padding:"9px 14px", textAlign:"center", fontSize:13 }}>
+                                  {v>0?<div><div style={{ fontWeight:700 }}>{v.toLocaleString("pt-BR")}</div>{total>0&&<div style={{ fontSize:10, color:"#6b7280" }}>{Math.round((v/total)*100)}%</div>}</div>:<span style={{ color:"#d1d5db" }}>—</span>}
+                                </td>
+                              ))}
+                              <td style={{ padding:"9px 14px", textAlign:"center", fontWeight:800, fontSize:14, color:"#1e3a5f" }}>{total>0?total.toLocaleString("pt-BR"):"—"}</td>
+                              <td style={{ padding:"9px 14px", textAlign:"center" }}>
+                                {best.v>0?<span style={{ background:C.green+"22", color:C.green, borderRadius:20, padding:"2px 10px", fontSize:12, fontWeight:700 }}>{best.t}</span>:<span style={{ color:"#d1d5db" }}>—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── METAS ── */}
+            {tab==="metas" && (
+              <div style={{ background:"#fff", borderRadius:12, boxShadow:"0 1px 4px #0001", overflow:"hidden" }}>
+                <div style={{ background:"#1e3a5f", color:"#fff", padding:"12px 16px", fontWeight:700 }}>🎯 Metas por Máquina (por turno/dia)</div>
+                <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                  <thead><tr style={{ background:"#e0e7ff" }}>
+                    <th style={{ padding:"11px 14px", textAlign:"left",   fontSize:13, color:"#3730a3" }}>MÁQUINA</th>
+                    <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13, color:"#3730a3" }}>META / TURNO</th>
+                    <th style={{ padding:"11px 14px", textAlign:"center", fontSize:13, color:"#3730a3" }}>META / DIA (3 turnos)</th>
+                  </tr></thead>
+                  <tbody>
+                    {MACHINES.map((m,i)=>(
+                      <tr key={m.id} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #e5e7eb" }}>
+                        <td style={{ padding:"9px 14px", fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{m.name}</td>
+                        <td style={{ padding:"7px 14px", textAlign:"center" }}>
+                          <input type="number" min="0" value={metas[m.id]??0}
+                            onChange={e=>setMetas(p=>({...p,[m.id]:Number(e.target.value)}))}
+                            style={{ ...iStyle, width:90, textAlign:"center", fontWeight:700, fontSize:15 }} />
+                        </td>
+                        <td style={{ padding:"9px 14px", textAlign:"center", fontSize:14, fontWeight:600, color:"#374151" }}>
+                          {metas[m.id]>0?(metas[m.id]*3).toLocaleString("pt-BR"):"—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    // ── Apps Script code (embutido para o wizard) ─────────────────────────────
+    const GAS_SCRIPT = `const SHEET_NAME = "Producao";
+
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_NAME);
+      sheet.appendRow(["timestamp","date","turno","machineId","machineName","producao","meta"]);
+    }
+
+    if (e.parameter && e.parameter.data) {
+      const payload = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(e.parameter.data)))));
+      if (payload.action === "upsert") {
+        const rows = sheet.getDataRange().getValues();
+        const headers = rows[0];
+        const dateIdx = headers.indexOf("date");
+        const turnoIdx = headers.indexOf("turno");
+        const machineIdx = headers.indexOf("machineId");
+        (payload.records || []).forEach(rec => {
+          let found = false;
+          for (let i = 1; i < rows.length; i++) {
+            if (rows[i][dateIdx]==rec.date && rows[i][turnoIdx]==rec.turno && rows[i][machineIdx]==rec.machineId) {
+              sheet.getRange(i+1,1,1,headers.length).setValues([[new Date(),rec.date,rec.turno,rec.machineId,rec.machineName,rec.producao,rec.meta]]);
+              found = true; break;
+            }
+          }
+          if (!found) sheet.appendRow([new Date(),rec.date,rec.turno,rec.machineId,rec.machineName,rec.producao,rec.meta]);
+        });
+      }
+      return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const data = rows.slice(1).map(r => { const o={}; headers.forEach((h,i)=>o[h]=r[i]); return o; });
+    return ContentService.createTextOutput(JSON.stringify({ok:true,data})).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
