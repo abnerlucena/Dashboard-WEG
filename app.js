@@ -479,11 +479,15 @@ function App(){
     if(!silent) setLoading(true);
     try{
       const r=await api("getAll");
+      console.log("=== DADOS CARREGADOS ===");
+      console.log("Total de registros retornados:", r.data?.length || 0);
+      if(r.data && r.data.length > 0) {
+        console.log("Primeiro registro:", r.data[0]);
+        console.log("Tipo de date:", typeof r.data[0].date);
+        console.log("Valor de date:", r.data[0].date);
+      }
       setRecords(r.data||[]);
       setLastSync(new Date());
-      if(!silent) {
-        console.log("Dados carregados:", r.data?.length || 0, "registros");
-      }
     }catch(e){
       console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
@@ -674,12 +678,35 @@ function App(){
     const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
     const dF=dfFim; // Já está em formato ISO: YYYY-MM-DD
     
-    return records.filter(r=>{
-      if(!r.date) return false;
+    console.log("=== FILTRO DASHBOARD ===");
+    console.log("Data DE:", dI);
+    console.log("Data ATÉ:", dF);
+    console.log("Turno:", dfTur);
+    console.log("Máquina:", dfMac);
+    console.log("Total records:", records.length);
+    
+    const filtered = records.filter(r=>{
+      if(!r.date) {
+        console.log("Registro sem data:", r);
+        return false;
+      }
       
       // Normaliza a data do registro para formato ISO (YYYY-MM-DD)
       const recDate = normDate(r.date);
-      if(!recDate) return false;
+      
+      // Debug primeiro registro
+      if(records.indexOf(r) === 0) {
+        console.log("Primeiro registro:");
+        console.log("  r.date original:", r.date);
+        console.log("  normDate(r.date):", recDate);
+        console.log("  Passa filtro date?:", recDate >= dI && recDate <= dF);
+        console.log("  Passa filtro turno?:", dfTur === "TODOS" || r.turno === dfTur);
+      }
+      
+      if(!recDate) {
+        console.log("normDate retornou null para:", r.date);
+        return false;
+      }
       
       // Compara strings no formato ISO
       if(recDate < dI || recDate > dF) return false;
@@ -690,6 +717,10 @@ function App(){
       }
       return true;
     });
+    
+    console.log("Registros filtrados:", filtered.length);
+    
+    return filtered;
   },[records,dfIni,dfFim,dfTur,dfMac]);
 
   // Filtro separado para histórico com mesmas regras
