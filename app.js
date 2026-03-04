@@ -170,7 +170,7 @@ function AuthScreen({onLogin}){
 // ─── MODAL EDIÇÃO ─────────────────────────────────────────────
 function EditModal({rec,metas,onSave,onClose,saving}){
   const mac=MACHINES.find(m=>m.id===Number(rec.machineId));
-  const metaVal=metas[mac?.id]||0;
+  const metaVal=num(rec.meta)>0?num(rec.meta):(mac?.hasMeta?(metas[mac?.id]||0):0);
   const [val,setVal]=useState(String(rec.producao));
   const pct=mac?.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
   return el(Modal,{},
@@ -336,14 +336,23 @@ function App(){
       const r=await api("getAll");
       setRecords(r.data||[]);
       setLastSync(new Date());
-    }catch{ if(!silent) setSyncSt("error"); }
+    }catch(e){
+      if(!silent) setSyncSt("error");
+    }
     finally{ if(!silent) setLoading(false); }
   },[]);
 
   useEffect(()=>{
-    if(user){ loadAll(); pollRef.current=setInterval(()=>loadAll(true),25000); }
+    if(user){ loadAll(); pollRef.current=setInterval(()=>loadAll(true),15000); }
     return()=>clearInterval(pollRef.current);
   },[user,loadAll]);
+
+  const entryDateRef  = useRef(entryDate);
+  const entryTurnoRef = useRef(entryTurno);
+  const inputsRef     = useRef(inputs);
+  useEffect(()=>{ entryDateRef.current  = entryDate;  },[entryDate]);
+  useEffect(()=>{ entryTurnoRef.current = entryTurno; },[entryTurno]);
+  useEffect(()=>{ inputsRef.current     = inputs;     },[inputs]);
 
   const cellKey=(mId,d,t)=>`${mId}_${d}_${t}`;
 
@@ -357,13 +366,16 @@ function App(){
   function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
   async function handleSave(){
+    const currentDate  = entryDateRef.current;
+    const currentTurno = entryTurnoRef.current;
+    const currentInputs= inputsRef.current;
     setSyncSt("syncing");
     const toSend=[];
     MACHINES.forEach(m=>{
-      const k=cellKey(m.id,entryDate,entryTurno);
-      const val=inputs[k];
+      const k=cellKey(m.id,currentDate,currentTurno);
+      const val=currentInputs[k];
       if(val===undefined||val==="") return;
-      toSend.push({date:entryDate,turno:entryTurno,machineId:m.id,machineName:m.name,meta:m.hasMeta?metas[m.id]:0,producao:num(val),savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR"),editUser:"",editTime:""});
+      toSend.push({date:currentDate,turno:currentTurno,machineId:m.id,machineName:m.name,meta:m.hasMeta?metas[m.id]:0,producao:num(val),savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR"),editUser:"",editTime:""});
     });
     if(!toSend.length){ setSyncSt(null); return; }
     try{
@@ -377,16 +389,19 @@ function App(){
   async function handleEdit(newVal){
     setEditSaving(true);
     try{
-      await api("upsert",{records:[{date:editRec.date,turno:editRec.turno,machineId:editRec.machineId,machineName:editRec.machineName,meta:editRec.meta,producao:newVal,savedBy:editRec.savedBy,savedAt:editRec.savedAt,editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
+      const mac=MACHINES.find(m=>m.id===editRec.machineId);
+      const metaToSave=num(editRec.meta)>0?num(editRec.meta):(mac?.hasMeta?(metas[editRec.machineId]||0):0);
+      const nameToSave=mac?.name||editRec.machineName||"";
+      await api("upsert",{records:[{date:editRec.date,turno:editRec.turno,machineId:editRec.machineId,machineName:nameToSave,meta:metaToSave,producao:newVal,savedBy:editRec.savedBy||"",savedAt:editRec.savedAt||"",editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
       await loadAll(true); setEditRec(null);
-    }catch(e){ alert("Erro: "+e.message); }
+    }catch(e){ alert("Erro ao editar: "+e.message); }
     finally{ setEditSaving(false); }
   }
 
   async function handleDelete(){
     setDeleting(true);
     try{ await api("delete",{date:deleteRec.date,turno:deleteRec.turno,machineId:deleteRec.machineId}); await loadAll(true); setDeleteRec(null); }
-    catch(e){ alert("Erro: "+e.message); }
+    catch(e){ alert("Erro ao excluir: "+e.message); }
     finally{ setDeleting(false); }
   }
 
@@ -425,6 +440,17 @@ function App(){
   const totProd=useMemo(()=>dashData.reduce((s,r)=>s+num(r.producao),0),[dashData]);
   const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
   const pendingCount=MACHINES.filter(m=>{ const k=cellKey(m.id,entryDate,entryTurno); return inputs[k]!==undefined&&inputs[k]!==""; }).length;
+  const otherPendingKeys=Object.keys(inputs).filter(k=>{
+    const idx=k.indexOf("_"); if(idx<0) return false;
+    const rest=k.slice(idx+1);
+    const idx2=rest.indexOf("_"); if(idx2<0) return false;
+    const d=rest.slice(0,idx2); const t=rest.slice(idx2+1);
+    return (d!==entryDate||t!==entryTurno)&&inputs[k]!=="";
+  });
+  const otherPendingDates=[...new Set(otherPendingKeys.map(k=>{
+    const idx=k.indexOf("_"); const rest=k.slice(idx+1); const idx2=rest.indexOf("_");
+    return `${dispD(rest.slice(0,idx2))} - ${rest.slice(idx2+1)}`;
+  }))];
 
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
@@ -458,13 +484,13 @@ function App(){
     el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
       el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
         el("option",{value:"TODAS"},"TODAS"),
-        ...MACHINES.map(m=>el("option",{key:m.id},m.name))
+        ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
       )
     ),
     el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
       el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
         el("option",{value:"TODOS"},"TODOS"),
-        ...TURNOS.map(t=>el("option",{key:t},t))
+        ...TURNOS.map(t=>el("option",{key:t,value:t},t))
       )
     )
   );
@@ -490,13 +516,14 @@ function App(){
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
         el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"auto"}},
-          ...TURNOS.map(t=>el("option",{key:t},t))
+          ...TURNOS.map(t=>el("option",{key:t,value:t},t))
         )
       ),
       el("div",{style:{display:"flex",flexDirection:"column",gap:4}},
         el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?C.green:syncSt==="error"?C.red:"#2563eb",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
           syncSt==="syncing"?"⏳ Salvando...":syncSt==="ok"?"✔ Salvo!":syncSt==="error"?"✘ Erro!":`💾 Salvar${pendingCount>0?` (${pendingCount})`:""}`)
         ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`⚠ ${pendingCount} não salvo(s)`)
+        ,otherPendingDates.length>0&&el("div",{style:{fontSize:11,color:"#92400e",fontWeight:600,textAlign:"center",background:"#fef3c7",borderRadius:6,padding:"3px 8px",marginTop:2}},`⚠ Rascunho em: ${otherPendingDates.join(", ")}`)
       )
     ),
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
@@ -546,13 +573,13 @@ function App(){
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
         el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
           el("option",{value:"TODAS"},"TODAS"),
-          ...MACHINES.map(m=>el("option",{key:m.id},m.name))
+          ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
         )
       ),
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
         el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
           el("option",{value:"TODOS"},"TODOS"),
-          ...TURNOS.map(t=>el("option",{key:t},t))
+          ...TURNOS.map(t=>el("option",{key:t,value:t},t))
         )
       ),
       el("div",{style:{display:"flex",gap:6}},
@@ -664,17 +691,20 @@ function App(){
             dashData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
             ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
               const mac=MACHINES.find(m=>m.id==r.machineId);
-              const metaVal=num(r.meta); const prod=num(r.producao);
+              const savedMeta=num(r.meta);
+              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mac.id]||0):0);
+              const prod=num(r.producao);
               const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
               return el("tr",{key:i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispD(r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName),
+                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#d1d5db"}},"—")),
                 el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
-                  r.savedBy||"—",
+                  el("div",{style:{fontWeight:600,color:"#374151"}},r.savedBy||"—"),
+                  r.savedAt&&el("div",{style:{fontSize:10,color:"#9ca3af"}},r.savedAt),
                   r.editUser&&el("div",{style:{fontSize:11,color:C.yellow}},`✏ ${r.editUser}`)
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
