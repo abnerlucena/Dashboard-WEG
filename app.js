@@ -74,6 +74,21 @@ const dispD  = s=>{
 const dispDH = s=>{ 
   if(!s) return "";
   
+  // Se é string e contém GMT ou fuso horário, limpa
+  if(typeof s === 'string' && (s.includes('GMT') || s.includes('Horário'))) {
+    try {
+      const d = new Date(s);
+      if(!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hour = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hour}:${min}`;
+      }
+    } catch(e) {}
+  }
+  
   // Se é um objeto Date
   if(s instanceof Date || (typeof s === 'object' && s.getTime)) {
     const d = new Date(s);
@@ -87,8 +102,17 @@ const dispDH = s=>{
   
   // Se já está em formato brasileiro
   if(typeof s === 'string' && s.includes("/")) {
-    // Se já tem hora, retorna como está
-    if(s.includes(":")) return s;
+    // Se já tem hora, retorna apenas data e hora (sem segundos)
+    if(s.includes(":")) {
+      const parts = s.split(" ");
+      if(parts.length >= 2) {
+        const date = parts[0];
+        const timeParts = parts[1].split(":");
+        const time = `${timeParts[0]}:${timeParts[1]}`;
+        return `${date} ${time}`;
+      }
+      return s;
+    }
     // Se não tem hora, adiciona 00:00
     return s + " 00:00";
   }
@@ -924,7 +948,7 @@ function App(){
               const savedByName = r.savedBy || r.usuario || r.user || "";
               
               return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.date)),
+                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt || r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
@@ -932,7 +956,7 @@ function App(){
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#d1d5db"}},"—")),
                 el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
                   el("div",{style:{fontWeight:600,color:"#374151"}},savedByName||"—"),
-                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ Editado por ${r.editUser}${r.editTime?" em "+r.editTime:""}`)
+                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ Editado por ${r.editUser}${r.editTime?" em "+dispDH(r.editTime):""}`)
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:6,justifyContent:"center"}},
