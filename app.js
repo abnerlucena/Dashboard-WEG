@@ -169,10 +169,11 @@ function AuthScreen({onLogin}){
 
 // ─── MODAL EDIÇÃO ─────────────────────────────────────────────
 function EditModal({rec,metas,onSave,onClose,saving}){
-  const mac=MACHINES.find(m=>m.id===Number(rec.machineId));
-  const metaVal=num(rec.meta)>0?num(rec.meta):(mac?.hasMeta?(metas[mac?.id]||0):0);
+  const mId=Number(rec.machineId);
+  const mac=MACHINES.find(m=>m.id===mId);
+  const metaVal=num(rec.meta)>0?num(rec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
   const [val,setVal]=useState(String(rec.producao));
-  const pct=mac?.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
+  const pct=mac?.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
   return el(Modal,{},
     el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"✏️ Editar Apontamento"),
     el("div",{style:{fontSize:13,color:C.gray,marginBottom:18}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
@@ -347,35 +348,30 @@ function App(){
     return()=>clearInterval(pollRef.current);
   },[user,loadAll]);
 
-  const entryDateRef  = useRef(entryDate);
-  const entryTurnoRef = useRef(entryTurno);
-  const inputsRef     = useRef(inputs);
-  useEffect(()=>{ entryDateRef.current  = entryDate;  },[entryDate]);
-  useEffect(()=>{ entryTurnoRef.current = entryTurno; },[entryTurno]);
-  useEffect(()=>{ inputsRef.current     = inputs;     },[inputs]);
+  // refs removed - handleSave now reads state directly
 
   const cellKey=(mId,d,t)=>`${mId}_${d}_${t}`;
 
   function getVal(mId){
     const k=cellKey(mId,entryDate,entryTurno);
     if(inputs[k]!==undefined) return inputs[k];
-    const s=records.find(r=>String(r.machineId)===String(mId)&&r.date===entryDate&&r.turno===entryTurno);
+    const s=records.find(r=>Number(r.machineId)===Number(mId)&&r.date===entryDate&&r.turno===entryTurno);
     return s?String(s.producao):"";
   }
 
   function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
   async function handleSave(){
-    const currentDate  = entryDateRef.current;
-    const currentTurno = entryTurnoRef.current;
-    const currentInputs= inputsRef.current;
+    const currentDate  = entryDate;
+    const currentTurno = entryTurno;
+    const currentInputs= {...inputs};
     setSyncSt("syncing");
     const toSend=[];
     MACHINES.forEach(m=>{
       const k=cellKey(m.id,currentDate,currentTurno);
       const val=currentInputs[k];
       if(val===undefined||val==="") return;
-      toSend.push({date:currentDate,turno:currentTurno,machineId:m.id,machineName:m.name,meta:m.hasMeta?metas[m.id]:0,producao:num(val),savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR"),editUser:"",editTime:""});
+      toSend.push({date:currentDate,turno:currentTurno,machineId:m.id,machineName:m.name,meta:m.hasMeta?(metas[m.id]||0):0,producao:num(val),savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR"),editUser:"",editTime:""});
     });
     if(!toSend.length){ setSyncSt(null); return; }
     try{
@@ -389,10 +385,11 @@ function App(){
   async function handleEdit(newVal){
     setEditSaving(true);
     try{
-      const mac=MACHINES.find(m=>m.id===editRec.machineId);
-      const metaToSave=num(editRec.meta)>0?num(editRec.meta):(mac?.hasMeta?(metas[editRec.machineId]||0):0);
+      const mId=Number(editRec.machineId);
+      const mac=MACHINES.find(m=>m.id===mId);
+      const metaToSave=num(editRec.meta)>0?num(editRec.meta):(mac?.hasMeta?(metas[mId]||0):0);
       const nameToSave=mac?.name||editRec.machineName||"";
-      await api("upsert",{records:[{date:editRec.date,turno:editRec.turno,machineId:editRec.machineId,machineName:nameToSave,meta:metaToSave,producao:newVal,savedBy:editRec.savedBy||"",savedAt:editRec.savedAt||"",editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
+      await api("upsert",{records:[{date:editRec.date,turno:editRec.turno,machineId:mId,machineName:nameToSave,meta:metaToSave,producao:newVal,savedBy:editRec.savedBy||user.nome,savedAt:editRec.savedAt||new Date().toLocaleString("pt-BR"),editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
       await loadAll(true); setEditRec(null);
     }catch(e){ alert("Erro ao editar: "+e.message); }
     finally{ setEditSaving(false); }
@@ -400,7 +397,7 @@ function App(){
 
   async function handleDelete(){
     setDeleting(true);
-    try{ await api("delete",{date:deleteRec.date,turno:deleteRec.turno,machineId:deleteRec.machineId}); await loadAll(true); setDeleteRec(null); }
+    try{ await api("delete",{date:deleteRec.date,turno:deleteRec.turno,machineId:Number(deleteRec.machineId)}); await loadAll(true); setDeleteRec(null); }
     catch(e){ alert("Erro ao excluir: "+e.message); }
     finally{ setDeleting(false); }
   }
@@ -410,10 +407,11 @@ function App(){
   const dashData=useMemo(()=>{
     const dI=parseD(dfIni),dF=parseD(dfFim);
     return records.filter(r=>{
+      if(!r.date) return false;
       const d=parseD(r.date);
       if(d<dI||d>dF) return false;
       if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
-      if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id==r.machineId); if(!mac||mac.name!==dfMac) return false; }
+      if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
       return true;
     });
   },[records,dfIni,dfFim,dfTur,dfMac]);
@@ -422,7 +420,7 @@ function App(){
     const agg={};
     dashData.forEach(r=>{
       const id=Number(r.machineId);
-      if(!agg[id]){ const mac=MACHINES.find(m=>m.id===id); agg[id]={name:r.machineName||mac?.name,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
+      if(!agg[id]){ const mac=MACHINES.find(m=>m.id===id); agg[id]={name:r.machineName||mac?.name||"Máquina "+id,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
       agg[id].totalProd+=num(r.producao);
       agg[id].dias.add(r.date);
       agg[id].turnos[r.turno]=(agg[id].turnos[r.turno]||0)+num(r.producao);
@@ -430,8 +428,9 @@ function App(){
       agg[id].byDate[r.date][r.turno]=num(r.producao);
     });
     Object.entries(agg).forEach(([id,a])=>{
+      const nId=Number(id);
       a.diasCount=a.dias.size;
-      a.totalMeta=a.hasMeta?(metas[Number(id)]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
+      a.totalMeta=a.hasMeta?(metas[nId]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
       a.pct=a.totalMeta>0?Math.round(a.totalProd/a.totalMeta*100):null;
     });
     return agg;
@@ -539,7 +538,7 @@ function App(){
           const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
           const isLocal=inputs[k]!==undefined;
-          const isSaved=!isLocal&&records.some(r=>String(r.machineId)===String(m.id)&&r.date===entryDate&&r.turno===entryTurno);
+          const isSaved=!isLocal&&records.some(r=>Number(r.machineId)===m.id&&r.date===entryDate&&r.turno===entryTurno);
           const metaVal=metas[m.id]||0;
           const pct=m.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
@@ -690,12 +689,14 @@ function App(){
           el("tbody",null,
             dashData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
             ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
-              const mac=MACHINES.find(m=>m.id==r.machineId);
+              const mId=Number(r.machineId);
+              const mac=MACHINES.find(m=>m.id===mId);
               const savedMeta=num(r.meta);
-              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mac.id]||0):0);
+              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
               const prod=num(r.producao);
               const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
-              return el("tr",{key:i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
+              const savedByName=r.savedBy||r.usuario||r.user||"";
+              return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispD(r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
@@ -703,14 +704,14 @@ function App(){
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#d1d5db"}},"—")),
                 el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
-                  el("div",{style:{fontWeight:600,color:"#374151"}},r.savedBy||"—"),
+                  el("div",{style:{fontWeight:600,color:"#374151"}},savedByName||"—"),
                   r.savedAt&&el("div",{style:{fontSize:10,color:"#9ca3af"}},r.savedAt),
-                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow}},`✏ ${r.editUser}`)
+                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow}},`✏ ${r.editUser}${r.editTime?" em "+r.editTime:""}`)
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:6,justifyContent:"center"}},
-                    el("button",{onClick:()=>setEditRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal}),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
-                    el("button",{onClick:()=>setDeleteRec({...r,machineId:Number(r.machineId)}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
+                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
+                    el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
                   )
                 )
               );
