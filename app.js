@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzaZy5zCvXkUjT7MXlh00DSRbc2e3vS2AeR_A3G2AUrEEsQejVvyYVQrMtpohMYY4v0bQ/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbxihOXLyw2GEfHALPbrO1N_rxliWy0n1tdeeVuHixsWlJB4hvcomSchYelFZAX5N0OsSw/exec";
 const INVITE_CODE = "fabrica2026";
 
 const MACHINES = [
@@ -1116,5 +1116,4 @@ function App(){
     )
   );
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
