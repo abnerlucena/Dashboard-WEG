@@ -1,7 +1,4 @@
-// ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzaZy5zCvXkUjT7MXlh00DSRbc2e3vS2AeR_A3G2AUrEEsQejVvyYVQrMtpohMYY4v0bQ/exec";
-// ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
-// Agora é validado apenas no backend
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwcezyD7ToulazvzNl2b3MCafnhKk7XMCgycdOipZq0M51-xH15JdJQ_ZLN18rDDYrXNA/exec";
 
 const MACHINES = [
   {id:1, name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
