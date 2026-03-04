@@ -1034,217 +1034,396 @@ function App(){
     ),
     dView==="graficos"&&el("div",null,
       // ══════════════════════════════════════════════════════════════
-      // GRÁFICOS INTERATIVOS - ANÁLISE DE PRODUÇÃO
+      // GRÁFICOS INTERATIVOS - IMPLEMENTAÇÃO SVG NATIVA (SEM DEPENDÊNCIAS)
       // ══════════════════════════════════════════════════════════════
       
-      // ─── Preparar dados para gráficos ───
       (() => {
-        const {BarChart, LineChart, PieChart, Pie, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer} = window.Recharts || {};
-        
-        // Se Recharts não carregou, mostrar mensagem
-        if(!BarChart) {
-          return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center"}},
-            el("div",{style:{fontSize:16,color:C.red,marginBottom:8}},"⚠️ Biblioteca de gráficos não carregada"),
-            el("div",{style:{fontSize:13,color:C.gray}},"Recarregue a página (F5) para visualizar os gráficos")
+        // ─── COMPONENTE: Gráfico de Barras SVG ───
+        const BarChartSVG = ({data, width=500, height=300, title, subtitle}) => {
+          if(!data || data.length === 0) return null;
+          
+          const padding = {top:40, right:20, bottom:60, left:60};
+          const chartWidth = width - padding.left - padding.right;
+          const chartHeight = height - padding.top - padding.bottom;
+          
+          const maxValue = Math.max(...data.flatMap(d => [d.value1 || 0, d.value2 || 0]));
+          const scale = chartHeight / (maxValue * 1.1);
+          const barWidth = chartWidth / data.length / 2.5;
+          
+          const [hoveredBar, setHoveredBar] = useState(null);
+          
+          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+            title && el("div",{style:{marginBottom:16}},
+              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
+              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+            ),
+            el("svg",{width,height,style:{overflow:"visible"}},
+              // Grid horizontal
+              ...[0,0.25,0.5,0.75,1].map(pct => {
+                const y = padding.top + chartHeight - (chartHeight * pct);
+                const value = Math.round(maxValue * pct);
+                return el("g",{key:pct},
+                  el("line",{x1:padding.left,y1:y,x2:width-padding.right,y2:y,stroke:"#f0f0f0",strokeWidth:1}),
+                  el("text",{x:padding.left-10,y:y+5,textAnchor:"end",fontSize:11,fill:"#666"},value.toLocaleString("pt-BR"))
+                );
+              }),
+              
+              // Barras
+              ...data.map((d, i) => {
+                const x = padding.left + (i * chartWidth / data.length);
+                const h1 = (d.value1 || 0) * scale;
+                const h2 = (d.value2 || 0) * scale;
+                
+                return el("g",{key:i},
+                  // Barra 1 (Meta/Cinza)
+                  d.value1 && el("rect",{
+                    x: x + 10,
+                    y: padding.top + chartHeight - h1,
+                    width: barWidth,
+                    height: h1,
+                    fill: hoveredBar === `${i}-1` ? "#9ca3af" : C.gray,
+                    rx: 4,
+                    style:{cursor:"pointer",transition:"fill 0.2s"},
+                    onMouseEnter: () => setHoveredBar(`${i}-1`),
+                    onMouseLeave: () => setHoveredBar(null)
+                  }),
+                  
+                  // Barra 2 (Produção/Azul)
+                  d.value2 && el("rect",{
+                    x: x + 10 + barWidth + 5,
+                    y: padding.top + chartHeight - h2,
+                    width: barWidth,
+                    height: h2,
+                    fill: hoveredBar === `${i}-2` ? "#60a5fa" : C.blue,
+                    rx: 4,
+                    style:{cursor:"pointer",transition:"fill 0.2s"},
+                    onMouseEnter: () => setHoveredBar(`${i}-2`),
+                    onMouseLeave: () => setHoveredBar(null)
+                  }),
+                  
+                  // Label
+                  el("text",{
+                    x: x + (chartWidth / data.length) / 2,
+                    y: height - padding.bottom + 20,
+                    textAnchor: "middle",
+                    fontSize: 11,
+                    fill: "#374151",
+                    transform: `rotate(-15, ${x + (chartWidth / data.length) / 2}, ${height - padding.bottom + 20})`
+                  }, d.label)
+                );
+              }),
+              
+              // Tooltip
+              hoveredBar && (() => {
+                const [idx, barNum] = hoveredBar.split('-');
+                const d = data[idx];
+                const value = barNum === '1' ? d.value1 : d.value2;
+                const name = barNum === '1' ? (d.name1 || "Meta") : (d.name2 || "Produção");
+                
+                return el("g",null,
+                  el("rect",{x:10,y:10,width:150,height:50,fill:"#fff",stroke:"#e5e7eb",rx:8,filter:"drop-shadow(0 4px 12px rgba(0,0,0,0.1))"}),
+                  el("text",{x:20,y:30,fontSize:12,fontWeight:700,fill:C.navy},d.label),
+                  el("text",{x:20,y:50,fontSize:12,fill:"#666"},`${name}: ${value.toLocaleString("pt-BR")}`)
+                );
+              })()
+            ),
+            // Legenda
+            el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12}},
+              el("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                el("div",{style:{width:12,height:12,borderRadius:2,background:C.gray}}),
+                el("span",{style:{fontSize:12,color:"#374151"}},data[0]?.name1 || "Meta")
+              ),
+              el("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                el("div",{style:{width:12,height:12,borderRadius:2,background:C.blue}}),
+                el("span",{style:{fontSize:12,color:"#374151"}},data[0]?.name2 || "Produção")
+              )
+            )
           );
-        }
+        };
         
-        // ─── DADOS: Produção vs Meta por Máquina ───
+        // ─── COMPONENTE: Gráfico de Pizza SVG ───
+        const PieChartSVG = ({data, width=300, height=300, title, subtitle}) => {
+          if(!data || data.length === 0) return null;
+          
+          const cx = width / 2;
+          const cy = height / 2;
+          const radius = Math.min(width, height) / 2 - 40;
+          
+          const total = data.reduce((sum, d) => sum + d.value, 0);
+          const colors = [C.blue, C.green, C.yellow, C.purple, C.teal];
+          
+          const [hoveredSlice, setHoveredSlice] = useState(null);
+          
+          let currentAngle = -90;
+          const slices = data.map((d, i) => {
+            const angle = (d.value / total) * 360;
+            const startAngle = currentAngle;
+            currentAngle += angle;
+            
+            return {
+              ...d,
+              startAngle,
+              endAngle: currentAngle,
+              color: colors[i % colors.length],
+              pct: Math.round((d.value / total) * 100)
+            };
+          });
+          
+          const polarToCartesian = (angle) => {
+            const rad = (angle * Math.PI) / 180;
+            return {
+              x: cx + radius * Math.cos(rad),
+              y: cy + radius * Math.sin(rad)
+            };
+          };
+          
+          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+            title && el("div",{style:{marginBottom:16}},
+              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
+              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+            ),
+            el("svg",{width,height},
+              ...slices.map((slice, i) => {
+                const start = polarToCartesian(slice.startAngle);
+                const end = polarToCartesian(slice.endAngle);
+                const largeArc = slice.endAngle - slice.startAngle > 180 ? 1 : 0;
+                
+                const path = [
+                  `M ${cx} ${cy}`,
+                  `L ${start.x} ${start.y}`,
+                  `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
+                  'Z'
+                ].join(' ');
+                
+                const midAngle = (slice.startAngle + slice.endAngle) / 2;
+                const labelPos = polarToCartesian(midAngle);
+                const labelX = cx + (radius * 0.7) * Math.cos((midAngle * Math.PI) / 180);
+                const labelY = cy + (radius * 0.7) * Math.sin((midAngle * Math.PI) / 180);
+                
+                return el("g",{key:i},
+                  el("path",{
+                    d: path,
+                    fill: hoveredSlice === i ? slice.color + "cc" : slice.color,
+                    stroke: "#fff",
+                    strokeWidth: 2,
+                    style:{cursor:"pointer",transition:"fill 0.2s"},
+                    onMouseEnter: () => setHoveredSlice(i),
+                    onMouseLeave: () => setHoveredSlice(null)
+                  }),
+                  el("text",{
+                    x: labelX,
+                    y: labelY,
+                    textAnchor: "middle",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    fill: "#fff"
+                  }, `${slice.pct}%`)
+                );
+              })
+            ),
+            el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12,flexWrap:"wrap"}},
+              ...slices.map((s, i) => 
+                el("div",{key:i,style:{display:"flex",alignItems:"center",gap:6}},
+                  el("div",{style:{width:12,height:12,borderRadius:2,background:s.color}}),
+                  el("span",{style:{fontSize:12,color:"#374151"}},`${s.label}: ${s.value.toLocaleString("pt-BR")} (${s.pct}%)`)
+                )
+              )
+            )
+          );
+        };
+        
+        // ─── COMPONENTE: Gráfico de Linhas SVG ───
+        const LineChartSVG = ({data, width=500, height=300, title, subtitle}) => {
+          if(!data || data.length === 0) return null;
+          
+          const padding = {top:40, right:20, bottom:60, left:60};
+          const chartWidth = width - padding.left - padding.right;
+          const chartHeight = height - padding.top - padding.bottom;
+          
+          const maxValue = Math.max(...data.flatMap(d => [d.value1 || 0, d.value2 || 0]));
+          const scale = chartHeight / (maxValue * 1.1);
+          
+          const [hoveredPoint, setHoveredPoint] = useState(null);
+          
+          const points1 = data.map((d, i) => ({
+            x: padding.left + (i * chartWidth / (data.length - 1 || 1)),
+            y: padding.top + chartHeight - (d.value1 || 0) * scale
+          }));
+          
+          const points2 = data.map((d, i) => ({
+            x: padding.left + (i * chartWidth / (data.length - 1 || 1)),
+            y: padding.top + chartHeight - (d.value2 || 0) * scale
+          }));
+          
+          const pathData1 = points1.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+          const pathData2 = points2.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+          
+          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+            title && el("div",{style:{marginBottom:16}},
+              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
+              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+            ),
+            el("svg",{width,height,style:{overflow:"visible"}},
+              // Grid
+              ...[0,0.25,0.5,0.75,1].map(pct => {
+                const y = padding.top + chartHeight - (chartHeight * pct);
+                return el("line",{key:pct,x1:padding.left,y1:y,x2:width-padding.right,y2:y,stroke:"#f0f0f0",strokeWidth:1});
+              }),
+              
+              // Linha 1 (Meta - pontilhada)
+              el("path",{
+                d: pathData1,
+                fill: "none",
+                stroke: C.purple,
+                strokeWidth: 2,
+                strokeDasharray: "5 5"
+              }),
+              
+              // Linha 2 (Produção - sólida)
+              el("path",{
+                d: pathData2,
+                fill: "none",
+                stroke: C.blue,
+                strokeWidth: 3
+              }),
+              
+              // Pontos
+              ...points2.map((p, i) => 
+                el("circle",{
+                  key:i,
+                  cx:p.x,
+                  cy:p.y,
+                  r:hoveredPoint===i?6:4,
+                  fill:C.blue,
+                  stroke:"#fff",
+                  strokeWidth:2,
+                  style:{cursor:"pointer",transition:"r 0.2s"},
+                  onMouseEnter:()=>setHoveredPoint(i),
+                  onMouseLeave:()=>setHoveredPoint(null)
+                })
+              ),
+              
+              // Labels X
+              ...data.map((d, i) => {
+                if(i % Math.ceil(data.length / 6) !== 0 && i !== data.length - 1) return null;
+                const x = padding.left + (i * chartWidth / (data.length - 1 || 1));
+                return el("text",{
+                  key:i,
+                  x,
+                  y:height - padding.bottom + 20,
+                  textAnchor:"middle",
+                  fontSize:11,
+                  fill:"#374151",
+                  transform:`rotate(-15, ${x}, ${height - padding.bottom + 20})`
+                }, d.label);
+              })
+            )
+          );
+        };
+        
+        // ─── PREPARAR DADOS ───
         const prodVsMetaData = MACHINES
           .filter(m => dfMac === "TODAS" || m.name === dfMac)
           .filter(m => m.hasMeta)
           .map(m => {
             const agg = machAgg[m.id] || {};
             return {
-              name: m.name.length > 20 ? m.name.substring(0, 18) + "..." : m.name,
-              fullName: m.name,
-              producao: agg.totalProd || 0,
-              meta: agg.totalMeta || 0,
-              pct: agg.pct || 0
+              label: m.name.length > 15 ? m.name.substring(0, 13) + "..." : m.name,
+              value1: agg.totalMeta || 0,
+              value2: agg.totalProd || 0,
+              name1: "Meta",
+              name2: "Produção"
             };
           })
-          .sort((a, b) => b.producao - a.producao)
-          .slice(0, 10); // Top 10 máquinas
+          .sort((a, b) => b.value2 - a.value2)
+          .slice(0, 8);
         
-        // ─── DADOS: Distribuição por Turno ───
-        const turnoData = TURNOS.map(turno => {
-          const total = dashData
-            .filter(r => r.turno === turno)
-            .reduce((sum, r) => sum + num(r.producao), 0);
-          return {
-            name: turno,
-            value: total,
-            pct: totProd > 0 ? Math.round((total / totProd) * 100) : 0
-          };
-        }).filter(t => t.value > 0);
+        const turnoData = TURNOS.map(turno => ({
+          label: turno,
+          value: dashData.filter(r => r.turno === turno).reduce((sum, r) => sum + num(r.producao), 0)
+        })).filter(t => t.value > 0);
         
-        // ─── DADOS: Tendência ao Longo do Tempo ───
         const tendenciaData = (() => {
           const byDate = {};
           dashData.forEach(r => {
-            if(!byDate[r.date]) byDate[r.date] = 0;
-            byDate[r.date] += num(r.producao);
+            if(!byDate[r.date]) byDate[r.date] = {prod:0, meta:0};
+            byDate[r.date].prod += num(r.producao);
           });
           
-          return Object.keys(byDate)
-            .sort()
-            .map(date => ({
-              date: dispD(date),
-              fullDate: date,
-              producao: byDate[date],
-              meta: Object.values(machAgg).reduce((sum, agg) => {
-                // Calcular meta diária baseada nos dias únicos
-                const metaDiaria = agg.totalMeta / (agg.diasCount || 1);
-                return sum + (agg.byDate && agg.byDate[date] ? metaDiaria : 0);
-              }, 0)
-            }));
+          return Object.keys(byDate).sort().map(date => ({
+            label: dispD(date),
+            value1: Object.values(machAgg).reduce((sum, agg) => {
+              const metaDiaria = agg.totalMeta / (agg.diasCount || 1);
+              return sum + (agg.byDate && agg.byDate[date] ? metaDiaria : 0);
+            }, 0),
+            value2: byDate[date].prod
+          }));
         })();
         
-        // ─── DADOS: Top/Bottom Performers ───
         const performersData = MACHINES
           .filter(m => dfMac === "TODAS" || m.name === dfMac)
           .filter(m => m.hasMeta)
           .map(m => {
             const agg = machAgg[m.id] || {};
             return {
-              name: m.name.length > 25 ? m.name.substring(0, 23) + "..." : m.name,
-              fullName: m.name,
-              pct: agg.pct || 0,
-              producao: agg.totalProd || 0
+              label: m.name.length > 20 ? m.name.substring(0, 18) + "..." : m.name,
+              value: agg.pct || 0,
+              prod: agg.totalProd || 0
             };
           })
-          .filter(m => m.producao > 0)
-          .sort((a, b) => b.pct - a.pct);
-        
-        // ─── CORES DOS GRÁFICOS ───
-        const CHART_COLORS = [C.blue, C.green, C.yellow, C.purple, C.teal, C.red, "#f97316", "#a855f7", "#14b8a6", "#06b6d4"];
-        
-        // ─── TOOLTIP CUSTOMIZADO ───
-        const CustomTooltip = ({active, payload, label}) => {
-          if(!active || !payload || !payload.length) return null;
-          return el("div",{style:{background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",boxShadow:"0 4px 12px #0002"}},
-            el("div",{style:{fontSize:12,fontWeight:700,color:C.navy,marginBottom:4}},label),
-            ...payload.map((p, i) => 
-              el("div",{key:i,style:{fontSize:12,color:p.color,display:"flex",alignItems:"center",gap:6,marginTop:2}},
-                el("div",{style:{width:8,height:8,borderRadius:"50%",background:p.color}}),
-                el("span",null,`${p.name}: ${typeof p.value === 'number' ? p.value.toLocaleString("pt-BR") : p.value}`)
-              )
-            )
-          );
-        };
+          .filter(m => m.prod > 0)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 8);
         
         return el("div",null,
-          // ─── GRID DE GRÁFICOS ───
           el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16,marginBottom:16}},
-            
-            // ═══ GRÁFICO 1: Produção vs Meta por Máquina ═══
-            prodVsMetaData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-              el("div",{style:{marginBottom:16}},
-                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"📊 Produção vs Meta por Máquina"),
-                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Comparativo entre produção real e meta estabelecida")
-              ),
-              el(ResponsiveContainer,{width:"100%",height:300},
-                el(BarChart,{data:prodVsMetaData,margin:{top:5,right:10,left:10,bottom:5}},
-                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
-                  el(XAxis,{dataKey:"name",tick:{fontSize:11},angle:-15,textAnchor:"end",height:60}),
-                  el(YAxis,{tick:{fontSize:11}}),
-                  el(Tooltip,{content:el(CustomTooltip)}),
-                  el(Legend,{wrapperStyle:{fontSize:12}}),
-                  el(Bar,{dataKey:"meta",fill:C.gray,name:"Meta",radius:[4,4,0,0]}),
-                  el(Bar,{dataKey:"producao",fill:C.blue,name:"Produção",radius:[4,4,0,0]})
-                )
-              )
-            ),
-            
-            // ═══ GRÁFICO 2: Distribuição por Turno ═══
-            turnoData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-              el("div",{style:{marginBottom:16}},
-                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🎯 Distribuição de Produção por Turno"),
-                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Percentual de produção em cada turno")
-              ),
-              el(ResponsiveContainer,{width:"100%",height:300},
-                el(PieChart,null,
-                  el(Pie,{
-                    data:turnoData,
-                    cx:"50%",
-                    cy:"50%",
-                    labelLine:false,
-                    label:(entry) => `${entry.name}: ${entry.pct}%`,
-                    outerRadius:100,
-                    fill:"#8884d8",
-                    dataKey:"value"
-                  },
-                    ...turnoData.map((entry, index) => 
-                      el(Cell,{key:`cell-${index}`,fill:CHART_COLORS[index % CHART_COLORS.length]})
-                    )
-                  ),
-                  el(Tooltip,{content:el(CustomTooltip)})
-                )
-              ),
-              el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12,flexWrap:"wrap"}},
-                ...turnoData.map((t, i) => 
-                  el("div",{key:t.name,style:{display:"flex",alignItems:"center",gap:6}},
-                    el("div",{style:{width:12,height:12,borderRadius:2,background:CHART_COLORS[i % CHART_COLORS.length]}}),
-                    el("span",{style:{fontSize:12,color:"#374151"}},`${t.name}: ${t.value.toLocaleString("pt-BR")} (${t.pct}%)`)
-                  )
-                )
-              )
-            )
+            prodVsMetaData.length > 0 && el(BarChartSVG,{
+              data:prodVsMetaData,
+              title:"📊 Produção vs Meta por Máquina",
+              subtitle:"Comparativo entre produção real e meta estabelecida",
+              width:550,
+              height:320
+            }),
+            turnoData.length > 0 && el(PieChartSVG,{
+              data:turnoData,
+              title:"🎯 Distribuição de Produção por Turno",
+              subtitle:"Percentual de produção em cada turno",
+              width:550,
+              height:320
+            })
           ),
-          
-          // ─── SEGUNDA LINHA DE GRÁFICOS ───
           el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16}},
-            
-            // ═══ GRÁFICO 3: Tendência ao Longo do Tempo ═══
-            tendenciaData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-              el("div",{style:{marginBottom:16}},
-                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"📈 Tendência de Produção ao Longo do Tempo"),
-                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Evolução diária da produção no período")
-              ),
-              el(ResponsiveContainer,{width:"100%",height:300},
-                el(LineChart,{data:tendenciaData,margin:{top:5,right:10,left:10,bottom:5}},
-                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
-                  el(XAxis,{dataKey:"date",tick:{fontSize:11},angle:-15,textAnchor:"end",height:60}),
-                  el(YAxis,{tick:{fontSize:11}}),
-                  el(Tooltip,{content:el(CustomTooltip)}),
-                  el(Legend,{wrapperStyle:{fontSize:12}}),
-                  el(Line,{type:"monotone",dataKey:"producao",stroke:C.blue,strokeWidth:3,dot:{r:4},name:"Produção Real"}),
-                  el(Line,{type:"monotone",dataKey:"meta",stroke:C.purple,strokeWidth:2,strokeDasharray:"5 5",dot:{r:3},name:"Meta"})
-                )
-              )
-            ),
-            
-            // ═══ GRÁFICO 4: Ranking de Performance ═══
+            tendenciaData.length > 0 && el(LineChartSVG,{
+              data:tendenciaData,
+              title:"📈 Tendência de Produção ao Longo do Tempo",
+              subtitle:"Evolução diária da produção no período",
+              width:550,
+              height:320
+            }),
             performersData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
               el("div",{style:{marginBottom:16}},
-                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🏆 Ranking de Performance (% da Meta)"),
-                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Máquinas ordenadas por atingimento de meta")
+                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🏆 Ranking de Performance"),
+                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Máquinas ordenadas por % da meta")
               ),
-              el(ResponsiveContainer,{width:"100%",height:300},
-                el(BarChart,{data:performersData.slice(0,8),layout:"vertical",margin:{top:5,right:30,left:100,bottom:5}},
-                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
-                  el(XAxis,{type:"number",tick:{fontSize:11}}),
-                  el(YAxis,{type:"category",dataKey:"name",tick:{fontSize:11},width:90}),
-                  el(Tooltip,{content:el(CustomTooltip)}),
-                  el(Bar,{dataKey:"pct",name:"% da Meta",radius:[0,4,4,0]},
-                    ...performersData.slice(0,8).map((entry, index) => 
-                      el(Cell,{
-                        key:`cell-${index}`,
-                        fill: entry.pct >= 100 ? C.green : entry.pct >= 80 ? C.yellow : C.red
-                      })
-                    )
+              ...performersData.map((m, i) => {
+                const barColor = m.value >= 100 ? C.green : m.value >= 80 ? C.yellow : C.red;
+                return el("div",{key:i,style:{marginBottom:10}},
+                  el("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
+                    el("span",{style:{fontSize:12,fontWeight:600,color:C.navy}},m.label),
+                    el("span",{style:{fontSize:12,fontWeight:700,color:barColor}},`${m.value}%`)
+                  ),
+                  el("div",{style:{background:"#e5e7eb",borderRadius:4,height:8,overflow:"hidden"}},
+                    el("div",{style:{width:`${Math.min(m.value,100)}%`,height:"100%",background:barColor,borderRadius:4,transition:"width 0.4s"}})
                   )
-                )
-              )
+                );
+              })
             )
           ),
-          
-          // ─── MENSAGEM SE NÃO HOUVER DADOS ───
           prodVsMetaData.length === 0 && turnoData.length === 0 && 
           el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center"}},
             el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
-            el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos para visualizar os gráficos")
+            el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
           )
         );
       })()
