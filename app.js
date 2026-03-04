@@ -33,7 +33,22 @@ const h = React.createElement;
 const {useState,useEffect,useMemo,useCallback,useRef} = React;
 const fmt    = d=>d.toISOString().slice(0,10);
 const today  = ()=>fmt(new Date());
-const parseD = s=>new Date(s+"T00:00:00");
+const parseD = s=>{
+  if(!s) return new Date(0);
+  if(s instanceof Date) return s;
+  if(typeof s === 'object' && s.getTime) return new Date(s);
+  // Se for string em formato ISO (YYYY-MM-DD)
+  if(typeof s === 'string' && s.includes('-')) return new Date(s+"T00:00:00");
+  // Se for string em formato brasileiro (DD/MM/YYYY)
+  if(typeof s === 'string' && s.includes('/')) {
+    const parts = s.split(' ')[0].split('/');
+    if(parts.length === 3) {
+      const [d,m,y] = parts;
+      return new Date(`${y}-${m}-${d}T00:00:00`);
+    }
+  }
+  return new Date(s);
+};
 const dispD  = s=>{ 
   if(!s) return "";
   
@@ -152,6 +167,17 @@ const dispDT = s=>{
   }
 };
 const nowBR = ()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+const normDate = d=>{ 
+  if(!d) return null;
+  if(d instanceof Date) return fmt(d);
+  if(typeof d === 'string' && d.includes('-')) return d.slice(0,10);
+  if(typeof d === 'string' && d.includes('/')) {
+    const[day,month,year]=d.split(' ')[0].split('/');
+    return `${year}-${month}-${day}`;
+  }
+  try{ const dt=new Date(d); if(!isNaN(dt.getTime())) return fmt(dt); }catch{}
+  return null;
+};
 const pctCol = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
 const num    = v=>{ const x=Number(v); return isNaN(x)?0:x; };
 const IS = {border:"1px solid #d1d5db",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none"};
@@ -480,7 +506,17 @@ function App(){
   function getVal(mId){
     const k=cellKey(mId,entryDate,entryTurno);
     if(inputs[k]!==undefined) return inputs[k];
-    const s=records.find(r=>Number(r.machineId)===Number(mId)&&r.date===entryDate&&r.turno===entryTurno);
+    
+    // Busca no banco comparando date normalizado
+    const s=records.find(r=>{
+      if(Number(r.machineId)!==Number(mId)) return false;
+      if(r.turno!==entryTurno) return false;
+      
+      // Normaliza data do registro e compara com data de entrada
+      const recDate = normDate(r.date);
+      return recDate === entryDate;
+    });
+    
     return s?String(s.producao):"";
   }
 
@@ -514,7 +550,11 @@ function App(){
         editTime:""
       });
     });
-    if(!toSend.length){ setSyncSt(null); return; }
+    
+    if(!toSend.length){ 
+      setSyncSt(null); 
+      return; 
+    }
     try{
       for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)});
       setInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
@@ -631,15 +671,22 @@ function App(){
   function handleLogout(){ clearSession(); setUser(null); setRecords([]); clearInterval(pollRef.current); }
 
   const dashData=useMemo(()=>{
-    const dI=parseD(dfIni),dF=parseD(dfFim);
+    const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
+    const dF=dfFim; // Já está em formato ISO: YYYY-MM-DD
+    
     return records.filter(r=>{
       if(!r.date) return false;
-      const d=parseD(r.date);
-      if(d<dI||d>dF) return false;
-      if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+      
+      // Normaliza a data do registro para formato ISO (YYYY-MM-DD)
+      const recDate = normDate(r.date);
+      if(!recDate) return false;
+      
+      // Compara strings no formato ISO
+      if(recDate < dI || recDate > dF) return false;
+      if(dfTur!=="TODOS" && r.turno!==dfTur) return false;
       if(dfMac!=="TODAS"){ 
         const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
-        if(!mac||mac.name!==dfMac) return false; 
+        if(!mac || mac.name!==dfMac) return false; 
       }
       return true;
     });
@@ -647,15 +694,22 @@ function App(){
 
   // Filtro separado para histórico com mesmas regras
   const histData=useMemo(()=>{
-    const dI=parseD(dfIni),dF=parseD(dfFim);
+    const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
+    const dF=dfFim; // Já está em formato ISO: YYYY-MM-DD
+    
     return records.filter(r=>{
       if(!r.date) return false;
-      const d=parseD(r.date);
-      if(d<dI||d>dF) return false;
-      if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+      
+      // Normaliza a data do registro para formato ISO (YYYY-MM-DD)
+      const recDate = normDate(r.date);
+      if(!recDate) return false;
+      
+      // Compara strings no formato ISO
+      if(recDate < dI || recDate > dF) return false;
+      if(dfTur!=="TODOS" && r.turno!==dfTur) return false;
       if(dfMac!=="TODAS"){ 
         const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
-        if(!mac||mac.name!==dfMac) return false; 
+        if(!mac || mac.name!==dfMac) return false; 
       }
       return true;
     });
