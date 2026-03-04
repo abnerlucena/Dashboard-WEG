@@ -36,17 +36,77 @@ const today  = ()=>fmt(new Date());
 const parseD = s=>new Date(s+"T00:00:00");
 const dispD  = s=>{ 
   if(!s) return "";
-  // Se já está em formato brasileiro DD/MM/YYYY, retorna como está
-  if(s.includes("/")) {
-    // Extrai apenas a data, sem hora
-    return s.split(" ")[0];
+  
+  // Se é um objeto Date do JavaScript
+  if(s instanceof Date || (typeof s === 'object' && s.getTime)) {
+    const d = new Date(s);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   }
-  // Se está em formato ISO YYYY-MM-DD, converte
-  if(s.includes("-")) {
+  
+  // Se é string no formato brasileiro DD/MM/YYYY
+  if(typeof s === 'string' && s.includes("/")) {
+    return s.split(" ")[0]; // Remove hora se houver
+  }
+  
+  // Se é string no formato ISO YYYY-MM-DD
+  if(typeof s === 'string' && s.includes("-")) {
     const[y,m,d]=s.split("-"); 
     return`${d}/${m}/${y}`;
   }
-  return s;
+  
+  // Tenta converter para Date como último recurso
+  try {
+    const d = new Date(s);
+    if(!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  } catch(e) {}
+  
+  return String(s);
+};
+
+const dispDH = s=>{ 
+  if(!s) return "";
+  
+  // Se é um objeto Date
+  if(s instanceof Date || (typeof s === 'object' && s.getTime)) {
+    const d = new Date(s);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hour = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hour}:${min}`;
+  }
+  
+  // Se já está em formato brasileiro
+  if(typeof s === 'string' && s.includes("/")) {
+    // Se já tem hora, retorna como está
+    if(s.includes(":")) return s;
+    // Se não tem hora, adiciona 00:00
+    return s + " 00:00";
+  }
+  
+  // Tenta converter para Date
+  try {
+    const d = new Date(s);
+    if(!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hour = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hour}:${min}`;
+    }
+  } catch(e) {}
+  
+  return String(s);
 };
 const dispDT = s=>{ 
   if(!s) return "";
@@ -863,11 +923,8 @@ function App(){
               // Pega o nome de quem salvou
               const savedByName = r.savedBy || r.usuario || r.user || "";
               
-              // Debug: mostrar formato da data
-              if(i === 0) console.log("Formato da data no banco:", r.date, "| Tipo:", typeof r.date);
-              
               return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispD(r.date)),
+                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
