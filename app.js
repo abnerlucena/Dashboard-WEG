@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbykE-WiHl6-wfIPp-dE2jQJRt74S-p5LrS-tKvqtL7ylP1M_J0QreNZlPq4ja6MlgS61w/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwK3dCEZeJN4Zpc6gFiAluUR1teMeTsrKjEcCRcg3B1yxnZIlInMIyWcRhB1I2WuQAMCA/exec";
 const INVITE_CODE = "fabrica2026";
 
 const MACHINES = [
@@ -409,6 +409,11 @@ function App(){
   }
 
   async function handleEdit(newVal){
+    if(!editRec) {
+      console.error("Nenhum registro selecionado para editar");
+      return;
+    }
+    
     setEditSaving(true);
     try{
       const mId=Number(editRec.machineId);
@@ -434,35 +439,70 @@ function App(){
         editTime: new Date().toLocaleString("pt-BR")
       };
       
-      await api("upsert",{records:[recordToSave]});
+      console.log("Editando registro:", recordToSave);
+      
+      const result = await api("upsert",{records:[recordToSave]});
+      
+      console.log("Resultado da edição:", result);
+      
+      if(!result.ok) {
+        throw new Error(result.error || "Erro ao editar");
+      }
+      
+      console.log("Registro editado com sucesso, recarregando dados...");
       await loadAll(true); 
       setEditRec(null);
+      
+      // Feedback visual
+      setSyncSt("ok");
+      setTimeout(()=>setSyncSt(null), 2000);
     }catch(e){ 
       console.error("Erro ao editar:", e);
-      alert("Erro ao editar: "+e.message); 
+      alert("Erro ao editar: "+e.message);
+      setSyncSt("error");
+      setTimeout(()=>setSyncSt(null), 3000);
     }
     finally{ setEditSaving(false); }
   }
 
   async function handleDelete(){
+    if(!deleteRec) {
+      console.error("Nenhum registro selecionado para deletar");
+      return;
+    }
+    
     setDeleting(true);
+    
+    const deleteParams = {
+      date: deleteRec.date,
+      turno: deleteRec.turno,
+      machineId: Number(deleteRec.machineId)
+    };
+    
+    console.log("Tentando deletar:", deleteParams);
+    
     try{ 
-      const result = await api("delete",{
-        date: deleteRec.date,
-        turno: deleteRec.turno,
-        machineId: Number(deleteRec.machineId)
-      }); 
+      const result = await api("delete", deleteParams); 
+      
+      console.log("Resultado da deleção:", result);
       
       if(!result.ok) {
         throw new Error(result.error || "Erro ao excluir");
       }
       
+      console.log("Registro deletado com sucesso, recarregando dados...");
       await loadAll(true); 
       setDeleteRec(null); 
+      
+      // Feedback visual
+      setSyncSt("ok");
+      setTimeout(()=>setSyncSt(null), 2000);
     }
     catch(e){ 
       console.error("Erro ao excluir:", e);
       alert("Erro ao excluir: "+e.message); 
+      setSyncSt("error");
+      setTimeout(()=>setSyncSt(null), 3000);
     }
     finally{ setDeleting(false); }
   }
@@ -476,7 +516,26 @@ function App(){
       const d=parseD(r.date);
       if(d<dI||d>dF) return false;
       if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
-      if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
+      if(dfMac!=="TODAS"){ 
+        const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
+        if(!mac||mac.name!==dfMac) return false; 
+      }
+      return true;
+    });
+  },[records,dfIni,dfFim,dfTur,dfMac]);
+
+  // Filtro separado para histórico com mesmas regras
+  const histData=useMemo(()=>{
+    const dI=parseD(dfIni),dF=parseD(dfFim);
+    return records.filter(r=>{
+      if(!r.date) return false;
+      const d=parseD(r.date);
+      if(d<dI||d>dF) return false;
+      if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+      if(dfMac!=="TODAS"){ 
+        const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
+        if(!mac||mac.name!==dfMac) return false; 
+      }
       return true;
     });
   },[records,dfIni,dfFim,dfTur,dfMac]);
@@ -737,7 +796,7 @@ function App(){
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
         el("span",null,"📋 Apontamentos Salvos"),
-        el("span",{style:{fontSize:12,color:"#93c5fd"}},`${dashData.length} registros`)
+        el("span",{style:{fontSize:12,color:"#93c5fd"}},`${histData.length} registros`)
       ),
       el("div",{style:{overflowX:"auto"}},
         el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:700}},
@@ -752,8 +811,8 @@ function App(){
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"AÇÕES")
           )),
           el("tbody",null,
-            dashData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
-            ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
+            histData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
+            ...[...histData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
               const mId=Number(r.machineId);
               const mac=MACHINES.find(m=>m.id===mId);
               
