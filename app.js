@@ -1,6 +1,7 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbxihOXLyw2GEfHALPbrO1N_rxliWy0n1tdeeVuHixsWlJB4hvcomSchYelFZAX5N0OsSw/exec";
-const INVITE_CODE = "fabrica2026";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzaZy5zCvXkUjT7MXlh00DSRbc2e3vS2AeR_A3G2AUrEEsQejVvyYVQrMtpohMYY4v0bQ/exec";
+// ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
+// Agora é validado apenas no backend
 
 const MACHINES = [
   {id:1, name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
@@ -25,7 +26,7 @@ const MACHINES = [
 ];
 const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
 const META_KEY = "prod_metas_v1";
-const SESSION_KEY = "prod_session_v2";
+const SESSION_KEY = "prod_session_v3"; // v3 = secure com tokens
 
 // ─── HELPERS ──────────────────────────────────────────────────
 const C={green:"#22c55e",yellow:"#f59e0b",red:"#ef4444",blue:"#3b82f6",gray:"#6b7280",purple:"#8b5cf6",teal:"#14b8a6",navy:"#1e3a5f"};
@@ -200,13 +201,27 @@ function loadMetas(){
 function saveMetas(m){ try{ localStorage.setItem(META_KEY,JSON.stringify(m)); }catch{} }
 
 // ─── API ──────────────────────────────────────────────────────
-async function api(action, body={}){
-  const obj     = JSON.stringify({action,...body});
+async function api(action, body={}, userSession=null){
+  // ✅ SEGURO: Adicionar token automaticamente se fornecido
+  const payload = {action, ...body};
+  if(userSession?.token) {
+    payload.token = userSession.token;
+  }
+  
+  const obj     = JSON.stringify(payload);
   const encoded = btoa(encodeURIComponent(obj).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode(parseInt(p,16))));
   const url     = `${SCRIPT_URL}?payload=${encodeURIComponent(encoded)}&t=${Date.now()}`;
   const res     = await fetch(url);
   if(!res.ok) throw new Error("HTTP "+res.status);
   const j = await res.json();
+  
+  // ✅ Tratar erro de sessão expirada
+  if(!j.ok && j.error && j.error.includes("Sessão")) {
+    // Limpar sessão local
+    clearSession();
+    throw new Error("Sua sessão expirou. Faça login novamente.");
+  }
+  
   if(!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
 }
@@ -259,10 +274,16 @@ function AuthScreen({onLogin}){
     }
     setLoading(true); setAlert({type:"",msg:""});
     try{
-      const r=await api(mode==="login"?"login":"register",{nome,senha,codigo});
+      const r=await api(mode==="login"?"login":"register",{nome,senha,inviteCode:codigo});
       setAlert({type:"success",msg:mode==="login"?"Bem-vindo!":"Conta criada com sucesso!"});
-      const userWithPw = {...r.user, _pw: senha}; // Salvar senha para admin
-      setTimeout(()=>{ saveSession(userWithPw); onLogin(userWithPw); },800);
+      // ✅ SEGURO: Salvar apenas token e dados não sensíveis
+      const session = {
+        token: r.session.token,
+        nome: r.session.nome,
+        role: r.session.role,
+        expiresAt: r.session.expiresAt
+      };
+      setTimeout(()=>{ saveSession(session); onLogin(session); },800);
     }catch(e){ setAlert({type:"error",msg:e.message}); }
     finally{ setLoading(false); }
   }
@@ -369,7 +390,7 @@ function AdminPanel({user,onClose}){
   const [resetting,setResetting]=useState(false);
 
   useEffect(()=>{
-    api("listUsers",{adminNome:user.nome,adminSenha:user._pw})
+    api("listUsers",{token:user.token})
       .then(r=>setUsers(r.users||[]))
       .catch(e=>setMsg({type:"error",text:e.message}))
       .finally(()=>setLoading(false));
@@ -377,7 +398,7 @@ function AdminPanel({user,onClose}){
 
   async function toggle(nome){
     try{
-      const r=await api("toggleUser",{adminNome:user.nome,adminSenha:user._pw,targetNome:nome});
+      const r=await api("toggleUser",{token:user.token,targetNome:nome});
       setUsers(u=>u.map(x=>x.nome===nome?{...x,status:r.newStatus}:x));
       setMsg({type:"success",text:`${nome} ${r.newStatus==="ativo"?"ativado":"bloqueado"}.`});
     }catch(e){ setMsg({type:"error",text:e.message}); }
@@ -387,7 +408,7 @@ function AdminPanel({user,onClose}){
     if(!rTarget||!newPw){ setMsg({type:"error",text:"Selecione o usuário e informe a nova senha."}); return; }
     setResetting(true);
     try{
-      await api("resetPassword",{adminNome:user.nome,adminSenha:user._pw,targetNome:rTarget,novaSenha:newPw});
+      await api("resetPassword",{token:user.token,targetNome:rTarget,novaSenha:newPw});
       setMsg({type:"success",text:`Senha de "${rTarget}" redefinida.`});
       setRTarget(""); setNewPw("");
     }catch(e){ setMsg({type:"error",text:e.message}); }
@@ -478,7 +499,7 @@ function App(){
   const loadAll=useCallback(async(silent=false)=>{
     if(!silent) setLoading(true);
     try{
-      const r=await api("getAll");
+      const r=await api("getAll",{},user);
       console.log("=== DADOS CARREGADOS ===");
       console.log("Total de registros retornados:", r.data?.length || 0);
       if(r.data && r.data.length > 0) {
@@ -491,9 +512,13 @@ function App(){
     }catch(e){
       console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
+      // Se sessão expirou, fazer logout
+      if(e.message.includes("sessão")) {
+        handleLogout();
+      }
     }
     finally{ if(!silent) setLoading(false); }
-  },[]);
+  },[user]);
 
   useEffect(()=>{
     if(user){ 
@@ -560,7 +585,7 @@ function App(){
       return; 
     }
     try{
-      for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)});
+      for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)},user);
       setInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
       await loadAll(true);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
@@ -606,7 +631,7 @@ function App(){
       
       console.log("Editando registro:", recordToSave);
       
-      const result = await api("upsert",{records:[recordToSave]});
+      const result = await api("upsert",{records:[recordToSave]},user);
       
       console.log("Resultado da edição:", result);
       
@@ -647,7 +672,7 @@ function App(){
     console.log("Tentando deletar:", deleteParams);
     
     try{ 
-      const result = await api("delete", deleteParams); 
+      const result = await api("delete", deleteParams, user); 
       
       console.log("Resultado da deleção:", result);
       
@@ -672,7 +697,20 @@ function App(){
     finally{ setDeleting(false); }
   }
 
-  function handleLogout(){ clearSession(); setUser(null); setRecords([]); clearInterval(pollRef.current); }
+  async function handleLogout(){ 
+    // ✅ Invalidar token no backend
+    try {
+      if(user?.token) {
+        await api("logout", {}, user);
+      }
+    } catch(e) {
+      console.error("Erro ao fazer logout:", e);
+    }
+    clearSession(); 
+    setUser(null); 
+    setRecords([]); 
+    clearInterval(pollRef.current); 
+  }
 
   const dashData=useMemo(()=>{
     const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
@@ -1116,4 +1154,5 @@ function App(){
     )
   );
 }
+
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
