@@ -1,4 +1,7 @@
+// ─── CONFIGURE AQUI ───────────────────────────────────────────
 const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwcezyD7ToulazvzNl2b3MCafnhKk7XMCgycdOipZq0M51-xH15JdJQ_ZLN18rDDYrXNA/exec";
+// ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
+// Agora é validado apenas no backend
 
 const MACHINES = [
   {id:1, name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
@@ -947,7 +950,7 @@ function App(){
         )
       ),
       el("div",{style:{display:"flex",gap:6}},
-        ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"]].map(([k,l])=>
+        ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"],["graficos","📈 Gráficos"]].map(([k,l])=>
           el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 12px",border:`2px solid ${dView===k?"#2563eb":"#e5e7eb"}`,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#2563eb":"#fff",color:dView===k?"#fff":"#374151"}},l)
         )
       )
@@ -1028,6 +1031,223 @@ function App(){
           );
         }))
       )
+    ),
+    dView==="graficos"&&el("div",null,
+      // ══════════════════════════════════════════════════════════════
+      // GRÁFICOS INTERATIVOS - ANÁLISE DE PRODUÇÃO
+      // ══════════════════════════════════════════════════════════════
+      
+      // ─── Preparar dados para gráficos ───
+      (() => {
+        const {BarChart, LineChart, PieChart, Pie, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer} = window.Recharts || {};
+        
+        // Se Recharts não carregou, mostrar mensagem
+        if(!BarChart) {
+          return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center"}},
+            el("div",{style:{fontSize:16,color:C.red,marginBottom:8}},"⚠️ Biblioteca de gráficos não carregada"),
+            el("div",{style:{fontSize:13,color:C.gray}},"Recarregue a página (F5) para visualizar os gráficos")
+          );
+        }
+        
+        // ─── DADOS: Produção vs Meta por Máquina ───
+        const prodVsMetaData = MACHINES
+          .filter(m => dfMac === "TODAS" || m.name === dfMac)
+          .filter(m => m.hasMeta)
+          .map(m => {
+            const agg = machAgg[m.id] || {};
+            return {
+              name: m.name.length > 20 ? m.name.substring(0, 18) + "..." : m.name,
+              fullName: m.name,
+              producao: agg.totalProd || 0,
+              meta: agg.totalMeta || 0,
+              pct: agg.pct || 0
+            };
+          })
+          .sort((a, b) => b.producao - a.producao)
+          .slice(0, 10); // Top 10 máquinas
+        
+        // ─── DADOS: Distribuição por Turno ───
+        const turnoData = TURNOS.map(turno => {
+          const total = dashData
+            .filter(r => r.turno === turno)
+            .reduce((sum, r) => sum + num(r.producao), 0);
+          return {
+            name: turno,
+            value: total,
+            pct: totProd > 0 ? Math.round((total / totProd) * 100) : 0
+          };
+        }).filter(t => t.value > 0);
+        
+        // ─── DADOS: Tendência ao Longo do Tempo ───
+        const tendenciaData = (() => {
+          const byDate = {};
+          dashData.forEach(r => {
+            if(!byDate[r.date]) byDate[r.date] = 0;
+            byDate[r.date] += num(r.producao);
+          });
+          
+          return Object.keys(byDate)
+            .sort()
+            .map(date => ({
+              date: dispD(date),
+              fullDate: date,
+              producao: byDate[date],
+              meta: Object.values(machAgg).reduce((sum, agg) => {
+                // Calcular meta diária baseada nos dias únicos
+                const metaDiaria = agg.totalMeta / (agg.diasCount || 1);
+                return sum + (agg.byDate && agg.byDate[date] ? metaDiaria : 0);
+              }, 0)
+            }));
+        })();
+        
+        // ─── DADOS: Top/Bottom Performers ───
+        const performersData = MACHINES
+          .filter(m => dfMac === "TODAS" || m.name === dfMac)
+          .filter(m => m.hasMeta)
+          .map(m => {
+            const agg = machAgg[m.id] || {};
+            return {
+              name: m.name.length > 25 ? m.name.substring(0, 23) + "..." : m.name,
+              fullName: m.name,
+              pct: agg.pct || 0,
+              producao: agg.totalProd || 0
+            };
+          })
+          .filter(m => m.producao > 0)
+          .sort((a, b) => b.pct - a.pct);
+        
+        // ─── CORES DOS GRÁFICOS ───
+        const CHART_COLORS = [C.blue, C.green, C.yellow, C.purple, C.teal, C.red, "#f97316", "#a855f7", "#14b8a6", "#06b6d4"];
+        
+        // ─── TOOLTIP CUSTOMIZADO ───
+        const CustomTooltip = ({active, payload, label}) => {
+          if(!active || !payload || !payload.length) return null;
+          return el("div",{style:{background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",boxShadow:"0 4px 12px #0002"}},
+            el("div",{style:{fontSize:12,fontWeight:700,color:C.navy,marginBottom:4}},label),
+            ...payload.map((p, i) => 
+              el("div",{key:i,style:{fontSize:12,color:p.color,display:"flex",alignItems:"center",gap:6,marginTop:2}},
+                el("div",{style:{width:8,height:8,borderRadius:"50%",background:p.color}}),
+                el("span",null,`${p.name}: ${typeof p.value === 'number' ? p.value.toLocaleString("pt-BR") : p.value}`)
+              )
+            )
+          );
+        };
+        
+        return el("div",null,
+          // ─── GRID DE GRÁFICOS ───
+          el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16,marginBottom:16}},
+            
+            // ═══ GRÁFICO 1: Produção vs Meta por Máquina ═══
+            prodVsMetaData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+              el("div",{style:{marginBottom:16}},
+                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"📊 Produção vs Meta por Máquina"),
+                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Comparativo entre produção real e meta estabelecida")
+              ),
+              el(ResponsiveContainer,{width:"100%",height:300},
+                el(BarChart,{data:prodVsMetaData,margin:{top:5,right:10,left:10,bottom:5}},
+                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
+                  el(XAxis,{dataKey:"name",tick:{fontSize:11},angle:-15,textAnchor:"end",height:60}),
+                  el(YAxis,{tick:{fontSize:11}}),
+                  el(Tooltip,{content:el(CustomTooltip)}),
+                  el(Legend,{wrapperStyle:{fontSize:12}}),
+                  el(Bar,{dataKey:"meta",fill:C.gray,name:"Meta",radius:[4,4,0,0]}),
+                  el(Bar,{dataKey:"producao",fill:C.blue,name:"Produção",radius:[4,4,0,0]})
+                )
+              )
+            ),
+            
+            // ═══ GRÁFICO 2: Distribuição por Turno ═══
+            turnoData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+              el("div",{style:{marginBottom:16}},
+                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🎯 Distribuição de Produção por Turno"),
+                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Percentual de produção em cada turno")
+              ),
+              el(ResponsiveContainer,{width:"100%",height:300},
+                el(PieChart,null,
+                  el(Pie,{
+                    data:turnoData,
+                    cx:"50%",
+                    cy:"50%",
+                    labelLine:false,
+                    label:(entry) => `${entry.name}: ${entry.pct}%`,
+                    outerRadius:100,
+                    fill:"#8884d8",
+                    dataKey:"value"
+                  },
+                    ...turnoData.map((entry, index) => 
+                      el(Cell,{key:`cell-${index}`,fill:CHART_COLORS[index % CHART_COLORS.length]})
+                    )
+                  ),
+                  el(Tooltip,{content:el(CustomTooltip)})
+                )
+              ),
+              el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12,flexWrap:"wrap"}},
+                ...turnoData.map((t, i) => 
+                  el("div",{key:t.name,style:{display:"flex",alignItems:"center",gap:6}},
+                    el("div",{style:{width:12,height:12,borderRadius:2,background:CHART_COLORS[i % CHART_COLORS.length]}}),
+                    el("span",{style:{fontSize:12,color:"#374151"}},`${t.name}: ${t.value.toLocaleString("pt-BR")} (${t.pct}%)`)
+                  )
+                )
+              )
+            )
+          ),
+          
+          // ─── SEGUNDA LINHA DE GRÁFICOS ───
+          el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16}},
+            
+            // ═══ GRÁFICO 3: Tendência ao Longo do Tempo ═══
+            tendenciaData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+              el("div",{style:{marginBottom:16}},
+                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"📈 Tendência de Produção ao Longo do Tempo"),
+                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Evolução diária da produção no período")
+              ),
+              el(ResponsiveContainer,{width:"100%",height:300},
+                el(LineChart,{data:tendenciaData,margin:{top:5,right:10,left:10,bottom:5}},
+                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
+                  el(XAxis,{dataKey:"date",tick:{fontSize:11},angle:-15,textAnchor:"end",height:60}),
+                  el(YAxis,{tick:{fontSize:11}}),
+                  el(Tooltip,{content:el(CustomTooltip)}),
+                  el(Legend,{wrapperStyle:{fontSize:12}}),
+                  el(Line,{type:"monotone",dataKey:"producao",stroke:C.blue,strokeWidth:3,dot:{r:4},name:"Produção Real"}),
+                  el(Line,{type:"monotone",dataKey:"meta",stroke:C.purple,strokeWidth:2,strokeDasharray:"5 5",dot:{r:3},name:"Meta"})
+                )
+              )
+            ),
+            
+            // ═══ GRÁFICO 4: Ranking de Performance ═══
+            performersData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+              el("div",{style:{marginBottom:16}},
+                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🏆 Ranking de Performance (% da Meta)"),
+                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Máquinas ordenadas por atingimento de meta")
+              ),
+              el(ResponsiveContainer,{width:"100%",height:300},
+                el(BarChart,{data:performersData.slice(0,8),layout:"vertical",margin:{top:5,right:30,left:100,bottom:5}},
+                  el(CartesianGrid,{strokeDasharray:"3 3",stroke:"#f0f0f0"}),
+                  el(XAxis,{type:"number",tick:{fontSize:11}}),
+                  el(YAxis,{type:"category",dataKey:"name",tick:{fontSize:11},width:90}),
+                  el(Tooltip,{content:el(CustomTooltip)}),
+                  el(Bar,{dataKey:"pct",name:"% da Meta",radius:[0,4,4,0]},
+                    ...performersData.slice(0,8).map((entry, index) => 
+                      el(Cell,{
+                        key:`cell-${index}`,
+                        fill: entry.pct >= 100 ? C.green : entry.pct >= 80 ? C.yellow : C.red
+                      })
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          
+          // ─── MENSAGEM SE NÃO HOUVER DADOS ───
+          prodVsMetaData.length === 0 && turnoData.length === 0 && 
+          el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center"}},
+            el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
+            el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
+            el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos para visualizar os gráficos")
+          )
+        );
+      })()
     )
   );
 
