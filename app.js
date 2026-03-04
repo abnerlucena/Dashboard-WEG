@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbykE-WiHl6-wfIPp-dE2jQJRt74S-p5LrS-tKvqtL7ylP1M_J0QreNZlPq4ja6MlgS61w/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzaZy5zCvXkUjT7MXlh00DSRbc2e3vS2AeR_A3G2AUrEEsQejVvyYVQrMtpohMYY4v0bQ/exec";
 const INVITE_CODE = "fabrica2026";
 
 const MACHINES = [
@@ -34,7 +34,20 @@ const {useState,useEffect,useMemo,useCallback,useRef} = React;
 const fmt    = d=>d.toISOString().slice(0,10);
 const today  = ()=>fmt(new Date());
 const parseD = s=>new Date(s+"T00:00:00");
-const dispD  = s=>{ if(!s||!s.includes("-"))return s||""; const[y,m,d]=s.split("-"); return`${d}/${m}/${y}`; };
+const dispD  = s=>{ 
+  if(!s) return "";
+  // Se já está em formato brasileiro DD/MM/YYYY, retorna como está
+  if(s.includes("/")) {
+    // Extrai apenas a data, sem hora
+    return s.split(" ")[0];
+  }
+  // Se está em formato ISO YYYY-MM-DD, converte
+  if(s.includes("-")) {
+    const[y,m,d]=s.split("-"); 
+    return`${d}/${m}/${y}`;
+  }
+  return s;
+};
 const dispDT = s=>{ 
   if(!s) return "";
   try {
@@ -405,14 +418,14 @@ function App(){
       if(val===undefined||val==="") return;
       const metaVal = m.hasMeta ? (currentMetas[m.id] || m.defaultMeta || 0) : 0;
       toSend.push({
-        date:currentDate,
+        date:currentDate,  // Mantém formato ISO: YYYY-MM-DD
         turno:currentTurno,
         machineId:m.id,
         machineName:m.name,
         meta:metaVal,
         producao:num(val),
         savedBy:user.nome,
-        savedAt:timestamp,
+        savedAt:timestamp,  // Timestamp completo em PT-BR
         editUser:"",
         editTime:""
       });
@@ -849,6 +862,9 @@ function App(){
               
               // Pega o nome de quem salvou
               const savedByName = r.savedBy || r.usuario || r.user || "";
+              
+              // Debug: mostrar formato da data
+              if(i === 0) console.log("Formato da data no banco:", r.date, "| Tipo:", typeof r.date);
               
               return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispD(r.date)),
