@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwK3dCEZeJN4Zpc6gFiAluUR1teMeTsrKjEcCRcg3B1yxnZIlInMIyWcRhB1I2WuQAMCA/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbykE-WiHl6-wfIPp-dE2jQJRt74S-p5LrS-tKvqtL7ylP1M_J0QreNZlPq4ja6MlgS61w/exec";
 const INVITE_CODE = "fabrica2026";
 
 const MACHINES = [
@@ -35,6 +35,26 @@ const fmt    = d=>d.toISOString().slice(0,10);
 const today  = ()=>fmt(new Date());
 const parseD = s=>new Date(s+"T00:00:00");
 const dispD  = s=>{ if(!s||!s.includes("-"))return s||""; const[y,m,d]=s.split("-"); return`${d}/${m}/${y}`; };
+const dispDT = s=>{ 
+  if(!s) return "";
+  try {
+    // Tenta parsear formato brasileiro "DD/MM/YYYY HH:MM:SS"
+    if(s.includes("/")) return s;
+    // Se for ISO, converte
+    const date = new Date(s);
+    if(isNaN(date.getTime())) return s;
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit", 
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return s;
+  }
+};
+const nowBR = ()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const pctCol = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
 const num    = v=>{ const x=Number(v); return isNaN(x)?0:x; };
 const IS = {border:"1px solid #d1d5db",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none"};
@@ -375,6 +395,8 @@ function App(){
     const currentInputs= {...inputs};
     const currentMetas = {...metas};
     
+    const timestamp = nowBR();
+    
     setSyncSt("syncing");
     const toSend=[];
     MACHINES.forEach(m=>{
@@ -390,7 +412,7 @@ function App(){
         meta:metaVal,
         producao:num(val),
         savedBy:user.nome,
-        savedAt:new Date().toLocaleString("pt-BR"),
+        savedAt:timestamp,
         editUser:"",
         editTime:""
       });
@@ -414,6 +436,8 @@ function App(){
       return;
     }
     
+    const timestamp = nowBR();
+    
     setEditSaving(true);
     try{
       const mId=Number(editRec.machineId);
@@ -434,9 +458,9 @@ function App(){
         meta: metaToSave,
         producao: newVal,
         savedBy: editRec.savedBy || user.nome,
-        savedAt: editRec.savedAt || new Date().toLocaleString("pt-BR"),
+        savedAt: editRec.savedAt || timestamp,
         editUser: user.nome,
-        editTime: new Date().toLocaleString("pt-BR")
+        editTime: timestamp
       };
       
       console.log("Editando registro:", recordToSave);
@@ -807,7 +831,7 @@ function App(){
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"META"),
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"PRODUÇÃO"),
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"%"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}},"SALVO POR"),
+            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}},"APONTADO POR"),
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"AÇÕES")
           )),
           el("tbody",null,
@@ -835,8 +859,7 @@ function App(){
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#d1d5db"}},"—")),
                 el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
                   el("div",{style:{fontWeight:600,color:"#374151"}},savedByName||"—"),
-                  r.savedAt&&el("div",{style:{fontSize:10,color:"#9ca3af"}},r.savedAt),
-                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow}},`✏ ${r.editUser}${r.editTime?" em "+r.editTime:""}`)
+                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ Editado por ${r.editUser}${r.editTime?" em "+r.editTime:""}`)
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:6,justifyContent:"center"}},
