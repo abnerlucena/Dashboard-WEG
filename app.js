@@ -118,7 +118,8 @@ function AuthScreen({onLogin}){
     try{
       const r=await api(mode==="login"?"login":"register",{nome,senha,codigo});
       setAlert({type:"success",msg:mode==="login"?"Bem-vindo!":"Conta criada com sucesso!"});
-      setTimeout(()=>{ saveSession(r.user); onLogin(r.user); },800);
+      const userWithPw = {...r.user, _pw: senha}; // Salvar senha para admin
+      setTimeout(()=>{ saveSession(userWithPw); onLogin(userWithPw); },800);
     }catch(e){ setAlert({type:"error",msg:e.message}); }
     finally{ setLoading(false); }
   }
@@ -337,14 +338,21 @@ function App(){
       const r=await api("getAll");
       setRecords(r.data||[]);
       setLastSync(new Date());
+      if(!silent) {
+        console.log("Dados carregados:", r.data?.length || 0, "registros");
+      }
     }catch(e){
+      console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
     }
     finally{ if(!silent) setLoading(false); }
   },[]);
 
   useEffect(()=>{
-    if(user){ loadAll(); pollRef.current=setInterval(()=>loadAll(true),15000); }
+    if(user){ 
+      loadAll(); 
+      pollRef.current=setInterval(()=>loadAll(true),10000); // 10 segundos
+    }
     return()=>clearInterval(pollRef.current);
   },[user,loadAll]);
 
@@ -365,13 +373,27 @@ function App(){
     const currentDate  = entryDate;
     const currentTurno = entryTurno;
     const currentInputs= {...inputs};
+    const currentMetas = {...metas};
+    
     setSyncSt("syncing");
     const toSend=[];
     MACHINES.forEach(m=>{
       const k=cellKey(m.id,currentDate,currentTurno);
       const val=currentInputs[k];
       if(val===undefined||val==="") return;
-      toSend.push({date:currentDate,turno:currentTurno,machineId:m.id,machineName:m.name,meta:m.hasMeta?(metas[m.id]||0):0,producao:num(val),savedBy:user.nome,savedAt:new Date().toLocaleString("pt-BR"),editUser:"",editTime:""});
+      const metaVal = m.hasMeta ? (currentMetas[m.id] || m.defaultMeta || 0) : 0;
+      toSend.push({
+        date:currentDate,
+        turno:currentTurno,
+        machineId:m.id,
+        machineName:m.name,
+        meta:metaVal,
+        producao:num(val),
+        savedBy:user.nome,
+        savedAt:new Date().toLocaleString("pt-BR"),
+        editUser:"",
+        editTime:""
+      });
     });
     if(!toSend.length){ setSyncSt(null); return; }
     try{
@@ -379,7 +401,11 @@ function App(){
       setInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
       await loadAll(true);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
-    }catch{ setSyncSt("error"); setTimeout(()=>setSyncSt(null),4000); }
+    }catch(e){ 
+      console.error("Erro ao salvar:", e);
+      setSyncSt("error"); 
+      setTimeout(()=>setSyncSt(null),4000); 
+    }
   }
 
   async function handleEdit(newVal){
@@ -387,18 +413,57 @@ function App(){
     try{
       const mId=Number(editRec.machineId);
       const mac=MACHINES.find(m=>m.id===mId);
-      const metaToSave=num(editRec.meta)>0?num(editRec.meta):(mac?.hasMeta?(metas[mId]||0):0);
-      const nameToSave=mac?.name||editRec.machineName||"";
-      await api("upsert",{records:[{date:editRec.date,turno:editRec.turno,machineId:mId,machineName:nameToSave,meta:metaToSave,producao:newVal,savedBy:editRec.savedBy||user.nome,savedAt:editRec.savedAt||new Date().toLocaleString("pt-BR"),editUser:user.nome,editTime:new Date().toLocaleString("pt-BR")}]});
-      await loadAll(true); setEditRec(null);
-    }catch(e){ alert("Erro ao editar: "+e.message); }
+      
+      // Usa a meta que já estava salva no registro, ou a atual se não houver
+      const metaToSave = num(editRec.meta) > 0 
+        ? num(editRec.meta) 
+        : (mac?.hasMeta ? (metas[mId] || mac.defaultMeta || 0) : 0);
+      
+      const nameToSave = mac?.name || editRec.machineName || "";
+      
+      const recordToSave = {
+        date: editRec.date,
+        turno: editRec.turno,
+        machineId: mId,
+        machineName: nameToSave,
+        meta: metaToSave,
+        producao: newVal,
+        savedBy: editRec.savedBy || user.nome,
+        savedAt: editRec.savedAt || new Date().toLocaleString("pt-BR"),
+        editUser: user.nome,
+        editTime: new Date().toLocaleString("pt-BR")
+      };
+      
+      await api("upsert",{records:[recordToSave]});
+      await loadAll(true); 
+      setEditRec(null);
+    }catch(e){ 
+      console.error("Erro ao editar:", e);
+      alert("Erro ao editar: "+e.message); 
+    }
     finally{ setEditSaving(false); }
   }
 
   async function handleDelete(){
     setDeleting(true);
-    try{ await api("delete",{date:deleteRec.date,turno:deleteRec.turno,machineId:Number(deleteRec.machineId)}); await loadAll(true); setDeleteRec(null); }
-    catch(e){ alert("Erro ao excluir: "+e.message); }
+    try{ 
+      const result = await api("delete",{
+        date: deleteRec.date,
+        turno: deleteRec.turno,
+        machineId: Number(deleteRec.machineId)
+      }); 
+      
+      if(!result.ok) {
+        throw new Error(result.error || "Erro ao excluir");
+      }
+      
+      await loadAll(true); 
+      setDeleteRec(null); 
+    }
+    catch(e){ 
+      console.error("Erro ao excluir:", e);
+      alert("Erro ao excluir: "+e.message); 
+    }
     finally{ setDeleting(false); }
   }
 
@@ -691,11 +756,17 @@ function App(){
             ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
               const mId=Number(r.machineId);
               const mac=MACHINES.find(m=>m.id===mId);
+              
+              // Usa a meta que foi salva no registro
               const savedMeta=num(r.meta);
-              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
+              const metaVal = savedMeta > 0 ? savedMeta : (mac?.hasMeta ? (metas[mId] || mac.defaultMeta || 0) : 0);
+              
               const prod=num(r.producao);
-              const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
-              const savedByName=r.savedBy||r.usuario||r.user||"";
+              const pct=mac?.hasMeta && metaVal > 0 ? Math.round(prod/metaVal*100) : null;
+              
+              // Pega o nome de quem salvou
+              const savedByName = r.savedBy || r.usuario || r.user || "";
+              
               return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispD(r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
@@ -710,8 +781,17 @@ function App(){
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:6,justifyContent:"center"}},
-                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
-                    el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
+                    el("button",{onClick:()=>setEditRec({
+                      ...r,
+                      machineId:mId,
+                      producao:prod,
+                      meta:metaVal,
+                      savedBy:savedByName
+                    }),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
+                    el("button",{onClick:()=>setDeleteRec({
+                      ...r,
+                      machineId:mId
+                    }),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
                   )
                 )
               );
