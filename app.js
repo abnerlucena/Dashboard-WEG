@@ -757,6 +757,7 @@ function App(){
   const [entryDate,setEntryDate] = useState(today());
   const [entryTurno,setEntryTurno]=useState("TURNO 1");
   const [inputs,setInputs]       = useState({});
+  const [obsInputs,setObsInputs] = useState({});
   const [syncSt,setSyncSt]       = useState(null);
   const [loading,setLoading]     = useState(false);
   const [lastSync,setLastSync]   = useState(null);
@@ -826,11 +827,20 @@ function App(){
 
   function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
+  function getObsVal(mId){
+    const k=cellKey(mId,entryDate,entryTurno);
+    if(obsInputs[k]!==undefined) return obsInputs[k];
+    const s=records.find(r=>Number(r.machineId)===Number(mId)&&r.turno===entryTurno&&normDate(r.date)===entryDate);
+    return s?(s.obs||""):"";
+  }
+  function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
+
   async function handleSave(){
     const currentDate  = entryDate;
     const currentTurno = entryTurno;
-    const currentInputs= {...inputs};
-    const currentMetas = {...metas};
+    const currentInputs   = {...inputs};
+    const currentObsInputs= {...obsInputs};
+    const currentMetas    = {...metas};
     
     const timestamp = nowBR();
     
@@ -849,9 +859,10 @@ function App(){
         meta:metaVal,
         producao:num(val),
         savedBy:user.nome,
-        savedAt:timestamp,  // Timestamp completo em PT-BR
+        savedAt:timestamp,
         editUser:"",
-        editTime:""
+        editTime:"",
+        obs:(()=>{ const o=currentObsInputs[k]; return(o!==undefined&&o!=="")?o:undefined; })()
       });
     });
     
@@ -862,6 +873,7 @@ function App(){
     try{
       for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)},user);
       setInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+      setObsInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
       await loadAll(true);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
     }catch(e){ 
@@ -1146,36 +1158,42 @@ function App(){
     ),
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
-      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:480}},
+      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:660}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
           el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13}},"MÁQUINA"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:100}},"META/TURNO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:140}},"PRODUÇÃO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:90}},"% META"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:80}},"STATUS")
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:90}},"META"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:130}},"PRODUÇÃO"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:80}},"% META"),
+          el("th",{style:{padding:"11px 10px",textAlign:"left",  fontSize:13}},"OBSERVAÇÃO"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
         )),
         el("tbody",null,...MACHINES.map((m,i)=>{
           const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
+          const obsVal=getObsVal(m.id);
           const isLocal=inputs[k]!==undefined;
-          const isSaved=!isLocal&&records.some(r=>Number(r.machineId)===m.id&&r.date===entryDate&&r.turno===entryTurno);
+          const isObsLocal=obsInputs[k]!==undefined;
+          const isSaved=!isLocal&&records.some(r=>Number(r.machineId)===m.id&&normDate(r.date)===entryDate&&r.turno===entryTurno);
           const metaVal=metas[m.id]||0;
           const pct=m.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
             el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
-            el("td",{style:{padding:"8px 14px",textAlign:"center",fontSize:14,color:"#374151"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#9ca3af"}},"—")),
-            el("td",{style:{padding:"6px 14px",textAlign:"center"}},
-              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:110,textAlign:"center",fontSize:15,fontWeight:700,borderColor:isLocal?C.yellow:isSaved?C.blue:"#d1d5db",borderWidth:isLocal||isSaved?2:1}})
+            el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#374151"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#9ca3af"}},"—")),
+            el("td",{style:{padding:"6px 10px",textAlign:"center"}},
+              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:isLocal?C.yellow:isSaved?C.blue:"#d1d5db",borderWidth:isLocal||isSaved?2:1}})
             ),
-            el("td",{style:{padding:"8px 14px",textAlign:"center"}},
-              pct!==null?el("span",{style:{background:col+"22",color:col,borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}},`${pct}%`):
-              val!==""?el("span",{style:{background:"#e0e7ff",color:"#4338ca",borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}},`${num(val).toLocaleString("pt-BR")} pç`):
+            el("td",{style:{padding:"8px 10px",textAlign:"center"}},
+              pct!==null?el("span",{style:{background:col+"22",color:col,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${pct}%`):
+              val!==""?el("span",{style:{background:"#e0e7ff",color:"#4338ca",borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${num(val).toLocaleString("pt-BR")} pç`):
               el("span",{style:{color:"#d1d5db"}},"—")
             ),
-            el("td",{style:{padding:"8px 14px",textAlign:"center",fontSize:12}},
-              isLocal?el("span",{style:{color:C.yellow,fontWeight:700}},"● pendente"):
-              isSaved?el("span",{style:{color:C.green,fontWeight:700}},"✔ salvo"):
+            el("td",{style:{padding:"6px 10px"}},
+              el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",minWidth:140,fontSize:12,borderColor:isObsLocal?C.blue:"#d1d5db",borderWidth:isObsLocal?2:1}})
+            ),
+            el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:12}},
+              isLocal||isObsLocal?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
+              isSaved?el("span",{style:{color:C.green,fontWeight:700}},"✔"):
               el("span",{style:{color:"#d1d5db"}},"—")
             )
           );
@@ -1210,7 +1228,8 @@ function App(){
     ),
     kpis,
     dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
-      el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+      el("div",{style:{overflowX:"auto"}},
+      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:520}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
           el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13}},"MÁQUINA"),
           el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"DIAS"),
@@ -1231,6 +1250,7 @@ function App(){
           );
         }))
       )
+      ) // fecha overflowX
     ),
     dView==="detalhado"&&el("div",null,
       ...Object.values(machAgg).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>
@@ -1262,7 +1282,8 @@ function App(){
     ),
     dView==="comparativo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"11px 16px",fontWeight:700}},"Comparativo por Turno"),
-      el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+      el("div",{style:{overflowX:"auto"}},
+      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:440}},
         el("thead",null,el("tr",{style:{background:"#e0e7ff"}},
           el("th",{style:{padding:"10px 14px",textAlign:"left",  fontSize:13,color:"#3730a3"}},"MÁQUINA"),
           ...TURNOS.map(t=>el("th",{key:t,style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#3730a3"}},t)),
@@ -1284,6 +1305,7 @@ function App(){
           );
         }))
       )
+      ) // fecha overflowX comparativo
     ),
     dView==="graficos"&&(
       chartProdVsMeta.length===0&&chartTurnoData.length===0
@@ -1426,25 +1448,25 @@ function App(){
             const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[r.machineId]||0):0);
             const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
             const savedByName=r.savedBy||r.usuario||"";
-            return el("div",{key:i,style:{background:"#fff",borderRadius:12,padding:18,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
-              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+            const obsBy   = r.editUser || r.savedBy || "—";
+            const obsDate = r.editTime ? dispDH(r.editTime) : dispDH(r.savedAt);
+            return el("div",{key:i,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
+              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
                   el("div",{style:{fontWeight:700,fontSize:14,color:C.navy}},r.machineName||(mac?.name||"—")),
-                  el("div",{style:{fontSize:12,color:C.gray,marginTop:3}},`${dispD(r.date)} · ${r.turno}`)
+                  el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},`📅 Apontamento: ${dispD(r.date)} · ${r.turno}`)
                 ),
-                pct!==null&&el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}},`${pct}% meta`)
+                pct!==null&&el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}},`${pct}%`)
               ),
-              el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1e40af",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},
-                r.obs
-              ),
-              el("div",{style:{borderTop:"1px solid #f1f5f9",paddingTop:8,display:"flex",flexDirection:"column",gap:4}},
-                el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-                  el("span",{style:{fontSize:11,color:"#6b7280"}},`📋 ${dispD(r.date)} · ${r.turno}`),
-                  el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),title:"Editar observação",style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar")
-                ),
-                el("div",{style:{fontSize:11,color:"#9ca3af",display:"flex",gap:10,flexWrap:"wrap"}},
-                  el("span",null,`👤 ${savedByName||"—"}`),
-                  r.editTime&&el("span",null,`💬 Feedback: ${dispDH(r.editTime)}`)
+              el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1e40af",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},r.obs),
+              el("div",{style:{borderTop:"1px solid #f1f5f9",paddingTop:8,display:"flex",flexDirection:"column",gap:6}},
+                el("div",{style:{fontSize:11,color:"#6b7280"}},
+                  el("span",null,`💾 Registrado por ${r.savedBy||"—"} em ${dispDH(r.savedAt)}`)),
+                el("div",{style:{fontSize:11,color:"#0369a1"}},
+                  el("span",null,`💬 Obs por ${obsBy} em ${obsDate}`)),
+                el("div",{style:{display:"flex",gap:6,justifyContent:"flex-end"}},
+                  el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
+                  el("button",{onClick:()=>setDeleteRec({...r,machineId:Number(r.machineId)}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
                 )
               )
             );

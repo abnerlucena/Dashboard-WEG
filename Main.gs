@@ -1073,12 +1073,20 @@ function actionUpsert(token, records) {
       // Procurar registro existente
       let foundRow = -1;
       for (let i = 1; i < allData.length; i++) {
-        const rowDate = String(allData[i][colIdx["date"]] || "").trim();
-        const rowTurno = String(allData[i][colIdx["turno"]] || "").trim();
+        var rawDate = allData[i][colIdx["date"]];
+        var rowDate;
+        if (rawDate instanceof Date) {
+          rowDate = rawDate.getFullYear() + "-" +
+            String(rawDate.getMonth()+1).padStart(2,"0") + "-" +
+            String(rawDate.getDate()).padStart(2,"0");
+        } else {
+          rowDate = String(rawDate || "").trim();
+        }
+        const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
         const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
-        
-        if (rowDate === String(sanitizedData.date) && 
-            rowTurno === String(sanitizedData.turno) && 
+
+        if (rowDate === String(sanitizedData.date) &&
+            rowTurno === String(sanitizedData.turno) &&
             rowMachId === String(sanitizedData.machineId)) {
           foundRow = i + 1;
           break;
@@ -1143,12 +1151,20 @@ function actionDelete(token, date, turno, machineId) {
     
     let deleted = false;
     for (let i = allData.length - 1; i >= 1; i--) {
-      const rowDate = String(allData[i][colIdx["date"]] || "").trim();
-      const rowTurno = String(allData[i][colIdx["turno"]] || "").trim();
+      var rawDate2 = allData[i][colIdx["date"]];
+      var rowDate;
+      if (rawDate2 instanceof Date) {
+        rowDate = rawDate2.getFullYear() + "-" +
+          String(rawDate2.getMonth()+1).padStart(2,"0") + "-" +
+          String(rawDate2.getDate()).padStart(2,"0");
+      } else {
+        rowDate = String(rawDate2 || "").trim();
+      }
+      const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
       const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
-      
-      if (rowDate === String(date) && 
-          rowTurno === String(turno) && 
+
+      if (rowDate === String(date) &&
+          rowTurno === String(turno) &&
           rowMachId === String(machineId)) {
         sheet.deleteRow(i + 1);
         deleted = true;
