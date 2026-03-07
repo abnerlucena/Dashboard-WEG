@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyqfBKHn5HIKXsDOHz3pFm12pBvekeG-e2_d3PT3OzreAWD4HPgVLddt4x66_i4nB-LDA/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbxgTE8hzPPmRYuuXEFvhB0UUtFu4Ve2FJXJEyUBRQX7YkZiVN5AxRem11wcIOQ7u-1ABg/exec";
 // ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
 // Agora é validado apenas no backend
 
@@ -147,25 +147,6 @@ const dispDH = s=>{
   } catch(e) {}
   
   return String(s);
-};
-const dispDT = s=>{ 
-  if(!s) return "";
-  try {
-    // Tenta parsear formato brasileiro "DD/MM/YYYY HH:MM:SS"
-    if(s.includes("/")) return s;
-    // Se for ISO, converte
-    const date = new Date(s);
-    if(isNaN(date.getTime())) return s;
-    return date.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit", 
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  } catch {
-    return s;
-  }
 };
 const nowBR = ()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const normDate = d=>{ 
@@ -788,8 +769,7 @@ function App(){
     }catch(e){
       console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
-      // Se sessão expirou, fazer logout
-      if(e.message.includes("sessão")) {
+      if(e.message.toLowerCase().includes("sessão")||e.message.toLowerCase().includes("sessao")||e.message.includes("expirou")){
         handleLogout();
       }
     }
@@ -799,7 +779,7 @@ function App(){
   useEffect(()=>{
     if(user){ 
       loadAll(); 
-      pollRef.current=setInterval(()=>loadAll(true),10000); // 10 segundos
+      pollRef.current=setInterval(()=>loadAll(true),30000); // 30 segundos
     }
     return()=>clearInterval(pollRef.current);
   },[user,loadAll]);
@@ -868,20 +848,24 @@ function App(){
       });
     });
     
-    if(!toSend.length){ 
-      setSyncSt(null); 
-      return; 
+    if(!toSend.length){
+      setSyncSt(null);
+      return;
     }
     try{
-      for(let i=0;i<toSend.length;i+=4) await api("upsert",{records:toSend.slice(i,i+4)},user);
-      setInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-      setObsInputs(prev=>{ const next={...prev}; toSend.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+      const saved=[];
+      for(let i=0;i<toSend.length;i+=4){
+        await api("upsert",{records:toSend.slice(i,i+4)},user);
+        saved.push(...toSend.slice(i,i+4)); // só marca como salvo após sucesso do lote
+      }
+      setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+      setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
       await loadAll(true);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
-    }catch(e){ 
+    }catch(e){
       console.error("Erro ao salvar:", e);
-      setSyncSt("error"); 
-      setTimeout(()=>setSyncSt(null),4000); 
+      setSyncSt("error");
+      setTimeout(()=>setSyncSt(null),4000);
     }
   }
 
@@ -926,9 +910,8 @@ function App(){
       // Feedback visual
       setSyncSt("ok");
       setTimeout(()=>setSyncSt(null), 2000);
-    }catch(e){ 
+    }catch(e){
       console.error("Erro ao editar:", e);
-      alert("Erro ao editar: "+e.message);
       setSyncSt("error");
       setTimeout(()=>setSyncSt(null), 3000);
     }
@@ -960,9 +943,8 @@ function App(){
       setSyncSt("ok");
       setTimeout(()=>setSyncSt(null), 2000);
     }
-    catch(e){ 
+    catch(e){
       console.error("Erro ao excluir:", e);
-      alert("Erro ao excluir: "+e.message); 
       setSyncSt("error");
       setTimeout(()=>setSyncSt(null), 3000);
     }
@@ -987,7 +969,7 @@ function App(){
       await loadAll(true);
       setObsRec(null);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
-    }catch(e){ alert("Erro ao salvar observação: "+e.message); }
+    }catch(e){ console.error("Erro ao salvar obs:", e); setSyncSt("error"); setTimeout(()=>setSyncSt(null),3000); }
     finally{ setObsSaving(false); }
   }
 
@@ -1343,8 +1325,8 @@ function App(){
               const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
               const prod=num(r.producao);
               const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
-              const savedByName=r.savedBy||r.usuario||r.user||"";
-              return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
+              const savedByName=r.savedBy||"";
+              return el("tr",{key:r.id||r.date+"_"+r.turno+"_"+mId,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt||r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
@@ -1432,16 +1414,16 @@ function App(){
           el("div",{style:{fontSize:13,color:C.gray}},"Adicione observações nos apontamentos pelo ",el("b",null,"Histórico")," (botão 💬 em cada linha)")
         )
       : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}},
-          ...feedbacksData.map((r,i)=>{
+          ...feedbacksData.map(r=>{
             const mac=MACHINES.find(m=>m.id===Number(r.machineId));
             const prod=num(r.producao);
             const savedMeta=num(r.meta);
             const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[r.machineId]||0):0);
             const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
-            const savedByName=r.savedBy||r.usuario||"";
+            const savedByName=r.savedBy||"";
             const regBy   = r.editUser || r.savedBy || "—";
             const regDate = r.editTime ? dispDH(r.editTime) : dispDH(r.savedAt);
-            return el("div",{key:i,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
+            return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
               el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
                   el("div",{style:{fontWeight:700,fontSize:14,color:C.navy}},r.machineName||(mac?.name||"—")),

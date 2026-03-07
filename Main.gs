@@ -98,52 +98,7 @@ function verSenhaAdmin() {
   }
 }
 
-/**
- * 🔐 DEFINIR SENHA PERSONALIZADA DO ADMIN
- * Use quando: Quiser definir uma senha específica que você já conhece
- */
-function definirSenhaAdmin() {
-  // ✏️ EDITE A SENHA AQUI:
-  const SENHA_DESEJADA = "Admin@2026"; // ← TROQUE PARA A SENHA QUE VOCÊ QUER
-  
-  Logger.log("===========================================");
-  Logger.log("🔐 DEFININDO SENHA PERSONALIZADA DO ADMIN");
-  Logger.log("===========================================");
-  
-  try {
-    // Validar senha
-    if(!SENHA_DESEJADA || SENHA_DESEJADA.length < 8) {
-      Logger.log("❌ Erro: Senha deve ter pelo menos 8 caracteres");
-      Logger.log("⚠️  Edite a variável SENHA_DESEJADA na função");
-      return;
-    }
-    
-    const sheet = getUserSheet();
-    const senhaHash = hashPassword(SENHA_DESEJADA);
-    
-    // Atualizar senha do Admin (linha 2, coluna 2)
-    sheet.getRange(2, 2).setValue(senhaHash);
-    
-    Logger.log("✅ Senha definida com sucesso!");
-    Logger.log("");
-    Logger.log("╔═══════════════════════════════════════╗");
-    Logger.log("║   CREDENCIAIS DE LOGIN                ║");
-    Logger.log("╠═══════════════════════════════════════╣");
-    Logger.log("║   Usuário: Admin                      ║");
-    Logger.log("║   Senha:   " + SENHA_DESEJADA + "                ║");
-    Logger.log("╚═══════════════════════════════════════╝");
-    Logger.log("");
-    Logger.log("⚠️  LEMBRE-SE:");
-    Logger.log("   - Faça login no sistema");
-    Logger.log("   - Troque a senha via interface Admin");
-    Logger.log("   - Delete esta função após uso");
-    Logger.log("");
-    Logger.log("===========================================");
-    
-  } catch(error) {
-    Logger.log("❌ ERRO: " + error.message);
-  }
-}
+// REMOVIDO: definirSenhaAdmin() duplicada (existia outra definição abaixo — erro de sintaxe no GAS)
 
 /**
  * 📋 LISTAR TODOS OS USUÁRIOS
@@ -269,16 +224,17 @@ function getProdSheet() {
       .setFontColor("#ffffff")
       .setFontWeight("bold");
   } else {
-    // Migração: adiciona colunas novas se a planilha já existia sem elas
+    // Migração: adiciona colunas NOVAS ao final — nunca sobrescreve posições existentes
     const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
       .map(h => String(h).trim());
-    PROD_HEADERS.forEach((header, i) => {
+    PROD_HEADERS.forEach(header => {
       if (!existingHeaders.includes(header)) {
-        const col = i + 1;
-        sheet.getRange(1, col).setValue(header)
+        const appendCol = sheet.getLastColumn() + 1;
+        sheet.getRange(1, appendCol).setValue(header)
           .setBackground("#1e3a5f")
           .setFontColor("#ffffff")
           .setFontWeight("bold");
+        existingHeaders.push(header);
       }
     });
   }
@@ -434,8 +390,8 @@ function cleanExpiredSessions() {
 // ══════════════════════════════════════════════════════════════
 
 function definirSenhaAdmin() {
-  // ⚠️ TROQUE AQUI pela senha que você quer usar
-  const SENHA_INICIAL = "Admin@2026";
+  // ⚠️ TROQUE AQUI pela senha que você quer usar (não deixe senha real no código-fonte)
+  const SENHA_INICIAL = "TROCAR_ANTES_DE_USAR";
   
   Logger.log("════════════════════════════════════════");
   Logger.log("🔐 DEFININDO SENHA DO ADMINISTRADOR");
@@ -709,18 +665,18 @@ function actionLogin(nome, senha) {
       }
     }
 
-    // Verificar senha
+    // Verificar senha — abre a sheet uma única vez para todo o fluxo de login
+    const userSheet = getUserSheet();
     const passwordHash = hashPassword(senha);
     if (u.senhaHash !== passwordHash) {
       // Incrementar tentativas
       const newAttempts = (u.loginAttempts || 0) + 1;
-      const sheet = getUserSheet();
-      sheet.getRange(u._row, 6).setValue(newAttempts);
+      userSheet.getRange(u._row, 6).setValue(newAttempts);
       
       // Bloquear se exceder limite
       if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
         const lockUntil = new Date(Date.now() + LOCKOUT_DURATION).toISOString();
-        sheet.getRange(u._row, 7).setValue(lockUntil);
+        userSheet.getRange(u._row, 7).setValue(lockUntil);
         auditLog(nome, "ACCOUNT_LOCKED", {attempts: newAttempts});
         return { 
           ok: false, 
@@ -742,9 +698,8 @@ function actionLogin(nome, senha) {
     }
 
     // Login bem-sucedido - resetar tentativas
-    const sheet = getUserSheet();
-    sheet.getRange(u._row, 6).setValue(0);
-    sheet.getRange(u._row, 7).setValue("");
+    userSheet.getRange(u._row, 6).setValue(0);
+    userSheet.getRange(u._row, 7).setValue("");
 
     // Criar sessão
     const session = createSession(u.nome, u.role);
@@ -1058,8 +1013,13 @@ function actionUpsert(token, records) {
       }
       
       // Sanitizar e validar
+      // Valida formato ISO de data (YYYY-MM-DD) para evitar formula injection
+      const dateStr = String(rec.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        throw new Error(`Formato de data inválido: ${dateStr}`);
+      }
       const sanitizedData = {
-        date: rec.date, // Já vem em formato ISO
+        date: dateStr,
         turno: rec.turno,
         machineId: sanitizeNumber(rec.machineId, 1, 100),
         machineName: sanitizeString(rec.machineName, 100),
