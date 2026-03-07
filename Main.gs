@@ -771,51 +771,40 @@ function actionLogout(token) {
   return { ok: true };
 }
 
+const ACCESS_CODE = "Tomadas11145";
+
 function actionRegister(nome, senha, inviteCode) {
   try {
     if (!nome || !senha || !inviteCode) {
       return { ok: false, error: "Preencha todos os campos" };
     }
-    
+
     if (nome.length < 3) {
       return { ok: false, error: "Nome deve ter pelo menos 3 caracteres" };
     }
-    
-    if (senha.length < 8) {
-      return { ok: false, error: "Senha deve ter pelo menos 8 caracteres" };
+
+    if (senha.length < 4) {
+      return { ok: false, error: "Senha deve ter pelo menos 4 caracteres" };
     }
-    
-    // Validar código de convite
-    const inviteSheet = getInviteCodesSheet();
-    const invites = inviteSheet.getDataRange().getValues();
-    let inviteValid = false;
-    let inviteRow = -1;
-    
-    for(let i = 1; i < invites.length; i++) {
-      if(invites[i][0] === inviteCode && invites[i][5] === "ativo") {
-        inviteValid = true;
-        inviteRow = i + 1;
-        break;
-      }
+
+    // Validar código de acesso fixo
+    if (inviteCode !== ACCESS_CODE) {
+      auditLog(nome, "REGISTER_FAILED", {reason: "invalid_access_code"});
+      return { ok: false, error: "Código de acesso inválido" };
     }
-    
-    if(!inviteValid) {
-      auditLog(nome, "REGISTER_FAILED", {reason: "invalid_invite_code"});
-      return { ok: false, error: "Código de convite inválido ou já utilizado" };
-    }
-    
+
     // Verificar se nome já existe
     const users = getAllUsers();
     if (users.find(u => u.nome.toLowerCase() === nome.toLowerCase())) {
       auditLog(nome, "REGISTER_FAILED", {reason: "name_exists"});
       return { ok: false, error: "Este nome já está em uso" };
     }
-    
+
     // Criar usuário
     const userSheet = getUserSheet();
     const sanitizedNome = sanitizeString(nome, 50);
     const passwordHash = hashPassword(senha);
-    
+
     userSheet.appendRow([
       sanitizedNome,
       passwordHash,
@@ -825,13 +814,8 @@ function actionRegister(nome, senha, inviteCode) {
       0,
       ""
     ]);
-    
-    // Marcar código como usado
-    inviteSheet.getRange(inviteRow, 4).setValue(sanitizedNome); // usedBy
-    inviteSheet.getRange(inviteRow, 5).setValue(new Date().toISOString()); // usedAt
-    inviteSheet.getRange(inviteRow, 6).setValue("usado"); // status
-    
-    auditLog(sanitizedNome, "REGISTER_SUCCESS", {inviteCode});
+
+    auditLog(sanitizedNome, "REGISTER_SUCCESS", {});
     
     // Criar sessão automaticamente
     const session = createSession(sanitizedNome, "operator");

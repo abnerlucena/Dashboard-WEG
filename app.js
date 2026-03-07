@@ -319,8 +319,8 @@ function AuthScreen({onLogin}){
         ),
         !isLogin&&el("div",{style:{marginBottom:14}},
           el("div",{style:{fontSize:12,fontWeight:700,color:"#374151",marginBottom:5}},"CÓDIGO DE ACESSO"),
-          el("input",{value:codigo,onChange:e=>setCodigo(e.target.value),placeholder:"Código fornecido pelo administrador",style:{...IS,width:"100%"}}),
-          el("div",{style:{fontSize:11,color:C.gray,marginTop:3}},"Solicite ao administrador caso não tenha.")
+          el("input",{value:codigo,onChange:e=>setCodigo(e.target.value),placeholder:"Digite o código de acesso",style:{...IS,width:"100%"}}),
+          el("div",{style:{fontSize:11,color:C.gray,marginTop:3}},"Solicite o código de acesso ao administrador.")
         ),
         el(Alert,{type:alert.type,msg:alert.msg}),
         el("button",{type:"submit",disabled:loading,style:{...BTN("#2563eb"),width:"100%",marginTop:18,padding:"11px",fontSize:15,opacity:loading?.7:1}},
