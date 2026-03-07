@@ -771,9 +771,8 @@ function actionLogout(token) {
   return { ok: true };
 }
 
-const ACCESS_CODE = "Tomadas11145";
-
 function actionRegister(nome, senha, inviteCode) {
+  var ACCESS_CODE = "Tomadas11145";
   try {
     if (!nome || !senha || !inviteCode) {
       return { ok: false, error: "Preencha todos os campos" };
@@ -788,8 +787,8 @@ function actionRegister(nome, senha, inviteCode) {
     }
 
     // Validar código de acesso fixo
-    if (inviteCode !== ACCESS_CODE) {
-      auditLog(nome, "REGISTER_FAILED", {reason: "invalid_access_code"});
+    if (String(inviteCode).trim() !== ACCESS_CODE) {
+      auditLog(nome, "REGISTER_FAILED", {reason: "invalid_access_code", received: String(inviteCode).trim()});
       return { ok: false, error: "Código de acesso inválido" };
     }
 
