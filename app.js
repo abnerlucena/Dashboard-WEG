@@ -211,9 +211,21 @@ async function api(action, body={}, userSession=null){
   const obj     = JSON.stringify(payload);
   const encoded = btoa(encodeURIComponent(obj).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode(parseInt(p,16))));
   const url     = `${SCRIPT_URL}?payload=${encodeURIComponent(encoded)}&t=${Date.now()}`;
-  const res     = await fetch(url);
-  if(!res.ok) throw new Error("HTTP "+res.status);
-  const j = await res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(url, {signal: controller.signal});
+  } catch(e) {
+    if(e.name === "AbortError") throw new Error("Tempo de resposta excedido. Tente novamente.");
+    throw new Error("Não foi possível conectar ao servidor. Verifique sua internet.");
+  } finally {
+    clearTimeout(timer);
+  }
+  if(!res.ok) throw new Error("Erro no servidor (HTTP "+res.status+")");
+  let j;
+  try { j = await res.json(); }
+  catch(e) { throw new Error("Resposta inválida do servidor. Tente novamente."); }
   
   // ✅ Tratar erro de sessão expirada
   if(!j.ok && j.error && j.error.includes("Sessão")) {
