@@ -238,6 +238,17 @@ async function api(action, body={}, userSession=null){
   return j;
 }
 
+// ─── RESPONSIVE ───────────────────────────────────────────────
+function useIsMobile(){
+  const [mob,setMob]=useState(window.innerWidth<640);
+  useEffect(()=>{
+    const fn=()=>setMob(window.innerWidth<640);
+    window.addEventListener('resize',fn);
+    return ()=>window.removeEventListener('resize',fn);
+  },[]);
+  return mob;
+}
+
 // ─── COMPONENTES BASE ─────────────────────────────────────────
 function el(tag,props,...children){ return h(tag,props,...children); }
 
@@ -763,6 +774,7 @@ function App(){
   const [dView,setDView]         = useState("resumo");
   const [metaEdit,setMetaEdit]   = useState(false);
   const pollRef=useRef(null);
+  const isMobile=useIsMobile();
 
   function updateMeta(id,val){ const m={...metas,[id]:num(val)}; setMetasState(m); saveMetas(m); }
 
@@ -954,7 +966,7 @@ function App(){
         machineName:mac?.name||obsRec.machineName||"",
         meta:metaToSave, producao:num(obsRec.producao),
         savedBy:obsRec.savedBy||user.nome, savedAt:obsRec.savedAt||nowBR(),
-        editUser:obsRec.editUser||"", editTime:obsRec.editTime||"",
+        editUser:user.nome, editTime:nowBR(),
         obs:text
       }]},user);
       await loadAll(true);
@@ -1060,25 +1072,26 @@ function App(){
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
   // ── header ──
-  const header = el("div",{style:{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",padding:"13px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}},
+  const header = el("div",{style:{background:"linear-gradient(135deg,#1e3a5f,#2563eb)",padding:isMobile?"8px 12px":"13px 22px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6}},
     el("div",null,
-      el("div",{style:{color:"#fff",fontSize:20,fontWeight:700}},"🏭 Dashboard de Produção"),
-      el("div",{style:{color:"#93c5fd",fontSize:12}},`👤 ${user.nome} · `,(lastSync?`Sync: ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando..."),loading?" ⏳":"")
+      el("div",{style:{color:"#fff",fontSize:isMobile?15:20,fontWeight:700}},"🏭 "+(isMobile?"Dashboard":"Dashboard de Produção")),
+      el("div",{style:{color:"#93c5fd",fontSize:11}},`👤 ${user.nome}`+(isMobile?"":" · "+(lastSync?`Sync: ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
     ),
-    el("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
-      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:13}},"⏳ Salvando..."),
-      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:13}},"✔ Salvo!"),
-      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:13}},"✘ Erro!"),
-      el("button",{onClick:()=>loadAll(),style:{background:"#ffffff22",border:"1px solid #ffffff44",color:"#fff",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontSize:12}},"🔄"),
-      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#f59e0b22",border:"1px solid #f59e0b66",color:"#fde68a",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}},"⚙ Admin"),
-      el("button",{onClick:handleLogout,style:{background:"#ffffff11",border:"1px solid #ffffff33",color:"#fca5a5",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontSize:12}},"Sair")
+    el("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:12}},"⏳"),
+      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:12}},"✔"),
+      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:12}},"✘"),
+      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background:"#ffffff22",border:"1px solid #ffffff44",color:"#fff",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:12}},"🔄"),
+      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#f59e0b22",border:"1px solid #f59e0b66",color:"#fde68a",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
+      el("button",{onClick:handleLogout,style:{background:"#ffffff11",border:"1px solid #ffffff33",color:"#fca5a5",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
     )
   );
 
   // ── tabs ──
-  const tabs = el("div",{style:{background:C.navy,display:"flex",paddingLeft:18,overflowX:"auto"}},
-    ...[["entrada","📝 Apontamento"],["dashboard","📊 Dashboard"],["historico","📋 Histórico"],["metas","🎯 Metas"],["feedbacks","💬 Feedbacks"]].map(([k,l])=>
-      el("button",{key:k,onClick:()=>setTab(k),style:{padding:"10px 18px",border:"none",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:tab===k?"#f1f5f9":"transparent",color:tab===k?C.navy:"#93c5fd",borderRadius:tab===k?"8px 8px 0 0":0,fontSize:14}},l)
+  const tabLabels=[["entrada",isMobile?"📝":"📝 Apontamento"],["dashboard",isMobile?"📊":"📊 Dashboard"],["historico",isMobile?"📋":"📋 Histórico"],["metas",isMobile?"🎯":"🎯 Metas"],["feedbacks",isMobile?"💬":"💬 Feedbacks"]];
+  const tabs = el("div",{style:{background:C.navy,display:"flex",paddingLeft:isMobile?4:18,overflowX:"auto"}},
+    ...tabLabels.map(([k,l])=>
+      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 12px":"10px 18px",border:"none",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:tab===k?"#f1f5f9":"transparent",color:tab===k?C.navy:"#93c5fd",borderRadius:tab===k?"8px 8px 0 0":0,fontSize:isMobile?13:14}},l)
     )
   );
 
@@ -1132,13 +1145,14 @@ function App(){
       )
     ),
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
-      el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+      el("div",{style:{overflowX:"auto"}},
+      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:480}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
           el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13}},"MÁQUINA"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:120}},"META/TURNO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:160}},"PRODUÇÃO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:100}},"% META"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:90}},"STATUS")
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:100}},"META/TURNO"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:140}},"PRODUÇÃO"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:90}},"% META"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,width:80}},"STATUS")
         )),
         el("tbody",null,...MACHINES.map((m,i)=>{
           const k=cellKey(m.id,entryDate,entryTurno);
@@ -1167,6 +1181,7 @@ function App(){
           );
         }))
       )
+      ) // fecha overflowX wrapper
     )
   );
 
@@ -1277,7 +1292,7 @@ function App(){
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
             el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
           )
-        : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
+        : el("div",{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
             el(EChartsComponent,{title:"📊 Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350}),
             el(EChartsComponent,{title:"🎯 Distribuição de Produção por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350}),
             el(EChartsComponent,{title:"📈 Tendência de Produção ao Longo do Tempo",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350}),
@@ -1422,10 +1437,15 @@ function App(){
               el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1e40af",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},
                 r.obs
               ),
-              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,color:"#9ca3af",borderTop:"1px solid #f1f5f9",paddingTop:8}},
-                el("span",null,`Por ${savedByName||"—"}`),
-                el("span",null,dispDH(r.savedAt||r.date)),
-                el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),title:"Editar observação",style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar")
+              el("div",{style:{borderTop:"1px solid #f1f5f9",paddingTop:8,display:"flex",flexDirection:"column",gap:4}},
+                el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                  el("span",{style:{fontSize:11,color:"#6b7280"}},`📋 ${dispD(r.date)} · ${r.turno}`),
+                  el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),title:"Editar observação",style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar")
+                ),
+                el("div",{style:{fontSize:11,color:"#9ca3af",display:"flex",gap:10,flexWrap:"wrap"}},
+                  el("span",null,`👤 ${savedByName||"—"}`),
+                  r.editTime&&el("span",null,`💬 Feedback: ${dispDH(r.editTime)}`)
+                )
               )
             );
           })
@@ -1438,7 +1458,7 @@ function App(){
     obsRec&&el(ObsModal,{rec:obsRec,onSave:handleSaveObs,onClose:()=>setObsRec(null),saving:obsSaving}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
-    el("div",{style:{padding:20}},
+    el("div",{style:{padding:isMobile?10:20}},
       tab==="entrada"&&tabEntrada,
       tab==="dashboard"&&tabDashboard,
       tab==="historico"&&tabHistorico,
