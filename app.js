@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwcezyD7ToulazvzNl2b3MCafnhKk7XMCgycdOipZq0M51-xH15JdJQ_ZLN18rDDYrXNA/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbxp3TZv5nVONkTdV3gat1MD74AUUwgy27KlSJILSUWXIVmgsFu4P-jrL4AzmIWzIf52Fw/exec";
 // ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
 // Agora é validado apenas no backend
 
@@ -406,18 +406,20 @@ function ObsModal({rec, onSave, onClose, saving}) {
 
 // ─── PAINEL ADMIN ─────────────────────────────────────────────
 function AdminPanel({user,onClose}){
-  const [users,setUsers]    =useState([]);
-  const [loading,setLoading]=useState(true);
-  const [msg,setMsg]        =useState({type:"",text:""});
-  const [rTarget,setRTarget]=useState("");
-  const [newPw,setNewPw]    =useState("");
+  const [users,setUsers]       =useState([]);
+  const [loading,setLoading]   =useState(true);
+  const [msg,setMsg]           =useState({type:"",text:""});
+  const [rTarget,setRTarget]   =useState("");
+  const [newPw,setNewPw]       =useState("");
   const [resetting,setResetting]=useState(false);
+  const [cNome,setCNome]       =useState("");
+  const [cSenha,setCSenha]     =useState("");
+  const [creating,setCreating] =useState(false);
+
+  function reloadUsers(){ return api("listUsers",{token:user.token}).then(r=>setUsers(r.users||[])); }
 
   useEffect(()=>{
-    api("listUsers",{token:user.token})
-      .then(r=>setUsers(r.users||[]))
-      .catch(e=>setMsg({type:"error",text:e.message}))
-      .finally(()=>setLoading(false));
+    reloadUsers().catch(e=>setMsg({type:"error",text:e.message})).finally(()=>setLoading(false));
   },[]);
 
   async function toggle(nome){
@@ -437,6 +439,20 @@ function AdminPanel({user,onClose}){
       setRTarget(""); setNewPw("");
     }catch(e){ setMsg({type:"error",text:e.message}); }
     finally{ setResetting(false); }
+  }
+
+  async function createUser(){
+    if(!cNome||!cSenha){ setMsg({type:"error",text:"Preencha nome e senha."}); return; }
+    if(cNome.length<3){ setMsg({type:"error",text:"Nome deve ter pelo menos 3 caracteres."}); return; }
+    if(cSenha.length<4){ setMsg({type:"error",text:"Senha deve ter pelo menos 4 caracteres."}); return; }
+    setCreating(true);
+    try{
+      await api("adminCreateUser",{token:user.token,nome:cNome,senha:cSenha});
+      setMsg({type:"success",text:`Usuário "${cNome}" criado com sucesso!`});
+      setCNome(""); setCSenha("");
+      await reloadUsers();
+    }catch(e){ setMsg({type:"error",text:e.message}); }
+    finally{ setCreating(false); }
   }
 
   return el("div",{style:{position:"fixed",inset:0,background:"#0008",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
@@ -472,6 +488,20 @@ function AdminPanel({user,onClose}){
           ))
         ),
         el("div",{style:{marginTop:22,padding:16,background:"#fafafa",borderRadius:10,border:"1px solid #e5e7eb"}},
+          el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"➕ Criar Novo Usuário"),
+          el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}},
+            el("div",null,
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}},"NOME"),
+              el("input",{value:cNome,onChange:e=>setCNome(e.target.value),placeholder:"Nome do usuário",style:{...IS,width:"100%"}})
+            ),
+            el("div",null,
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#374151",marginBottom:4}},"SENHA INICIAL"),
+              el("input",{type:"password",value:cSenha,onChange:e=>setCSenha(e.target.value),placeholder:"Mín. 4 caracteres",style:{...IS,width:"100%"}})
+            )
+          ),
+          el("button",{onClick:createUser,disabled:creating,style:{...BTN(C.green),opacity:creating?.7:1}},creating?"⏳ Criando...":"➕ Criar Usuário")
+        ),
+        el("div",{style:{marginTop:14,padding:16,background:"#fafafa",borderRadius:10,border:"1px solid #e5e7eb"}},
           el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"🔑 Redefinir Senha"),
           el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}},
             el("div",null,
@@ -922,19 +952,14 @@ function App(){
     finally{ setObsSaving(false); }
   }
 
-  async function handleLogout(){ 
-    // ✅ Invalidar token no backend
-    try {
-      if(user?.token) {
-        await api("logout", {}, user);
-      }
-    } catch(e) {
-      console.error("Erro ao fazer logout:", e);
-    }
-    clearSession(); 
-    setUser(null); 
-    setRecords([]); 
-    clearInterval(pollRef.current); 
+  function handleLogout(){
+    // Limpa UI imediatamente — sem esperar resposta do servidor
+    clearSession();
+    setUser(null);
+    setRecords([]);
+    clearInterval(pollRef.current);
+    // Invalida token no backend em background (fire-and-forget)
+    if(user?.token) api("logout",{},user).catch(()=>{});
   }
 
   const dashData=useMemo(()=>records.filter(r=>{
@@ -996,6 +1021,17 @@ function App(){
       .filter(m=>m.producao>0).sort((a,b)=>b.pct-a.pct).slice(0,8)
   ,[machAgg,dfMac]);
 
+  // feedbacks: todos os registros com observação no período filtrado
+  const feedbacksData=useMemo(()=>
+    records.filter(r=>{
+      if(!r.obs||!r.obs.trim()) return false;
+      const recDate=normDate(r.date);
+      if(!recDate||recDate<dfIni||recDate>dfFim) return false;
+      if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
+      return true;
+    }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
+  ,[records,dfIni,dfFim,dfMac]);
+
   const pendingCount=MACHINES.filter(m=>{ const k=cellKey(m.id,entryDate,entryTurno); return inputs[k]!==undefined&&inputs[k]!==""; }).length;
   const otherPendingKeys=Object.keys(inputs).filter(k=>{
     const idx=k.indexOf("_"); if(idx<0) return false;
@@ -1029,7 +1065,7 @@ function App(){
 
   // ── tabs ──
   const tabs = el("div",{style:{background:C.navy,display:"flex",paddingLeft:18,overflowX:"auto"}},
-    ...[["entrada","📝 Apontamento"],["dashboard","📊 Dashboard"],["historico","📋 Histórico"],["metas","🎯 Metas"]].map(([k,l])=>
+    ...[["entrada","📝 Apontamento"],["dashboard","📊 Dashboard"],["historico","📋 Histórico"],["metas","🎯 Metas"],["feedbacks","💬 Feedbacks"]].map(([k,l])=>
       el("button",{key:k,onClick:()=>setTab(k),style:{padding:"10px 18px",border:"none",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:tab===k?"#f1f5f9":"transparent",color:tab===k?C.navy:"#93c5fd",borderRadius:tab===k?"8px 8px 0 0":0,fontSize:14}},l)
     )
   );
@@ -1332,6 +1368,58 @@ function App(){
     )
   );
 
+  // ── tab feedbacks ──
+  const tabFeedbacks = el("div",null,
+    el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 4px #0001",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
+      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})),
+      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})),
+      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
+        el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
+          el("option",{value:"TODAS"},"TODAS"),
+          ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
+        )
+      ),
+      el("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}},
+        el("div",{style:{background:C.blue+"11",border:`1px solid ${C.blue}33`,borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:C.blue}},
+          `${feedbacksData.length} observaç${feedbacksData.length!==1?"ões":"ão"}`
+        )
+      )
+    ),
+    feedbacksData.length===0
+      ? el("div",{style:{background:"#fff",borderRadius:12,padding:60,textAlign:"center",boxShadow:"0 1px 4px #0001"}},
+          el("div",{style:{fontSize:52,marginBottom:14}},"💬"),
+          el("div",{style:{fontSize:17,fontWeight:700,color:C.navy,marginBottom:6}},"Nenhuma observação no período"),
+          el("div",{style:{fontSize:13,color:C.gray}},"Adicione observações nos apontamentos pelo ",el("b",null,"Histórico")," (botão 💬 em cada linha)")
+        )
+      : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}},
+          ...feedbacksData.map((r,i)=>{
+            const mac=MACHINES.find(m=>m.id===Number(r.machineId));
+            const prod=num(r.producao);
+            const savedMeta=num(r.meta);
+            const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[r.machineId]||0):0);
+            const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
+            const savedByName=r.savedBy||r.usuario||"";
+            return el("div",{key:i,style:{background:"#fff",borderRadius:12,padding:18,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
+              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+                el("div",null,
+                  el("div",{style:{fontWeight:700,fontSize:14,color:C.navy}},r.machineName||(mac?.name||"—")),
+                  el("div",{style:{fontSize:12,color:C.gray,marginTop:3}},`${dispD(r.date)} · ${r.turno}`)
+                ),
+                pct!==null&&el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}},`${pct}% meta`)
+              ),
+              el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1e40af",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},
+                r.obs
+              ),
+              el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,color:"#9ca3af",borderTop:"1px solid #f1f5f9",paddingTop:8}},
+                el("span",null,`Por ${savedByName||"—"}`),
+                el("span",null,dispDH(r.savedAt||r.date)),
+                el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),title:"Editar observação",style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar")
+              )
+            );
+          })
+        )
+  );
+
   return el("div",{style:{fontFamily:"'Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}},
     editRec&&el(EditModal,{rec:editRec,metas,onSave:handleEdit,onClose:()=>setEditRec(null),saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
@@ -1342,7 +1430,8 @@ function App(){
       tab==="entrada"&&tabEntrada,
       tab==="dashboard"&&tabDashboard,
       tab==="historico"&&tabHistorico,
-      tab==="metas"&&tabMetas
+      tab==="metas"&&tabMetas,
+      tab==="feedbacks"&&tabFeedbacks
     )
   );
 }

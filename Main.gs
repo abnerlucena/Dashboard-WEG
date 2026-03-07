@@ -637,6 +637,8 @@ function doGet(e) {
         return json(actionGenerateInviteCode(payload.token));
       case "listInviteCodes":
         return json(actionListInviteCodes(payload.token));
+      case "adminCreateUser":
+        return json(actionAdminCreateUser(payload.token, payload.nome, payload.senha));
       case "resetPassword":
         return json(actionResetPassword(payload.token, payload.targetNome, payload.novaSenha));
       case "listUsers":
@@ -954,6 +956,39 @@ function actionResetPassword(token, targetNome, novaSenha) {
   
   auditLog(session.nome, "PASSWORD_RESET", {target: targetNome});
   
+  return { ok: true };
+}
+
+function actionAdminCreateUser(token, nome, senha) {
+  const session = validateSession(token);
+  if (!session || session.role !== "admin") {
+    return { ok: false, error: "Acesso negado" };
+  }
+
+  if (!nome || nome.trim().length < 3) {
+    return { ok: false, error: "Nome deve ter pelo menos 3 caracteres" };
+  }
+  if (!senha || senha.length < 4) {
+    return { ok: false, error: "Senha deve ter pelo menos 4 caracteres" };
+  }
+
+  const sanitizedNome = sanitizeString(nome.trim(), 50);
+  const users = getAllUsers();
+  if (users.find(u => u.nome.toLowerCase() === sanitizedNome.toLowerCase())) {
+    return { ok: false, error: "Este nome já está em uso" };
+  }
+
+  getUserSheet().appendRow([
+    sanitizedNome,
+    hashPassword(senha),
+    "operator",
+    new Date().toISOString(),
+    "ativo",
+    0,
+    ""
+  ]);
+
+  auditLog(session.nome, "USER_CREATED_BY_ADMIN", { nome: sanitizedNome });
   return { ok: true };
 }
 
