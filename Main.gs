@@ -1038,10 +1038,13 @@ function actionUpsert(token, records) {
     
     const sheet = getProdSheet();
     const allData = sheet.getDataRange().getValues();
-    const headers = allData[0];
-    const colIdx = {};
-    headers.forEach((h, i) => colIdx[String(h).trim()] = i);
-    
+
+    // Posições fixas por PROD_HEADERS — consistente com actionGetAll
+    const _idIdx    = PROD_HEADERS.indexOf("id");
+    const _dateIdx  = PROD_HEADERS.indexOf("date");
+    const _turnoIdx = PROD_HEADERS.indexOf("turno");
+    const _machIdx  = PROD_HEADERS.indexOf("machineId");
+
     records.forEach((rec, idx) => {
       // Validações
       if (!rec.date || !rec.turno || !rec.machineId) {
@@ -1070,10 +1073,10 @@ function actionUpsert(token, records) {
         obs: rec.obs !== undefined ? sanitizeString(rec.obs, 500) : undefined
       };
       
-      // Procurar registro existente
+      // Procurar registro existente (por posição fixa — igual ao actionGetAll)
       let foundRow = -1;
       for (let i = 1; i < allData.length; i++) {
-        var rawDate = allData[i][colIdx["date"]];
+        var rawDate = allData[i][_dateIdx];
         var rowDate;
         if (rawDate instanceof Date) {
           rowDate = rawDate.getFullYear() + "-" +
@@ -1082,8 +1085,8 @@ function actionUpsert(token, records) {
         } else {
           rowDate = String(rawDate || "").trim();
         }
-        const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
-        const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
+        const rowTurno  = String(allData[i][_turnoIdx] || "").trim();
+        const rowMachId = String(allData[i][_machIdx]  || "").trim();
 
         if (rowDate === String(sanitizedData.date) &&
             rowTurno === String(sanitizedData.turno) &&
@@ -1096,19 +1099,19 @@ function actionUpsert(token, records) {
       const rowData = PROD_HEADERS.map(header => {
         if (header === "id") {
           if (foundRow > 0) {
-            return allData[foundRow - 1][colIdx["id"]] || Utilities.getUuid();
+            return allData[foundRow - 1][_idIdx] || Utilities.getUuid();
           }
           return Utilities.getUuid();
         }
-        
+
         if (sanitizedData[header] !== undefined && sanitizedData[header] !== null) {
           return sanitizedData[header];
         }
 
         // Preserva campos do registro original quando não fornecidos na atualização
         if (foundRow > 0 && (header === "savedBy" || header === "savedAt" || header === "obs")) {
-          const existingCol = colIdx[header];
-          return existingCol !== undefined ? (allData[foundRow - 1][existingCol] || "") : "";
+          const existingIdx = PROD_HEADERS.indexOf(header);
+          return existingIdx >= 0 ? (allData[foundRow - 1][existingIdx] || "") : "";
         }
 
         return "";
@@ -1145,35 +1148,38 @@ function actionDelete(token, date, turno, machineId, id) {
 
     const sheet = getProdSheet();
     const allData = sheet.getDataRange().getValues();
-    const headers = allData[0];
-    const colIdx = {};
-    headers.forEach((h, i) => colIdx[String(h).trim()] = i);
-    Logger.log("[DELETE] params: id=%s date=%s turno=%s machineId=%s", id, date, turno, machineId);
-    Logger.log("[DELETE] headers: %s", JSON.stringify(headers));
+
+    // Usa posições fixas do PROD_HEADERS — igual ao actionGetAll
+    // Isso garante consistência independente da ordem dos headers na planilha
+    const idIdx    = PROD_HEADERS.indexOf("id");
+    const dateIdx  = PROD_HEADERS.indexOf("date");
+    const turnoIdx = PROD_HEADERS.indexOf("turno");
+    const machIdx  = PROD_HEADERS.indexOf("machineId");
 
     let deleted = false;
     for (let i = allData.length - 1; i >= 1; i--) {
+      const row = allData[i];
       var matched = false;
 
       // Busca por id (UUID único) — mais confiável
-      if (id && colIdx["id"] !== undefined) {
-        const rowId = String(allData[i][colIdx["id"]] || "").trim();
+      if (id) {
+        const rowId = String(row[idIdx] || "").trim();
         if (rowId && rowId === String(id)) matched = true;
       }
 
       // Fallback: busca por date/turno/machineId
       if (!matched) {
-        var rawDate2 = allData[i][colIdx["date"]];
+        var rawDate = row[dateIdx];
         var rowDate;
-        if (rawDate2 instanceof Date) {
-          rowDate = rawDate2.getFullYear() + "-" +
-            String(rawDate2.getMonth()+1).padStart(2,"0") + "-" +
-            String(rawDate2.getDate()).padStart(2,"0");
+        if (rawDate instanceof Date) {
+          rowDate = rawDate.getFullYear() + "-" +
+            String(rawDate.getMonth()+1).padStart(2,"0") + "-" +
+            String(rawDate.getDate()).padStart(2,"0");
         } else {
-          rowDate = String(rawDate2 || "").trim();
+          rowDate = String(rawDate || "").trim();
         }
-        const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
-        const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
+        const rowTurno  = String(row[turnoIdx] || "").trim();
+        const rowMachId = String(row[machIdx]  || "").trim();
         if (rowDate === String(date) &&
             rowTurno === String(turno) &&
             rowMachId === String(machineId)) matched = true;

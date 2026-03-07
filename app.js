@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbzsLeYYRRM50d91m45xAJlYpMj8zzmskS70zSv8Z97fNjKqx3DdnuzRU4yme-whQiU19Q/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbyqfBKHn5HIKXsDOHz3pFm12pBvekeG-e2_d3PT3OzreAWD4HPgVLddt4x66_i4nB-LDA/exec";
 // ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
 // Agora é validado apenas no backend
 
