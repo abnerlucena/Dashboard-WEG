@@ -380,6 +380,30 @@ function DeleteModal({rec,onConfirm,onClose,deleting}){
   );
 }
 
+// ─── MODAL OBSERVAÇÃO ─────────────────────────────────────────
+function ObsModal({rec, onSave, onClose, saving}) {
+  const mac = MACHINES.find(m => m.id === Number(rec.machineId));
+  const [text, setText] = useState(rec.obs || "");
+  return el(Modal, {},
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"💬 Observação"),
+    el("div",{style:{fontSize:13,color:C.gray,marginBottom:14}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
+    el("textarea",{
+      value: text,
+      onChange: e => setText(e.target.value),
+      placeholder: "Descreva observações sobre este apontamento...",
+      autoFocus: true,
+      style: {...IS, width:"100%", height:100, resize:"vertical", fontFamily:"inherit", fontSize:14}
+    }),
+    rec.obs && el("div",{style:{fontSize:11,color:C.gray,marginTop:4}},"Observação atual: "+rec.obs),
+    el("div",{style:{display:"flex",gap:10,marginTop:14}},
+      el("button",{onClick:onClose,style:{...BTN(C.gray),flex:1}},"Cancelar"),
+      el("button",{onClick:()=>onSave(text),disabled:saving,style:{...BTN(C.blue),flex:2,opacity:saving?.6:1}},
+        saving?"⏳ Salvando...":"💬 Salvar Observação"
+      )
+    )
+  );
+}
+
 // ─── PAINEL ADMIN ─────────────────────────────────────────────
 function AdminPanel({user,onClose}){
   const [users,setUsers]    =useState([]);
@@ -633,26 +657,19 @@ function EChartsComponent({title, subtitle, data, type, height = 350}) {
   const chartRef = useRef(null);
   const instanceRef = useRef(null);
 
+  // Inicializa instância apenas uma vez (mount/unmount)
   useEffect(() => {
-    if (!chartRef.current || !data || data.length === 0) return;
-
-    if (typeof echarts === 'undefined') {
-      console.error('ECharts não carregado');
-      return;
-    }
-
-    if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current);
-    }
-
-    instanceRef.current.setOption(getChartOption(type, data), true);
-
+    if (!chartRef.current || typeof echarts === 'undefined') return;
+    instanceRef.current = echarts.init(chartRef.current);
     return () => {
-      if (instanceRef.current) {
-        instanceRef.current.dispose();
-        instanceRef.current = null;
-      }
+      if (instanceRef.current) { instanceRef.current.dispose(); instanceRef.current = null; }
     };
+  }, []);
+
+  // Atualiza opções apenas quando dados ou tipo mudam
+  useEffect(() => {
+    if (!instanceRef.current || !data || data.length === 0) return;
+    instanceRef.current.setOption(getChartOption(type, data), true);
   }, [data, type]);
 
   useEffect(() => {
@@ -694,6 +711,8 @@ function App(){
   const [deleteRec,setDeleteRec] = useState(null);
   const [editSaving,setEditSaving]=useState(false);
   const [deleting,setDeleting]   = useState(false);
+  const [obsRec,setObsRec]       = useState(null);
+  const [obsSaving,setObsSaving] = useState(false);
   const [showAdmin,setShowAdmin] = useState(false);
   const [dfIni,setDfIni]         = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
   const [dfFim,setDfFim]         = useState(today());
@@ -709,13 +728,6 @@ function App(){
     if(!silent) setLoading(true);
     try{
       const r=await api("getAll",{},user);
-      console.log("=== DADOS CARREGADOS ===");
-      console.log("Total de registros retornados:", r.data?.length || 0);
-      if(r.data && r.data.length > 0) {
-        console.log("Primeiro registro:", r.data[0]);
-        console.log("Tipo de date:", typeof r.data[0].date);
-        console.log("Valor de date:", r.data[0].date);
-      }
       setRecords(r.data||[]);
       setLastSync(new Date());
     }catch(e){
@@ -838,17 +850,8 @@ function App(){
         editTime: timestamp
       };
       
-      console.log("Editando registro:", recordToSave);
-      
       const result = await api("upsert",{records:[recordToSave]},user);
-      
-      console.log("Resultado da edição:", result);
-      
-      if(!result.ok) {
-        throw new Error(result.error || "Erro ao editar");
-      }
-      
-      console.log("Registro editado com sucesso, recarregando dados...");
+      if(!result.ok) throw new Error(result.error || "Erro ao editar");
       await loadAll(true); 
       setEditRec(null);
       
@@ -877,19 +880,10 @@ function App(){
       turno: deleteRec.turno,
       machineId: Number(deleteRec.machineId)
     };
-    
-    console.log("Tentando deletar:", deleteParams);
-    
-    try{ 
-      const result = await api("delete", deleteParams, user); 
-      
-      console.log("Resultado da deleção:", result);
-      
-      if(!result.ok) {
-        throw new Error(result.error || "Erro ao excluir");
-      }
-      
-      console.log("Registro deletado com sucesso, recarregando dados...");
+
+    try{
+      const result = await api("delete", deleteParams, user);
+      if(!result.ok) throw new Error(result.error || "Erro ao excluir");
       await loadAll(true); 
       setDeleteRec(null); 
       
@@ -904,6 +898,28 @@ function App(){
       setTimeout(()=>setSyncSt(null), 3000);
     }
     finally{ setDeleting(false); }
+  }
+
+  async function handleSaveObs(text){
+    if(!obsRec) return;
+    setObsSaving(true);
+    try{
+      const mId=Number(obsRec.machineId);
+      const mac=MACHINES.find(m=>m.id===mId);
+      const metaToSave=num(obsRec.meta)>0?num(obsRec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
+      await api("upsert",{records:[{
+        date:obsRec.date, turno:obsRec.turno, machineId:mId,
+        machineName:mac?.name||obsRec.machineName||"",
+        meta:metaToSave, producao:num(obsRec.producao),
+        savedBy:obsRec.savedBy||user.nome, savedAt:obsRec.savedAt||nowBR(),
+        editUser:obsRec.editUser||"", editTime:obsRec.editTime||"",
+        obs:text
+      }]},user);
+      await loadAll(true);
+      setObsRec(null);
+      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
+    }catch(e){ alert("Erro ao salvar observação: "+e.message); }
+    finally{ setObsSaving(false); }
   }
 
   async function handleLogout(){ 
@@ -921,77 +937,15 @@ function App(){
     clearInterval(pollRef.current); 
   }
 
-  const dashData=useMemo(()=>{
-    const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
-    const dF=dfFim; // Já está em formato ISO: YYYY-MM-DD
-    
-    console.log("=== FILTRO DASHBOARD ===");
-    console.log("Data DE:", dI);
-    console.log("Data ATÉ:", dF);
-    console.log("Turno:", dfTur);
-    console.log("Máquina:", dfMac);
-    console.log("Total records:", records.length);
-    
-    const filtered = records.filter(r=>{
-      if(!r.date) {
-        console.log("Registro sem data:", r);
-        return false;
-      }
-      
-      // Normaliza a data do registro para formato ISO (YYYY-MM-DD)
-      const recDate = normDate(r.date);
-      
-      // Debug primeiro registro
-      if(records.indexOf(r) === 0) {
-        console.log("Primeiro registro:");
-        console.log("  r.date original:", r.date);
-        console.log("  normDate(r.date):", recDate);
-        console.log("  Passa filtro date?:", recDate >= dI && recDate <= dF);
-        console.log("  Passa filtro turno?:", dfTur === "TODOS" || r.turno === dfTur);
-      }
-      
-      if(!recDate) {
-        console.log("normDate retornou null para:", r.date);
-        return false;
-      }
-      
-      // Compara strings no formato ISO
-      if(recDate < dI || recDate > dF) return false;
-      if(dfTur!=="TODOS" && r.turno!==dfTur) return false;
-      if(dfMac!=="TODAS"){ 
-        const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
-        if(!mac || mac.name!==dfMac) return false; 
-      }
-      return true;
-    });
-    
-    console.log("Registros filtrados:", filtered.length);
-    
-    return filtered;
-  },[records,dfIni,dfFim,dfTur,dfMac]);
-
-  // Filtro separado para histórico com mesmas regras
-  const histData=useMemo(()=>{
-    const dI=dfIni; // Já está em formato ISO: YYYY-MM-DD
-    const dF=dfFim; // Já está em formato ISO: YYYY-MM-DD
-    
-    return records.filter(r=>{
-      if(!r.date) return false;
-      
-      // Normaliza a data do registro para formato ISO (YYYY-MM-DD)
-      const recDate = normDate(r.date);
-      if(!recDate) return false;
-      
-      // Compara strings no formato ISO
-      if(recDate < dI || recDate > dF) return false;
-      if(dfTur!=="TODOS" && r.turno!==dfTur) return false;
-      if(dfMac!=="TODAS"){ 
-        const mac=MACHINES.find(m=>m.id===Number(r.machineId)); 
-        if(!mac || mac.name!==dfMac) return false; 
-      }
-      return true;
-    });
-  },[records,dfIni,dfFim,dfTur,dfMac]);
+  const dashData=useMemo(()=>records.filter(r=>{
+    if(!r.date) return false;
+    const recDate=normDate(r.date);
+    if(!recDate) return false;
+    if(recDate<dfIni||recDate>dfFim) return false;
+    if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+    if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
+    return true;
+  }),[records,dfIni,dfFim,dfTur,dfMac]);
 
   const machAgg=useMemo(()=>{
     const agg={};
@@ -1015,6 +969,33 @@ function App(){
 
   const totProd=useMemo(()=>dashData.reduce((s,r)=>s+num(r.producao),0),[dashData]);
   const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
+
+  // ── dados dos gráficos (memoizados: só recalculam quando filtros/dados mudam) ──
+  const chartProdVsMeta=useMemo(()=>
+    MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>15?m.name.substring(0,13)+"...":m.name,meta:a.totalMeta||0,producao:a.totalProd||0}; })
+      .sort((a,b)=>b.producao-a.producao).slice(0,10)
+  ,[machAgg,dfMac]);
+
+  const chartTurnoData=useMemo(()=>
+    TURNOS.map(turno=>({name:turno,value:dashData.filter(r=>r.turno===turno).reduce((s,r)=>s+num(r.producao),0)})).filter(t=>t.value>0)
+  ,[dashData]);
+
+  const chartTendencia=useMemo(()=>{
+    const byDate={};
+    dashData.forEach(r=>{ if(!byDate[r.date]) byDate[r.date]={prod:0}; byDate[r.date].prod+=num(r.producao); });
+    return Object.keys(byDate).sort().map(date=>({
+      date:dispD(date), producao:byDate[date].prod,
+      meta:Object.values(machAgg).reduce((s,a)=>s+(a.byDate&&a.byDate[date]?a.totalMeta/(a.diasCount||1):0),0)
+    }));
+  },[dashData,machAgg]);
+
+  const chartPerformers=useMemo(()=>
+    MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>22?m.name.substring(0,20)+"...":m.name,pct:a.pct||0,producao:a.totalProd||0}; })
+      .filter(m=>m.producao>0).sort((a,b)=>b.pct-a.pct).slice(0,8)
+  ,[machAgg,dfMac]);
+
   const pendingCount=MACHINES.filter(m=>{ const k=cellKey(m.id,entryDate,entryTurno); return inputs[k]!==undefined&&inputs[k]!==""; }).length;
   const otherPendingKeys=Object.keys(inputs).filter(k=>{
     const idx=k.indexOf("_"); if(idx<0) return false;
@@ -1241,101 +1222,19 @@ function App(){
         }))
       )
     ),
-    dView==="graficos"&&el("div",null,
-      // ══════════════════════════════════════════════════════════════
-      // GRÁFICOS INTERATIVOS - APACHE ECHARTS
-      // ══════════════════════════════════════════════════════════════
-      (() => {
-        // ─── PREPARAR DADOS ───
-        const prodVsMetaData = MACHINES
-          .filter(m => dfMac === "TODAS" || m.name === dfMac)
-          .filter(m => m.hasMeta)
-          .map(m => {
-            const agg = machAgg[m.id] || {};
-            return {
-              name: m.name.length > 15 ? m.name.substring(0, 13) + "..." : m.name,
-              meta: agg.totalMeta || 0,
-              producao: agg.totalProd || 0
-            };
-          })
-          .sort((a, b) => b.producao - a.producao)
-          .slice(0, 10);
-
-        const turnoData = TURNOS.map(turno => ({
-          name: turno,
-          value: dashData.filter(r => r.turno === turno).reduce((sum, r) => sum + num(r.producao), 0)
-        })).filter(t => t.value > 0);
-
-        const tendenciaData = (() => {
-          const byDate = {};
-          dashData.forEach(r => {
-            if(!byDate[r.date]) byDate[r.date] = {prod: 0};
-            byDate[r.date].prod += num(r.producao);
-          });
-          return Object.keys(byDate).sort().map(date => ({
-            date: dispD(date),
-            producao: byDate[date].prod,
-            meta: Object.values(machAgg).reduce((sum, agg) => {
-              const metaDiaria = agg.totalMeta / (agg.diasCount || 1);
-              return sum + (agg.byDate && agg.byDate[date] ? metaDiaria : 0);
-            }, 0)
-          }));
-        })();
-
-        const performersData = MACHINES
-          .filter(m => dfMac === "TODAS" || m.name === dfMac)
-          .filter(m => m.hasMeta)
-          .map(m => {
-            const agg = machAgg[m.id] || {};
-            return {
-              name: m.name.length > 22 ? m.name.substring(0, 20) + "..." : m.name,
-              pct: agg.pct || 0,
-              producao: agg.totalProd || 0
-            };
-          })
-          .filter(m => m.producao > 0)
-          .sort((a, b) => b.pct - a.pct)
-          .slice(0, 8);
-
-        if (prodVsMetaData.length === 0 && turnoData.length === 0) {
-          return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 4px #0001"}},
+    dView==="graficos"&&(
+      chartProdVsMeta.length===0&&chartTurnoData.length===0
+        ? el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 4px #0001"}},
             el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
             el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
-          );
-        }
-
-        return el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
-          el(EChartsComponent,{
-            title:"📊 Produção vs Meta por Máquina",
-            subtitle:"Comparativo entre produção real e meta estabelecida",
-            data:prodVsMetaData,
-            type:"bar",
-            height:350
-          }),
-          el(EChartsComponent,{
-            title:"🎯 Distribuição de Produção por Turno",
-            subtitle:"Percentual de produção em cada turno",
-            data:turnoData,
-            type:"pie",
-            height:350
-          }),
-          el(EChartsComponent,{
-            title:"📈 Tendência de Produção ao Longo do Tempo",
-            subtitle:"Evolução diária da produção no período",
-            data:tendenciaData,
-            type:"line",
-            height:350
-          }),
-          el(EChartsComponent,{
-            title:"🏆 Ranking de Performance",
-            subtitle:"Máquinas ordenadas por % da meta",
-            data:performersData,
-            type:"horizontalBar",
-            height:350
-          })
-        );
-      })()
+          )
+        : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
+            el(EChartsComponent,{title:"📊 Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350}),
+            el(EChartsComponent,{title:"🎯 Distribuição de Produção por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350}),
+            el(EChartsComponent,{title:"📈 Tendência de Produção ao Longo do Tempo",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350}),
+            el(EChartsComponent,{title:"🏆 Ranking de Performance",subtitle:"Máquinas ordenadas por % da meta",data:chartPerformers,type:"horizontalBar",height:350})
+          )
     )
   );
 
@@ -1345,10 +1244,10 @@ function App(){
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
         el("span",null,"📋 Apontamentos Salvos"),
-        el("span",{style:{fontSize:12,color:"#93c5fd"}},`${histData.length} registros`)
+        el("span",{style:{fontSize:12,color:"#93c5fd"}},`${dashData.length} registros`)
       ),
       el("div",{style:{overflowX:"auto"}},
-        el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:700}},
+        el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
           el("thead",null,el("tr",{style:{background:"#e0e7ff"}},
             el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}},"DATA"),
             el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#3730a3"}},"TURNO"),
@@ -1360,23 +1259,17 @@ function App(){
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#3730a3"}},"AÇÕES")
           )),
           el("tbody",null,
-            histData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
-            ...[...histData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
+            dashData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#9ca3af"}},"Nenhum apontamento no período.")),
+            ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
               const mId=Number(r.machineId);
               const mac=MACHINES.find(m=>m.id===mId);
-              
-              // Usa a meta que foi salva no registro
               const savedMeta=num(r.meta);
-              const metaVal = savedMeta > 0 ? savedMeta : (mac?.hasMeta ? (metas[mId] || mac.defaultMeta || 0) : 0);
-              
+              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
               const prod=num(r.producao);
-              const pct=mac?.hasMeta && metaVal > 0 ? Math.round(prod/metaVal*100) : null;
-              
-              // Pega o nome de quem salvou
-              const savedByName = r.savedBy || r.usuario || r.user || "";
-              
+              const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
+              const savedByName=r.savedBy||r.usuario||r.user||"";
               return el("tr",{key:r.date+"_"+r.turno+"_"+mId+"_"+i,style:{background:i%2===0?"#f8fafc":"#fff",borderBottom:"1px solid #e5e7eb"}},
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt || r.date)),
+                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt||r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
@@ -1384,21 +1277,14 @@ function App(){
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#d1d5db"}},"—")),
                 el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
                   el("div",{style:{fontWeight:600,color:"#374151"}},savedByName||"—"),
-                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ Editado por ${r.editUser}${r.editTime?" em "+dispDH(r.editTime):""}`)
+                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ ${r.editUser}${r.editTime?" · "+dispDH(r.editTime):""}`),
+                  r.obs&&el("div",{style:{fontSize:11,color:"#0369a1",marginTop:3,background:"#e0f2fe",borderRadius:4,padding:"2px 6px",display:"inline-block"}},`💬 ${r.obs}`)
                 ),
                 el("td",{style:{padding:"9px 12px",textAlign:"center"}},
-                  el("div",{style:{display:"flex",gap:6,justifyContent:"center"}},
-                    el("button",{onClick:()=>setEditRec({
-                      ...r,
-                      machineId:mId,
-                      producao:prod,
-                      meta:metaVal,
-                      savedBy:savedByName
-                    }),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
-                    el("button",{onClick:()=>setDeleteRec({
-                      ...r,
-                      machineId:mId
-                    }),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
+                  el("div",{style:{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}},
+                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#e0e7ff",color:"#4338ca",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏"),
+                    el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),title:"Observação",style:{background:r.obs?"#e0f2fe":"#f0fdf4",color:r.obs?"#0369a1":"#16a34a",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"💬"),
+                    el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑")
                   )
                 )
               );
@@ -1449,6 +1335,7 @@ function App(){
   return el("div",{style:{fontFamily:"'Segoe UI',sans-serif",background:"#f1f5f9",minHeight:"100vh"}},
     editRec&&el(EditModal,{rec:editRec,metas,onSave:handleEdit,onClose:()=>setEditRec(null),saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
+    obsRec&&el(ObsModal,{rec:obsRec,onSave:handleSaveObs,onClose:()=>setObsRec(null),saving:obsSaving}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
     el("div",{style:{padding:20}},
