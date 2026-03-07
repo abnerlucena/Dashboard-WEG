@@ -469,6 +469,215 @@ function AdminPanel({user,onClose}){
   );
 }
 
+// ─── ECHARTS: CONFIGURAÇÕES DE GRÁFICOS ───────────────────────
+function getChartOption(type, data) {
+  const tooltipBase = {
+    backgroundColor: '#fff',
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: [8, 12],
+    textStyle: {color: '#374151', fontSize: 12}
+  };
+
+  if (type === 'bar') {
+    return {
+      animation: true,
+      animationDuration: 750,
+      animationEasing: 'cubicOut',
+      tooltip: {
+        ...tooltipBase,
+        trigger: 'axis',
+        axisPointer: {type: 'shadow', shadowStyle: {color: 'rgba(0,0,0,0.05)'}},
+        formatter: params => {
+          const d = data[params[0].dataIndex];
+          return `<b>${d.name}</b><br/>Meta: ${d.meta.toLocaleString('pt-BR')}<br/>Produção: ${d.producao.toLocaleString('pt-BR')}`;
+        }
+      },
+      legend: {data: ['Meta', 'Produção'], top: 0, right: 0},
+      grid: {top: 40, right: 30, bottom: 70, left: 60},
+      xAxis: {
+        type: 'category',
+        data: data.map(d => d.name),
+        axisLabel: {rotate: 15, fontSize: 11, interval: 0}
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {formatter: v => v.toLocaleString('pt-BR'), fontSize: 11}
+      },
+      series: [
+        {
+          name: 'Meta',
+          type: 'bar',
+          data: data.map(d => d.meta),
+          itemStyle: {color: C.gray, borderRadius: [4, 4, 0, 0]}
+        },
+        {
+          name: 'Produção',
+          type: 'bar',
+          data: data.map(d => d.producao),
+          itemStyle: {color: C.blue, borderRadius: [4, 4, 0, 0]}
+        }
+      ]
+    };
+  }
+
+  if (type === 'pie') {
+    return {
+      animation: true,
+      animationDuration: 750,
+      tooltip: {
+        ...tooltipBase,
+        trigger: 'item',
+        formatter: p => `<b>${p.name}</b><br/>${p.value.toLocaleString('pt-BR')} peças<br/>${p.percent.toFixed(0)}%`
+      },
+      legend: {orient: 'horizontal', bottom: 0},
+      color: [C.blue, C.green, C.yellow, C.purple, C.teal],
+      series: [{
+        type: 'pie',
+        radius: ['35%', '65%'],
+        center: ['50%', '45%'],
+        data: data.map(d => ({name: d.name, value: d.value})),
+        label: {formatter: '{b}: {d}%', fontSize: 12},
+        emphasis: {itemStyle: {shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)'}}
+      }]
+    };
+  }
+
+  if (type === 'line') {
+    return {
+      animation: true,
+      animationDuration: 750,
+      animationEasing: 'cubicOut',
+      tooltip: {
+        ...tooltipBase,
+        trigger: 'axis',
+        axisPointer: {type: 'shadow', shadowStyle: {color: 'rgba(0,0,0,0.05)'}},
+        formatter: params => {
+          const lines = params.map(p => `${p.seriesName}: ${Number(p.value).toLocaleString('pt-BR')}`).join('<br/>');
+          return `<b>${params[0]?.axisValue}</b><br/>${lines}`;
+        }
+      },
+      legend: {data: ['Produção Real', 'Meta'], top: 0, right: 0},
+      grid: {top: 40, right: 30, bottom: 60, left: 65},
+      xAxis: {
+        type: 'category',
+        data: data.map(d => d.date),
+        axisLabel: {rotate: 15, fontSize: 11}
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {formatter: v => v.toLocaleString('pt-BR'), fontSize: 11}
+      },
+      series: [
+        {
+          name: 'Produção Real',
+          type: 'line',
+          data: data.map(d => d.producao),
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 6,
+          lineStyle: {color: C.blue, width: 3},
+          itemStyle: {color: C.blue},
+          areaStyle: {color: {type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{offset: 0, color: C.blue + '44'}, {offset: 1, color: C.blue + '00'}]}}
+        },
+        {
+          name: 'Meta',
+          type: 'line',
+          data: data.map(d => Math.round(d.meta)),
+          smooth: true,
+          lineStyle: {color: C.purple, width: 2, type: 'dashed'},
+          itemStyle: {color: C.purple},
+          symbol: 'none'
+        }
+      ]
+    };
+  }
+
+  if (type === 'horizontalBar') {
+    const colors = data.map(d => d.pct >= 100 ? C.green : d.pct >= 80 ? C.yellow : C.red);
+    return {
+      animation: true,
+      animationDuration: 750,
+      animationEasing: 'cubicOut',
+      tooltip: {
+        ...tooltipBase,
+        trigger: 'axis',
+        axisPointer: {type: 'shadow'},
+        formatter: params => `<b>${params[0].name}</b><br/>% da Meta: ${params[0].value}%`
+      },
+      grid: {top: 10, right: 60, bottom: 10, left: 10, containLabel: true},
+      xAxis: {
+        type: 'value',
+        axisLabel: {formatter: '{value}%', fontSize: 11},
+        max: v => Math.max(v.max * 1.1, 110)
+      },
+      yAxis: {
+        type: 'category',
+        data: data.map(d => d.name),
+        axisLabel: {fontSize: 11, width: 130, overflow: 'truncate'}
+      },
+      series: [{
+        type: 'bar',
+        data: data.map((d, i) => ({value: d.pct, itemStyle: {color: colors[i], borderRadius: [0, 4, 4, 0]}})),
+        label: {show: true, position: 'right', formatter: '{c}%', fontSize: 11, color: '#374151'}
+      }]
+    };
+  }
+
+  return {};
+}
+
+// ─── ECHARTS: COMPONENTE REUTILIZÁVEL ─────────────────────────
+function EChartsComponent({title, subtitle, data, type, height = 350}) {
+  const chartRef = useRef(null);
+  const instanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!chartRef.current || !data || data.length === 0) return;
+
+    if (typeof echarts === 'undefined') {
+      console.error('ECharts não carregado');
+      return;
+    }
+
+    if (!instanceRef.current) {
+      instanceRef.current = echarts.init(chartRef.current);
+    }
+
+    instanceRef.current.setOption(getChartOption(type, data), true);
+
+    return () => {
+      if (instanceRef.current) {
+        instanceRef.current.dispose();
+        instanceRef.current = null;
+      }
+    };
+  }, [data, type]);
+
+  useEffect(() => {
+    const handleResize = () => { if (instanceRef.current) instanceRef.current.resize(); };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (!data || data.length === 0) {
+    return el("div", {style: {background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 4px #0001"}},
+      el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
+      el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
+      el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
+    );
+  }
+
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
+    title && el("div",{style:{marginBottom:12}},
+      el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
+      subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+    ),
+    el("div",{ref:chartRef,style:{width:"100%",height}})
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────
 function App(){
   const [user,setUser]           = useState(()=>loadSession());
@@ -1034,293 +1243,9 @@ function App(){
     ),
     dView==="graficos"&&el("div",null,
       // ══════════════════════════════════════════════════════════════
-      // GRÁFICOS INTERATIVOS - IMPLEMENTAÇÃO SVG NATIVA (SEM DEPENDÊNCIAS)
+      // GRÁFICOS INTERATIVOS - APACHE ECHARTS
       // ══════════════════════════════════════════════════════════════
-      
       (() => {
-        // ─── COMPONENTE: Gráfico de Barras SVG ───
-        const BarChartSVG = ({data, width=500, height=300, title, subtitle}) => {
-          if(!data || data.length === 0) return null;
-          
-          const padding = {top:40, right:20, bottom:60, left:60};
-          const chartWidth = width - padding.left - padding.right;
-          const chartHeight = height - padding.top - padding.bottom;
-          
-          const maxValue = Math.max(...data.flatMap(d => [d.value1 || 0, d.value2 || 0]));
-          const scale = chartHeight / (maxValue * 1.1);
-          const barWidth = chartWidth / data.length / 2.5;
-          
-          const [hoveredBar, setHoveredBar] = useState(null);
-          
-          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-            title && el("div",{style:{marginBottom:16}},
-              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
-            ),
-            el("svg",{width,height,style:{overflow:"visible"}},
-              // Grid horizontal
-              ...[0,0.25,0.5,0.75,1].map(pct => {
-                const y = padding.top + chartHeight - (chartHeight * pct);
-                const value = Math.round(maxValue * pct);
-                return el("g",{key:pct},
-                  el("line",{x1:padding.left,y1:y,x2:width-padding.right,y2:y,stroke:"#f0f0f0",strokeWidth:1}),
-                  el("text",{x:padding.left-10,y:y+5,textAnchor:"end",fontSize:11,fill:"#666"},value.toLocaleString("pt-BR"))
-                );
-              }),
-              
-              // Barras
-              ...data.map((d, i) => {
-                const x = padding.left + (i * chartWidth / data.length);
-                const h1 = (d.value1 || 0) * scale;
-                const h2 = (d.value2 || 0) * scale;
-                
-                return el("g",{key:i},
-                  // Barra 1 (Meta/Cinza)
-                  d.value1 && el("rect",{
-                    x: x + 10,
-                    y: padding.top + chartHeight - h1,
-                    width: barWidth,
-                    height: h1,
-                    fill: hoveredBar === `${i}-1` ? "#9ca3af" : C.gray,
-                    rx: 4,
-                    style:{cursor:"pointer",transition:"fill 0.2s"},
-                    onMouseEnter: () => setHoveredBar(`${i}-1`),
-                    onMouseLeave: () => setHoveredBar(null)
-                  }),
-                  
-                  // Barra 2 (Produção/Azul)
-                  d.value2 && el("rect",{
-                    x: x + 10 + barWidth + 5,
-                    y: padding.top + chartHeight - h2,
-                    width: barWidth,
-                    height: h2,
-                    fill: hoveredBar === `${i}-2` ? "#60a5fa" : C.blue,
-                    rx: 4,
-                    style:{cursor:"pointer",transition:"fill 0.2s"},
-                    onMouseEnter: () => setHoveredBar(`${i}-2`),
-                    onMouseLeave: () => setHoveredBar(null)
-                  }),
-                  
-                  // Label
-                  el("text",{
-                    x: x + (chartWidth / data.length) / 2,
-                    y: height - padding.bottom + 20,
-                    textAnchor: "middle",
-                    fontSize: 11,
-                    fill: "#374151",
-                    transform: `rotate(-15, ${x + (chartWidth / data.length) / 2}, ${height - padding.bottom + 20})`
-                  }, d.label)
-                );
-              }),
-              
-              // Tooltip
-              hoveredBar && (() => {
-                const [idx, barNum] = hoveredBar.split('-');
-                const d = data[idx];
-                const value = barNum === '1' ? d.value1 : d.value2;
-                const name = barNum === '1' ? (d.name1 || "Meta") : (d.name2 || "Produção");
-                
-                return el("g",null,
-                  el("rect",{x:10,y:10,width:150,height:50,fill:"#fff",stroke:"#e5e7eb",rx:8,filter:"drop-shadow(0 4px 12px rgba(0,0,0,0.1))"}),
-                  el("text",{x:20,y:30,fontSize:12,fontWeight:700,fill:C.navy},d.label),
-                  el("text",{x:20,y:50,fontSize:12,fill:"#666"},`${name}: ${value.toLocaleString("pt-BR")}`)
-                );
-              })()
-            ),
-            // Legenda
-            el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12}},
-              el("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                el("div",{style:{width:12,height:12,borderRadius:2,background:C.gray}}),
-                el("span",{style:{fontSize:12,color:"#374151"}},data[0]?.name1 || "Meta")
-              ),
-              el("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                el("div",{style:{width:12,height:12,borderRadius:2,background:C.blue}}),
-                el("span",{style:{fontSize:12,color:"#374151"}},data[0]?.name2 || "Produção")
-              )
-            )
-          );
-        };
-        
-        // ─── COMPONENTE: Gráfico de Pizza SVG ───
-        const PieChartSVG = ({data, width=300, height=300, title, subtitle}) => {
-          if(!data || data.length === 0) return null;
-          
-          const cx = width / 2;
-          const cy = height / 2;
-          const radius = Math.min(width, height) / 2 - 40;
-          
-          const total = data.reduce((sum, d) => sum + d.value, 0);
-          const colors = [C.blue, C.green, C.yellow, C.purple, C.teal];
-          
-          const [hoveredSlice, setHoveredSlice] = useState(null);
-          
-          let currentAngle = -90;
-          const slices = data.map((d, i) => {
-            const angle = (d.value / total) * 360;
-            const startAngle = currentAngle;
-            currentAngle += angle;
-            
-            return {
-              ...d,
-              startAngle,
-              endAngle: currentAngle,
-              color: colors[i % colors.length],
-              pct: Math.round((d.value / total) * 100)
-            };
-          });
-          
-          const polarToCartesian = (angle) => {
-            const rad = (angle * Math.PI) / 180;
-            return {
-              x: cx + radius * Math.cos(rad),
-              y: cy + radius * Math.sin(rad)
-            };
-          };
-          
-          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-            title && el("div",{style:{marginBottom:16}},
-              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
-            ),
-            el("svg",{width,height},
-              ...slices.map((slice, i) => {
-                const start = polarToCartesian(slice.startAngle);
-                const end = polarToCartesian(slice.endAngle);
-                const largeArc = slice.endAngle - slice.startAngle > 180 ? 1 : 0;
-                
-                const path = [
-                  `M ${cx} ${cy}`,
-                  `L ${start.x} ${start.y}`,
-                  `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
-                  'Z'
-                ].join(' ');
-                
-                const midAngle = (slice.startAngle + slice.endAngle) / 2;
-                const labelPos = polarToCartesian(midAngle);
-                const labelX = cx + (radius * 0.7) * Math.cos((midAngle * Math.PI) / 180);
-                const labelY = cy + (radius * 0.7) * Math.sin((midAngle * Math.PI) / 180);
-                
-                return el("g",{key:i},
-                  el("path",{
-                    d: path,
-                    fill: hoveredSlice === i ? slice.color + "cc" : slice.color,
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                    style:{cursor:"pointer",transition:"fill 0.2s"},
-                    onMouseEnter: () => setHoveredSlice(i),
-                    onMouseLeave: () => setHoveredSlice(null)
-                  }),
-                  el("text",{
-                    x: labelX,
-                    y: labelY,
-                    textAnchor: "middle",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    fill: "#fff"
-                  }, `${slice.pct}%`)
-                );
-              })
-            ),
-            el("div",{style:{display:"flex",justifyContent:"center",gap:16,marginTop:12,flexWrap:"wrap"}},
-              ...slices.map((s, i) => 
-                el("div",{key:i,style:{display:"flex",alignItems:"center",gap:6}},
-                  el("div",{style:{width:12,height:12,borderRadius:2,background:s.color}}),
-                  el("span",{style:{fontSize:12,color:"#374151"}},`${s.label}: ${s.value.toLocaleString("pt-BR")} (${s.pct}%)`)
-                )
-              )
-            )
-          );
-        };
-        
-        // ─── COMPONENTE: Gráfico de Linhas SVG ───
-        const LineChartSVG = ({data, width=500, height=300, title, subtitle}) => {
-          if(!data || data.length === 0) return null;
-          
-          const padding = {top:40, right:20, bottom:60, left:60};
-          const chartWidth = width - padding.left - padding.right;
-          const chartHeight = height - padding.top - padding.bottom;
-          
-          const maxValue = Math.max(...data.flatMap(d => [d.value1 || 0, d.value2 || 0]));
-          const scale = chartHeight / (maxValue * 1.1);
-          
-          const [hoveredPoint, setHoveredPoint] = useState(null);
-          
-          const points1 = data.map((d, i) => ({
-            x: padding.left + (i * chartWidth / (data.length - 1 || 1)),
-            y: padding.top + chartHeight - (d.value1 || 0) * scale
-          }));
-          
-          const points2 = data.map((d, i) => ({
-            x: padding.left + (i * chartWidth / (data.length - 1 || 1)),
-            y: padding.top + chartHeight - (d.value2 || 0) * scale
-          }));
-          
-          const pathData1 = points1.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-          const pathData2 = points2.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-          
-          return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-            title && el("div",{style:{marginBottom:16}},
-              el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-              subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
-            ),
-            el("svg",{width,height,style:{overflow:"visible"}},
-              // Grid
-              ...[0,0.25,0.5,0.75,1].map(pct => {
-                const y = padding.top + chartHeight - (chartHeight * pct);
-                return el("line",{key:pct,x1:padding.left,y1:y,x2:width-padding.right,y2:y,stroke:"#f0f0f0",strokeWidth:1});
-              }),
-              
-              // Linha 1 (Meta - pontilhada)
-              el("path",{
-                d: pathData1,
-                fill: "none",
-                stroke: C.purple,
-                strokeWidth: 2,
-                strokeDasharray: "5 5"
-              }),
-              
-              // Linha 2 (Produção - sólida)
-              el("path",{
-                d: pathData2,
-                fill: "none",
-                stroke: C.blue,
-                strokeWidth: 3
-              }),
-              
-              // Pontos
-              ...points2.map((p, i) => 
-                el("circle",{
-                  key:i,
-                  cx:p.x,
-                  cy:p.y,
-                  r:hoveredPoint===i?6:4,
-                  fill:C.blue,
-                  stroke:"#fff",
-                  strokeWidth:2,
-                  style:{cursor:"pointer",transition:"r 0.2s"},
-                  onMouseEnter:()=>setHoveredPoint(i),
-                  onMouseLeave:()=>setHoveredPoint(null)
-                })
-              ),
-              
-              // Labels X
-              ...data.map((d, i) => {
-                if(i % Math.ceil(data.length / 6) !== 0 && i !== data.length - 1) return null;
-                const x = padding.left + (i * chartWidth / (data.length - 1 || 1));
-                return el("text",{
-                  key:i,
-                  x,
-                  y:height - padding.bottom + 20,
-                  textAnchor:"middle",
-                  fontSize:11,
-                  fill:"#374151",
-                  transform:`rotate(-15, ${x}, ${height - padding.bottom + 20})`
-                }, d.label);
-              })
-            )
-          );
-        };
-        
         // ─── PREPARAR DADOS ───
         const prodVsMetaData = MACHINES
           .filter(m => dfMac === "TODAS" || m.name === dfMac)
@@ -1328,103 +1253,87 @@ function App(){
           .map(m => {
             const agg = machAgg[m.id] || {};
             return {
-              label: m.name.length > 15 ? m.name.substring(0, 13) + "..." : m.name,
-              value1: agg.totalMeta || 0,
-              value2: agg.totalProd || 0,
-              name1: "Meta",
-              name2: "Produção"
+              name: m.name.length > 15 ? m.name.substring(0, 13) + "..." : m.name,
+              meta: agg.totalMeta || 0,
+              producao: agg.totalProd || 0
             };
           })
-          .sort((a, b) => b.value2 - a.value2)
-          .slice(0, 8);
-        
+          .sort((a, b) => b.producao - a.producao)
+          .slice(0, 10);
+
         const turnoData = TURNOS.map(turno => ({
-          label: turno,
+          name: turno,
           value: dashData.filter(r => r.turno === turno).reduce((sum, r) => sum + num(r.producao), 0)
         })).filter(t => t.value > 0);
-        
+
         const tendenciaData = (() => {
           const byDate = {};
           dashData.forEach(r => {
-            if(!byDate[r.date]) byDate[r.date] = {prod:0, meta:0};
+            if(!byDate[r.date]) byDate[r.date] = {prod: 0};
             byDate[r.date].prod += num(r.producao);
           });
-          
           return Object.keys(byDate).sort().map(date => ({
-            label: dispD(date),
-            value1: Object.values(machAgg).reduce((sum, agg) => {
+            date: dispD(date),
+            producao: byDate[date].prod,
+            meta: Object.values(machAgg).reduce((sum, agg) => {
               const metaDiaria = agg.totalMeta / (agg.diasCount || 1);
               return sum + (agg.byDate && agg.byDate[date] ? metaDiaria : 0);
-            }, 0),
-            value2: byDate[date].prod
+            }, 0)
           }));
         })();
-        
+
         const performersData = MACHINES
           .filter(m => dfMac === "TODAS" || m.name === dfMac)
           .filter(m => m.hasMeta)
           .map(m => {
             const agg = machAgg[m.id] || {};
             return {
-              label: m.name.length > 20 ? m.name.substring(0, 18) + "..." : m.name,
-              value: agg.pct || 0,
-              prod: agg.totalProd || 0
+              name: m.name.length > 22 ? m.name.substring(0, 20) + "..." : m.name,
+              pct: agg.pct || 0,
+              producao: agg.totalProd || 0
             };
           })
-          .filter(m => m.prod > 0)
-          .sort((a, b) => b.value - a.value)
+          .filter(m => m.producao > 0)
+          .sort((a, b) => b.pct - a.pct)
           .slice(0, 8);
-        
-        return el("div",null,
-          el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16,marginBottom:16}},
-            prodVsMetaData.length > 0 && el(BarChartSVG,{
-              data:prodVsMetaData,
-              title:"📊 Produção vs Meta por Máquina",
-              subtitle:"Comparativo entre produção real e meta estabelecida",
-              width:550,
-              height:320
-            }),
-            turnoData.length > 0 && el(PieChartSVG,{
-              data:turnoData,
-              title:"🎯 Distribuição de Produção por Turno",
-              subtitle:"Percentual de produção em cada turno",
-              width:550,
-              height:320
-            })
-          ),
-          el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(500px, 1fr))",gap:16}},
-            tendenciaData.length > 0 && el(LineChartSVG,{
-              data:tendenciaData,
-              title:"📈 Tendência de Produção ao Longo do Tempo",
-              subtitle:"Evolução diária da produção no período",
-              width:550,
-              height:320
-            }),
-            performersData.length > 0 && el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 4px #0001"}},
-              el("div",{style:{marginBottom:16}},
-                el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},"🏆 Ranking de Performance"),
-                el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},"Máquinas ordenadas por % da meta")
-              ),
-              ...performersData.map((m, i) => {
-                const barColor = m.value >= 100 ? C.green : m.value >= 80 ? C.yellow : C.red;
-                return el("div",{key:i,style:{marginBottom:10}},
-                  el("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:4}},
-                    el("span",{style:{fontSize:12,fontWeight:600,color:C.navy}},m.label),
-                    el("span",{style:{fontSize:12,fontWeight:700,color:barColor}},`${m.value}%`)
-                  ),
-                  el("div",{style:{background:"#e5e7eb",borderRadius:4,height:8,overflow:"hidden"}},
-                    el("div",{style:{width:`${Math.min(m.value,100)}%`,height:"100%",background:barColor,borderRadius:4,transition:"width 0.4s"}})
-                  )
-                );
-              })
-            )
-          ),
-          prodVsMetaData.length === 0 && turnoData.length === 0 && 
-          el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center"}},
+
+        if (prodVsMetaData.length === 0 && turnoData.length === 0) {
+          return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 4px #0001"}},
             el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
             el("div",{style:{fontSize:13,color:"#9ca3af",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
-          )
+          );
+        }
+
+        return el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
+          el(EChartsComponent,{
+            title:"📊 Produção vs Meta por Máquina",
+            subtitle:"Comparativo entre produção real e meta estabelecida",
+            data:prodVsMetaData,
+            type:"bar",
+            height:350
+          }),
+          el(EChartsComponent,{
+            title:"🎯 Distribuição de Produção por Turno",
+            subtitle:"Percentual de produção em cada turno",
+            data:turnoData,
+            type:"pie",
+            height:350
+          }),
+          el(EChartsComponent,{
+            title:"📈 Tendência de Produção ao Longo do Tempo",
+            subtitle:"Evolução diária da produção no período",
+            data:tendenciaData,
+            type:"line",
+            height:350
+          }),
+          el(EChartsComponent,{
+            title:"🏆 Ranking de Performance",
+            subtitle:"Máquinas ordenadas por % da meta",
+            data:performersData,
+            type:"horizontalBar",
+            height:350
+          })
         );
       })()
     )
