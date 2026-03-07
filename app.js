@@ -836,33 +836,35 @@ function App(){
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
   async function handleSave(){
-    const currentDate  = entryDate;
-    const currentTurno = entryTurno;
     const currentInputs   = {...inputs};
     const currentObsInputs= {...obsInputs};
     const currentMetas    = {...metas};
-    
     const timestamp = nowBR();
-    
+
+    // Coleta todas as chaves com valores pendentes (qualquer data/turno)
+    const pendingKeys=new Set([
+      ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
+      ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
+    ]);
+
     setSyncSt("syncing");
     const toSend=[];
-    MACHINES.forEach(m=>{
-      const k=cellKey(m.id,currentDate,currentTurno);
+    pendingKeys.forEach(k=>{
+      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
+      const mId=Number(k.substring(0,firstIdx));
+      const rest=k.substring(firstIdx+1);
+      const date=rest.substring(0,10);
+      const turno=rest.substring(11);
+      const m=MACHINES.find(mc=>mc.id===mId); if(!m) return;
       const val=currentInputs[k];
       if(val===undefined||val==="") return;
-      const metaVal = m.hasMeta ? (currentMetas[m.id] || m.defaultMeta || 0) : 0;
+      const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
+      const obs=currentObsInputs[k];
       toSend.push({
-        date:currentDate,  // Mantém formato ISO: YYYY-MM-DD
-        turno:currentTurno,
-        machineId:m.id,
-        machineName:m.name,
-        meta:metaVal,
-        producao:num(val),
-        savedBy:user.nome,
-        savedAt:timestamp,
-        editUser:"",
-        editTime:"",
-        obs:(()=>{ const o=currentObsInputs[k]; return(o!==undefined&&o!=="")?o:undefined; })()
+        date, turno, machineId:m.id, machineName:m.name,
+        meta:metaVal, producao:num(val), savedBy:user.nome, savedAt:timestamp,
+        editUser:"", editTime:"",
+        obs:(obs!==undefined&&obs!=="")?obs:undefined
       });
     });
     
@@ -1068,18 +1070,7 @@ function App(){
     }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[records,dfIni,dfFim,dfMac]);
 
-  const pendingCount=MACHINES.filter(m=>{ const k=cellKey(m.id,entryDate,entryTurno); return inputs[k]!==undefined&&inputs[k]!==""; }).length;
-  const otherPendingKeys=Object.keys(inputs).filter(k=>{
-    const idx=k.indexOf("_"); if(idx<0) return false;
-    const rest=k.slice(idx+1);
-    const idx2=rest.indexOf("_"); if(idx2<0) return false;
-    const d=rest.slice(0,idx2); const t=rest.slice(idx2+1);
-    return (d!==entryDate||t!==entryTurno)&&inputs[k]!=="";
-  });
-  const otherPendingDates=[...new Set(otherPendingKeys.map(k=>{
-    const idx=k.indexOf("_"); const rest=k.slice(idx+1); const idx2=rest.indexOf("_");
-    return `${dispD(rest.slice(0,idx2))} - ${rest.slice(idx2+1)}`;
-  }))];
+  const pendingCount=Object.values(inputs).filter(v=>v!==undefined&&v!=="").length;
 
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
@@ -1153,7 +1144,6 @@ function App(){
         el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?C.green:syncSt==="error"?C.red:"#2563eb",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
           syncSt==="syncing"?"⏳ Salvando...":syncSt==="ok"?"✔ Salvo!":syncSt==="error"?"✘ Erro!":`💾 Salvar${pendingCount>0?` (${pendingCount})`:""}`)
         ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`⚠ ${pendingCount} não salvo(s)`)
-        ,otherPendingDates.length>0&&el("div",{style:{fontSize:11,color:"#92400e",fontWeight:600,textAlign:"center",background:"#fef3c7",borderRadius:6,padding:"3px 8px",marginTop:2}},`⚠ Rascunho em: ${otherPendingDates.join(", ")}`)
       )
     ),
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px #0001",overflow:"hidden"}},
@@ -1448,8 +1438,8 @@ function App(){
             const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[r.machineId]||0):0);
             const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
             const savedByName=r.savedBy||r.usuario||"";
-            const obsBy   = r.editUser || r.savedBy || "—";
-            const obsDate = r.editTime ? dispDH(r.editTime) : dispDH(r.savedAt);
+            const regBy   = r.editUser || r.savedBy || "—";
+            const regDate = r.editTime ? dispDH(r.editTime) : dispDH(r.savedAt);
             return el("div",{key:i,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 4px #0001",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
               el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
@@ -1461,9 +1451,7 @@ function App(){
               el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#1e40af",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},r.obs),
               el("div",{style:{borderTop:"1px solid #f1f5f9",paddingTop:8,display:"flex",flexDirection:"column",gap:6}},
                 el("div",{style:{fontSize:11,color:"#6b7280"}},
-                  el("span",null,`💾 Registrado por ${r.savedBy||"—"} em ${dispDH(r.savedAt)}`)),
-                el("div",{style:{fontSize:11,color:"#0369a1"}},
-                  el("span",null,`💬 Obs por ${obsBy} em ${obsDate}`)),
+                  el("span",null,`👤 Registrado por ${regBy} em ${regDate}`)),
                 el("div",{style:{display:"flex",gap:6,justifyContent:"flex-end"}},
                   el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#e0f2fe",color:"#0369a1",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
                   el("button",{onClick:()=>setDeleteRec({...r,machineId:Number(r.machineId)}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
