@@ -650,7 +650,7 @@ function doGet(e) {
       case "upsert":
         return json(actionUpsert(payload.token, payload.records || []));
       case "delete":
-        return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId));
+        return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId, payload.id));
       default:
         auditLog("UNKNOWN", "INVALID_ACTION", {action: payload.action});
         return json({ ok: false, error: "Ação desconhecida" });
@@ -1132,43 +1132,57 @@ function actionUpsert(token, records) {
   }
 }
 
-function actionDelete(token, date, turno, machineId) {
+function actionDelete(token, date, turno, machineId, id) {
   const session = validateSession(token);
   if(!session) {
     return { ok: false, error: "Sessão inválida ou expirada" };
   }
-  
+
   try {
     if (!date || !turno || !machineId) {
       return { ok: false, error: "Parâmetros inválidos" };
     }
-    
+
     const sheet = getProdSheet();
     const allData = sheet.getDataRange().getValues();
     const headers = allData[0];
     const colIdx = {};
     headers.forEach((h, i) => colIdx[String(h).trim()] = i);
-    
+    Logger.log("[DELETE] params: id=%s date=%s turno=%s machineId=%s", id, date, turno, machineId);
+    Logger.log("[DELETE] headers: %s", JSON.stringify(headers));
+
     let deleted = false;
     for (let i = allData.length - 1; i >= 1; i--) {
-      var rawDate2 = allData[i][colIdx["date"]];
-      var rowDate;
-      if (rawDate2 instanceof Date) {
-        rowDate = rawDate2.getFullYear() + "-" +
-          String(rawDate2.getMonth()+1).padStart(2,"0") + "-" +
-          String(rawDate2.getDate()).padStart(2,"0");
-      } else {
-        rowDate = String(rawDate2 || "").trim();
-      }
-      const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
-      const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
+      var matched = false;
 
-      if (rowDate === String(date) &&
-          rowTurno === String(turno) &&
-          rowMachId === String(machineId)) {
+      // Busca por id (UUID único) — mais confiável
+      if (id && colIdx["id"] !== undefined) {
+        const rowId = String(allData[i][colIdx["id"]] || "").trim();
+        if (rowId && rowId === String(id)) matched = true;
+      }
+
+      // Fallback: busca por date/turno/machineId
+      if (!matched) {
+        var rawDate2 = allData[i][colIdx["date"]];
+        var rowDate;
+        if (rawDate2 instanceof Date) {
+          rowDate = rawDate2.getFullYear() + "-" +
+            String(rawDate2.getMonth()+1).padStart(2,"0") + "-" +
+            String(rawDate2.getDate()).padStart(2,"0");
+        } else {
+          rowDate = String(rawDate2 || "").trim();
+        }
+        const rowTurno  = String(allData[i][colIdx["turno"]]     || "").trim();
+        const rowMachId = String(allData[i][colIdx["machineId"]] || "").trim();
+        if (rowDate === String(date) &&
+            rowTurno === String(turno) &&
+            rowMachId === String(machineId)) matched = true;
+      }
+
+      if (matched) {
         sheet.deleteRow(i + 1);
         deleted = true;
-        auditLog(session.nome, "RECORD_DELETED", {date, turno, machineId});
+        auditLog(session.nome, "RECORD_DELETED", {id, date, turno, machineId});
         break;
       }
     }

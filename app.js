@@ -944,6 +944,7 @@ function App(){
     setDeleting(true);
     
     const deleteParams = {
+      id: deleteRec.id,
       date: deleteRec.date,
       turno: deleteRec.turno,
       machineId: Number(deleteRec.machineId)
