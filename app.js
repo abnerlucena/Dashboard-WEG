@@ -233,20 +233,14 @@ function useIsMobile(){
 // ─── COMPONENTES BASE ─────────────────────────────────────────
 function el(tag,props,...children){ return h(tag,props,...children); }
 
-// ─── LOGO WEG SVG ──────────────────────────────────────────────
+// ─── LOGO WEG SVG (oficial) ────────────────────────────────────
 function WEGLogoSVG({height=32,color="#fff"}){
-  const w=Math.round(height*120/82);
-  return el("svg",{viewBox:"0 0 120 82",width:w,height:height,fill:color,style:{display:"block"}},
-    el("rect",{x:0,  y:0,  width:120,height:12}),
-    el("rect",{x:0,  y:70, width:120,height:12}),
-    el("rect",{x:0,  y:12, width:10, height:58}),
-    el("rect",{x:110,y:12, width:10, height:58}),
-    el("rect",{x:18, y:12, width:7,  height:58}),
-    el("rect",{x:31, y:12, width:7,  height:58}),
-    el("rect",{x:51, y:12, width:7,  height:58}),
-    el("rect",{x:51, y:35, width:20, height:8}),
-    el("rect",{x:84, y:12, width:7,  height:58}),
-    el("rect",{x:91, y:35, width:19, height:8})
+  const w=Math.round(height*5991/4192);
+  const s={fill:color,fillRule:"nonzero"};
+  return el("svg",{viewBox:"0 0 5991 4192",width:w,height:height,style:{display:"block",shapeRendering:"geometricPrecision"}},
+    el("polygon",{style:s,points:"461,466 461,2795 922,2795 922,932 1383,932 1383,2795 1844,2795 1844,932 2304,932 2304,3261 0,3261 0,0 5991,0 5991,466 "}),
+    el("path",{style:s,d:"M4148 2329l0 -1397 -1383 0 0 2329 1383 0 0 -466 -922 0 0 -466 922 0zm-461 -466l-461 0 0 -466 461 0 0 466z"}),
+    el("path",{style:s,d:"M5991 932l-1382 0 0 2329 922 0 0 466 -5531 0 0 465 5991 0 0 -3260zm-461 1863l-461 0 0 -1398 461 0 0 1398z"})
   );
 }
 
