@@ -1085,9 +1085,9 @@ function App(){
       syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:12}},"⏳"),
       syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:12}},"✔"),
       syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:12}},"✘"),
-      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background:"transparent",border:"1px solid #FFFFFF33",color:"#A8C6D8",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,transition:"background .15s"}},"🔄"),
+      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background: "#3498db", border:"1px solid #FFFFFF33",color:"#A8C6D8",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,transition:"background .15s"}},"🔄"),
       user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
-      el("button",{onClick:handleLogout,style:{background:"transparent",border:"1px solid #C8102E55",color:"#F4A0A0",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
+      el("button",{onClick:handleLogout,style:{background:"#e74c3c",border:"1px solid #C8102E55",color:"#ffffff",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
     )
   );
 
