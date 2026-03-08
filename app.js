@@ -233,6 +233,23 @@ function useIsMobile(){
 // ─── COMPONENTES BASE ─────────────────────────────────────────
 function el(tag,props,...children){ return h(tag,props,...children); }
 
+// ─── LOGO WEG SVG ──────────────────────────────────────────────
+function WEGLogoSVG({height=32,color="#fff"}){
+  const w=Math.round(height*120/82);
+  return el("svg",{viewBox:"0 0 120 82",width:w,height:height,fill:color,style:{display:"block"}},
+    el("rect",{x:0,  y:0,  width:120,height:12}),
+    el("rect",{x:0,  y:70, width:120,height:12}),
+    el("rect",{x:0,  y:12, width:10, height:58}),
+    el("rect",{x:110,y:12, width:10, height:58}),
+    el("rect",{x:18, y:12, width:7,  height:58}),
+    el("rect",{x:31, y:12, width:7,  height:58}),
+    el("rect",{x:51, y:12, width:7,  height:58}),
+    el("rect",{x:51, y:35, width:20, height:8}),
+    el("rect",{x:84, y:12, width:7,  height:58}),
+    el("rect",{x:91, y:35, width:19, height:8})
+  );
+}
+
 function MiniBar({pct,color}){
   return el("div",{style:{background:"#D0DEE8",borderRadius:4,height:10,overflow:"hidden"}},
     el("div",{style:{width:`${Math.min(pct??0,100)}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s"}})
@@ -296,8 +313,8 @@ function AuthScreen({onLogin}){
   return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#003057 0%,#0064A6 100%)"}},
     el("div",{style:{background:"#fff",borderRadius:6,padding:"36px 32px",width:380,boxShadow:"0 12px 48px rgba(0,48,87,0.35)"}},
       el("div",{style:{textAlign:"center",marginBottom:28}},
-        el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:3,padding:"6px 22px",marginBottom:12}},
-          el("span",{style:{color:"#fff",fontWeight:900,fontSize:26,letterSpacing:4,fontFamily:"'Segoe UI',sans-serif"}},"WEG")
+        el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:3,padding:"10px 20px",marginBottom:12}},
+          el(WEGLogoSVG,{height:38,color:"#fff"})
         ),
         el("div",{style:{fontSize:15,fontWeight:700,color:C.navy,marginTop:2,letterSpacing:0.3}},"Dashboard de Produção"),
         el("div",{style:{fontSize:13,color:C.gray,marginTop:4}},isLogin?"Faça login para continuar":"Crie sua conta de acesso")
@@ -1063,7 +1080,7 @@ function App(){
   const header = el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
     el("div",{style:{display:"flex",alignItems:"center",gap:0}},
       el("div",{style:{background:"#0064A6",padding:isMobile?"10px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",marginRight:16}},
-        el("span",{style:{color:"#fff",fontWeight:900,fontSize:isMobile?15:19,letterSpacing:3,fontFamily:"'Segoe UI',sans-serif"}},"WEG")
+        el(WEGLogoSVG,{height:isMobile?22:28,color:"#fff"})
       ),
       el("div",{style:{padding:isMobile?"8px 0":"14px 0"}},
         el("div",{style:{color:"#fff",fontSize:isMobile?13:16,fontWeight:600,letterSpacing:0.2}},(isMobile?"Dashboard":"Dashboard de Produção")),
