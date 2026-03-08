@@ -8,18 +8,20 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',sans-serif;background:#f1f5f9;min-height:100vh}
-    input:focus,select:focus{outline:2px solid #3b82f6;outline-offset:1px}
+    body{font-family:'Segoe UI',sans-serif;background:#F0F2F5;min-height:100vh}
+    input:focus,select:focus{outline:2px solid #0064A6;outline-offset:1px}
     ::-webkit-scrollbar{width:6px;height:6px}
-    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+    ::-webkit-scrollbar-thumb{background:#B0C8D8;border-radius:3px}
     .spin{display:inline-block;animation:spin 1s linear infinite}
     @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
 <div id="root">
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#2563eb)">
-    <div style="color:#fff;font-size:18px;font-family:sans-serif">⏳ Carregando...</div>
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(160deg,#003057 0%,#0064A6 100%)">
+    <div style="background:#fff;color:#003057;font-weight:900;font-size:24px;padding:6px 22px;border-radius:3px;letter-spacing:4px;font-family:'Segoe UI',sans-serif">WEG</div>
+    <div style="color:#fff;font-size:15px;font-family:'Segoe UI',sans-serif;font-weight:500;letter-spacing:0.5px">Dashboard de Produção</div>
+    <div style="color:#A8C6D8;font-size:13px;font-family:'Segoe UI',sans-serif">⏳ Carregando...</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>

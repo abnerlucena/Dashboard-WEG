@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:i.imgur.com)"
+      "WebFetch(domain:i.imgur.com)",
+      "WebFetch(domain:www.weg.net)",
+      "WebSearch",
+      "WebFetch(domain:www.brandcolorcode.com)"
     ]
   }
 }
