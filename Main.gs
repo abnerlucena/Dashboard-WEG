@@ -8,6 +8,7 @@ const USER_SHEET = "Usuarios";
 const SESSION_SHEET = "Sessions";
 const AUDIT_SHEET = "AuditLogs";
 const INVITE_CODES_SHEET = "InviteCodes";
+const METAS_SHEET = "Metas";
 const ADMIN_USER = "Admin";
 
 // Configurações de Segurança
@@ -25,6 +26,30 @@ const USER_HEADERS = ["nome", "senhaHash", "role", "criadoEm", "status", "loginA
 const SESSION_HEADERS = ["token", "nome", "role", "createdAt", "expiresAt"];
 const AUDIT_HEADERS = ["timestamp", "user", "action", "details", "ip"];
 const INVITE_HEADERS = ["code", "createdBy", "createdAt", "usedBy", "usedAt", "status"];
+const METAS_HEADERS = ["machineId", "machineName", "meta", "updatedBy", "updatedAt"];
+
+// Metas padrão — espelha o array MACHINES do frontend
+const DEFAULT_METAS = [
+  {id:1,  name:"HORIZONTAL 1",                       meta:500},
+  {id:2,  name:"HORIZONTAL 2",                       meta:500},
+  {id:3,  name:"VERTICAL PLACAS / SUP. 1",           meta:400},
+  {id:4,  name:"VERTICAL PLACAS / SUP. 2",           meta:400},
+  {id:5,  name:"VERTICAL MÓDULOS 1",                 meta:350},
+  {id:6,  name:"VERTICAL MÓDULOS 2",                 meta:350},
+  {id:7,  name:"A GRANEL",                           meta:600},
+  {id:8,  name:"MÁQUINA INTERRUPTOR",                meta:300},
+  {id:9,  name:"TESTE INTERRUPTORES",                meta:250},
+  {id:10, name:"MANUAL INTERRUPTOR",                 meta:200},
+  {id:11, name:"MONTAGEM DIVERSOS",                  meta:150},
+  {id:12, name:"MONTAGEM PLACA REFINATTO",           meta:180},
+  {id:13, name:"KIT 1 PARAFUSO",                     meta:220},
+  {id:14, name:"KIT 2 PARAFUSO",                     meta:220},
+  {id:15, name:"MONTAGEM TOMADAS MANUAL",            meta:160},
+  {id:16, name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      meta:500},
+  {id:17, name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  meta:0},
+  {id:18, name:"FECHAMENTO TECLA INTERRUPTORES",     meta:0},
+  {id:19, name:"RETRABALHO GERAL",                   meta:0}
+];
 
 // ══════════════════════════════════════════════════════════════
 // 🔧 FUNÇÕES AUXILIARES - MANAGEMENT DE SENHAS
@@ -304,6 +329,26 @@ function getInviteCodesSheet() {
   return sheet;
 }
 
+function getMetasSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(METAS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(METAS_SHEET);
+    sheet.appendRow(METAS_HEADERS);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, METAS_HEADERS.length)
+      .setBackground("#1e3a5f")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+    // Inserir metas padrão
+    const now = new Date().toISOString();
+    DEFAULT_METAS.forEach(m => {
+      sheet.appendRow([m.id, m.name, m.meta, "SYSTEM", now]);
+    });
+  }
+  return sheet;
+}
+
 // ══════════════════════════════════════════════════════════════
 // SESSION MANAGEMENT
 // ══════════════════════════════════════════════════════════════
@@ -491,7 +536,11 @@ function testarSistema() {
     Logger.log("5. Criando planilha de Códigos de Convite...");
     getInviteCodesSheet();
     Logger.log("   ✅ OK");
-    
+
+    Logger.log("6. Criando planilha de Metas Globais...");
+    getMetasSheet();
+    Logger.log("   ✅ OK");
+
     Logger.log("");
     Logger.log("════════════════════════════════════════");
     Logger.log("✅ TODAS AS PLANILHAS CRIADAS!");
@@ -535,6 +584,7 @@ function doGet(e) {
       getSessionSheet();
       getAuditSheet();
       getInviteCodesSheet();
+      getMetasSheet();
       Logger.log("✅ Todas as planilhas criadas/verificadas");
       
       // Verificar se Admin foi criado e mostrar informações
@@ -566,12 +616,12 @@ function doGet(e) {
       Logger.log("🔒 Segurança: Enterprise Grade");
       Logger.log("===========================================");
       
-      return json({ 
-        ok: true, 
-        msg: "API online - Sistema inicializado", 
-        version: "2.5-SECURE",
+      return json({
+        ok: true,
+        msg: "API online - Sistema inicializado",
+        version: "2.6-SHARED-METAS",
         security: "Enterprise Grade",
-        planilhas: ["Producao", "Usuarios", "Sessions", "AuditLogs", "InviteCodes"]
+        planilhas: ["Producao", "Usuarios", "Sessions", "AuditLogs", "InviteCodes", "Metas"]
       });
     }
 
@@ -607,6 +657,10 @@ function doGet(e) {
         return json(actionUpsert(payload.token, payload.records || []));
       case "delete":
         return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId, payload.id));
+      case "getMetas":
+        return json(actionGetMetas(payload.token));
+      case "saveMetas":
+        return json(actionSaveMetas(payload.token, payload.metas));
       default:
         auditLog("UNKNOWN", "INVALID_ACTION", {action: payload.action});
         return json({ ok: false, error: "Ação desconhecida" });
@@ -928,6 +982,82 @@ function actionAdminCreateUser(token, nome, senha) {
 
   auditLog(session.nome, "USER_CREATED_BY_ADMIN", { nome: sanitizedNome });
   return { ok: true };
+}
+
+// ══════════════════════════════════════════════════════════════
+// METAS GLOBAIS (compartilhadas entre todos os usuários)
+// ══════════════════════════════════════════════════════════════
+
+function actionGetMetas(token) {
+  const session = validateSession(token);
+  if (!session) {
+    return { ok: false, error: "Sessão inválida ou expirada. Faça login novamente." };
+  }
+
+  try {
+    const sheet = getMetasSheet();
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) return { ok: true, metas: {} };
+
+    const data = sheet.getRange(2, 1, lastRow - 1, METAS_HEADERS.length).getValues();
+    const metas = {};
+    data.forEach(row => {
+      const machineId = Number(row[0]);
+      if (machineId > 0) {
+        metas[machineId] = Number(row[2]);
+      }
+    });
+
+    return { ok: true, metas };
+  } catch (err) {
+    logError("actionGetMetas", err);
+    return { ok: false, error: "Erro ao carregar metas" };
+  }
+}
+
+function actionSaveMetas(token, metas) {
+  const session = validateSession(token);
+  if (!session) {
+    return { ok: false, error: "Sessão inválida ou expirada" };
+  }
+
+  try {
+    if (!metas || typeof metas !== 'object') {
+      return { ok: false, error: "Dados de metas inválidos" };
+    }
+
+    const sheet = getMetasSheet();
+    const allData = sheet.getDataRange().getValues();
+    const now = new Date().toISOString();
+
+    Object.keys(metas).forEach(machineIdStr => {
+      const machineId = Number(machineIdStr);
+      if (isNaN(machineId) || machineId <= 0) return;
+
+      const metaVal = sanitizeNumber(metas[machineIdStr], 0, 100000);
+
+      // Localizar linha da máquina
+      let foundRow = -1;
+      for (let i = 1; i < allData.length; i++) {
+        if (Number(allData[i][0]) === machineId) {
+          foundRow = i + 1;
+          break;
+        }
+      }
+
+      if (foundRow > 0) {
+        // Atualizar meta, responsável e timestamp
+        sheet.getRange(foundRow, 3, 1, 3).setValues([[metaVal, session.nome, now]]);
+      }
+    });
+
+    SpreadsheetApp.flush();
+    auditLog(session.nome, "METAS_SAVED", {});
+    return { ok: true };
+  } catch (err) {
+    logError("actionSaveMetas", err);
+    return { ok: false, error: err.message };
+  }
 }
 
 // ══════════════════════════════════════════════════════════════

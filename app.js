@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbxgTE8hzPPmRYuuXEFvhB0UUtFu4Ve2FJXJEyUBRQX7YkZiVN5AxRem11wcIOQ7u-1ABg/exec";
+const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycby4D-XC5Qk-jfPUq6I4f4bVlUpZPDCbrjIa9-lBfjRJs2r32Odlj6kglgsaPIbDLbCI7Q/exec";
 // ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
 // Agora é validado apenas no backend
 
@@ -25,7 +25,6 @@ const MACHINES = [
   {id:19,name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0},
 ];
 const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
-const META_KEY = "prod_metas_v1";
 const SESSION_KEY = "prod_session_v3"; // v3 = secure com tokens
 
 // ─── HELPERS ──────────────────────────────────────────────────
@@ -171,15 +170,11 @@ const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SESSION_KE
 const saveSession = u=>{ try{ localStorage.setItem(SESSION_KEY,JSON.stringify(u)); }catch{} };
 const clearSession= ()=>{ try{ localStorage.removeItem(SESSION_KEY); }catch{} };
 
-function loadMetas(){
-  try{
-    const saved=JSON.parse(localStorage.getItem(META_KEY)||"{}");
-    const m={};
-    MACHINES.forEach(mac=>{ m[mac.id]=saved[mac.id]!==undefined?saved[mac.id]:mac.defaultMeta; });
-    return m;
-  }catch{ const m={}; MACHINES.forEach(mac=>m[mac.id]=mac.defaultMeta); return m; }
+function loadMetasDefaults(){
+  const m={};
+  MACHINES.forEach(mac=>{ m[mac.id]=mac.defaultMeta; });
+  return m;
 }
-function saveMetas(m){ try{ localStorage.setItem(META_KEY,JSON.stringify(m)); }catch{} }
 
 // ─── API ──────────────────────────────────────────────────────
 async function api(action, body={}, userSession=null){
@@ -745,7 +740,9 @@ function EChartsComponent({title, subtitle, data, type, height = 350}) {
 // ─── APP PRINCIPAL ────────────────────────────────────────────
 function App(){
   const [user,setUser]           = useState(()=>loadSession());
-  const [metas,setMetasState]    = useState(loadMetas);
+  const [metas,setMetasState]    = useState(loadMetasDefaults);
+  const [metasLoading,setMetasLoading] = useState(false);
+  const [metasSaving,setMetasSaving]   = useState(false);
   const [records,setRecords]     = useState([]);
   const [tab,setTab]             = useState("entrada");
   const [entryDate,setEntryDate] = useState(today());
@@ -771,7 +768,7 @@ function App(){
   const pollRef=useRef(null);
   const isMobile=useIsMobile();
 
-  function updateMeta(id,val){ const m={...metas,[id]:num(val)}; setMetasState(m); saveMetas(m); }
+  function updateMeta(id,val){ setMetasState(m=>({...m,[id]:num(val)})); }
 
   const loadAll=useCallback(async(silent=false)=>{
     if(!silent) setLoading(true);
@@ -789,13 +786,37 @@ function App(){
     finally{ if(!silent) setLoading(false); }
   },[user]);
 
+  const loadMetasFromServer=useCallback(async(silent=false)=>{
+    if(!silent) setMetasLoading(true);
+    try{
+      const r=await api("getMetas",{},user);
+      if(r.ok&&r.metas){
+        const m={};
+        MACHINES.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
+        setMetasState(m);
+      }
+    }catch(e){ console.error("Erro ao carregar metas:", e); }
+    finally{ if(!silent) setMetasLoading(false); }
+  },[user]);
+
+  async function saveMetasToServer(){
+    setMetasSaving(true);
+    try{
+      const r=await api("saveMetas",{metas},user);
+      if(r.ok){ setMetaEdit(false); }
+      else{ alert("Erro ao salvar metas: "+(r.error||"Tente novamente.")); }
+    }catch(e){ alert("Erro ao salvar metas. Verifique sua conexão."); }
+    finally{ setMetasSaving(false); }
+  }
+
   useEffect(()=>{
-    if(user){ 
-      loadAll(); 
-      pollRef.current=setInterval(()=>loadAll(true),30000); // 30 segundos
+    if(user){
+      loadAll();
+      loadMetasFromServer();
+      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
     }
     return()=>clearInterval(pollRef.current);
-  },[user,loadAll]);
+  },[user,loadAll,loadMetasFromServer]);
 
   // refs removed - handleSave now reads state directly
 
@@ -1374,36 +1395,43 @@ function App(){
   // ── tab metas ──
   const tabMetas = el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-        el("span",{style:{fontWeight:700,fontSize:15}},"🎯 Metas por Máquina"),
-        el("button",{onClick:()=>setMetaEdit(!metaEdit),style:{background:metaEdit?C.green+"22":"#ffffff22",border:`1px solid ${metaEdit?C.green:"#ffffff44"}`,color:metaEdit?"#86efac":"#fff",borderRadius:4,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}},
-          metaEdit?"✔ Salvo automaticamente":"✏ Editar Metas"
+      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+        el("span",{style:{fontWeight:700,fontSize:15}},"🎯 Metas por Máquina"+(metasLoading?" ⏳":"")),
+        el("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          metaEdit&&el("button",{onClick:()=>setMetaEdit(false),disabled:metasSaving,style:{background:"#ffffff22",border:"1px solid #ffffff44",color:"#fff",borderRadius:4,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}},"✕ Cancelar"),
+          el("button",{
+            onClick: metaEdit ? saveMetasToServer : ()=>setMetaEdit(true),
+            disabled: metasLoading||metasSaving,
+            style:{background:metaEdit?C.green+"cc":"#ffffff22",border:`1px solid ${metaEdit?C.green:"#ffffff44"}`,color:"#fff",borderRadius:4,padding:"5px 14px",cursor:(metasLoading||metasSaving)?"not-allowed":"pointer",fontSize:13,fontWeight:600}
+          }, metasSaving?"⏳ Salvando...":metaEdit?"💾 Salvar Metas":"✏ Editar Metas")
         )
       ),
-      el("table",{style:{width:"100%",borderCollapse:"collapse"}},
-        el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / TURNO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)")
-        )),
-        el("tbody",null,...MACHINES.map((m,i)=>
-          el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
-            el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
-              m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
-            ),
-            el("td",{style:{padding:"7px 14px",textAlign:"center"}},
-              metaEdit&&m.hasMeta
-                ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
-                :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#8FA4B2"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
-            ),
-            el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
-            el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—")
-          )
-        ))
-      ),
+      metasLoading
+        ? el("div",{style:{padding:40,textAlign:"center",color:C.gray,fontSize:14}},"⏳ Carregando metas do servidor...")
+        : el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+            el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
+              el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
+              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / TURNO"),
+              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
+              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)")
+            )),
+            el("tbody",null,...MACHINES.map((m,i)=>
+              el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+                el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
+                  m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
+                ),
+                el("td",{style:{padding:"7px 14px",textAlign:"center"}},
+                  metaEdit&&m.hasMeta
+                    ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
+                    :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#8FA4B2"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
+                ),
+                el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
+                el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—")
+              )
+            ))
+          ),
       el("div",{style:{padding:"12px 16px",background:"#F5F8FA",borderTop:"1px solid #D0DEE8",fontSize:12,color:C.gray}},
-        "💡 Metas ficam salvas neste navegador. Clique em ",el("b",null,"Editar Metas")," para alterar."
+        "🌐 Metas são ",el("b",null,"globais")," — todos os usuários verão as mesmas metas simultaneamente. Clique em ",el("b",null,"Editar Metas")," para alterar e em ",el("b",null,"Salvar Metas")," para aplicar a todos."
       )
     )
   );
