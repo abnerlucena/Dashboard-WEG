@@ -766,14 +766,20 @@ function App(){
   const [dView,setDView]         = useState("resumo");
   const [metaEdit,setMetaEdit]   = useState(false);
   const pollRef=useRef(null);
+  const metaEditRef=useRef(false);
+  const userRef=useRef(user);
   const isMobile=useIsMobile();
+
+  // Mantém refs sempre atualizados sem criar dependências reativas
+  useEffect(()=>{ metaEditRef.current=metaEdit; },[metaEdit]);
+  useEffect(()=>{ userRef.current=user; },[user]);
 
   function updateMeta(id,val){ setMetasState(m=>({...m,[id]:num(val)})); }
 
   const loadAll=useCallback(async(silent=false)=>{
     if(!silent) setLoading(true);
     try{
-      const r=await api("getAll",{},user);
+      const r=await api("getAll",{},userRef.current);
       setRecords(r.data||[]);
       setLastSync(new Date());
     }catch(e){
@@ -784,12 +790,14 @@ function App(){
       }
     }
     finally{ if(!silent) setLoading(false); }
-  },[user]);
+  },[]); // eslint-disable-line
 
   const loadMetasFromServer=useCallback(async(silent=false)=>{
+    // Não sobrescreve enquanto o usuário está editando
+    if(metaEditRef.current) return;
     if(!silent) setMetasLoading(true);
     try{
-      const r=await api("getMetas",{},user);
+      const r=await api("getMetas",{},userRef.current);
       if(r.ok&&r.metas){
         const m={};
         MACHINES.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
@@ -797,14 +805,17 @@ function App(){
       }
     }catch(e){ console.error("Erro ao carregar metas:", e); }
     finally{ if(!silent) setMetasLoading(false); }
-  },[user]);
+  },[]); // eslint-disable-line
 
   async function saveMetasToServer(){
     setMetasSaving(true);
     try{
-      const r=await api("saveMetas",{metas},user);
-      if(r.ok){ setMetaEdit(false); }
-      else{ alert("Erro ao salvar metas: "+(r.error||"Tente novamente.")); }
+      const r=await api("saveMetas",{metas},userRef.current);
+      if(r.ok){
+        setMetaEdit(false);
+        // Recarrega do servidor para confirmar que foi salvo
+        await loadMetasFromServer();
+      } else{ alert("Erro ao salvar metas: "+(r.error||"Tente novamente.")); }
     }catch(e){ alert("Erro ao salvar metas. Verifique sua conexão."); }
     finally{ setMetasSaving(false); }
   }
@@ -816,7 +827,7 @@ function App(){
       pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
     }
     return()=>clearInterval(pollRef.current);
-  },[user,loadAll,loadMetasFromServer]);
+  },[user]); // eslint-disable-line
 
   // refs removed - handleSave now reads state directly
 
