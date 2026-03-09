@@ -1,9 +1,8 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL  = "https://script.google.com/macros/s/AKfycby4D-XC5Qk-jfPUq6I4f4bVlUpZPDCbrjIa9-lBfjRJs2r32Odlj6kglgsaPIbDLbCI7Q/exec";
-// ⚠️ CÓDIGO DE CONVITE REMOVIDO DO FRONTEND POR SEGURANÇA
-// Agora é validado apenas no backend
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyiThLWbvC6QckziUFtvE_FuW1WnTTySmfeon-dUsC4JUUu8bqFdZMY_ZY6FMQeez1HkQ/exec";
 
-const MACHINES = [
+// Fallback local — substituído pela lista do servidor via getMachines após login
+const MACHINES_DEFAULT = [
   {id:1, name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
   {id:2, name:"HORIZONTAL 2",                       hasMeta:true,  defaultMeta:500},
   {id:3, name:"VERTICAL PLACAS / SUP. 1",           hasMeta:true,  defaultMeta:400},
@@ -25,7 +24,7 @@ const MACHINES = [
   {id:19,name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0},
 ];
 const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
-const SESSION_KEY = "prod_session_v3"; // v3 = secure com tokens
+const SESSION_KEY = "prod_session_v3";
 
 // ─── HELPERS ──────────────────────────────────────────────────
 const C={green:"#27AE60",yellow:"#E87722",red:"#C8102E",blue:"#0064A6",gray:"#5E6E78",purple:"#004A80",teal:"#0095A8",navy:"#003057"};
@@ -33,157 +32,74 @@ const h = React.createElement;
 const {useState,useEffect,useMemo,useCallback,useRef} = React;
 const fmt    = d=>d.toISOString().slice(0,10);
 const today  = ()=>fmt(new Date());
-const parseD = s=>{
+const cellKey= (mId,d,t)=>`${mId}_${d}_${t}`;
+
+// Função compartilhada de parsing — usada por dispD, dispDH e normDate
+const parseAny = s => {
   if(!s) return new Date(0);
-  if(s instanceof Date) return s;
+  if(s instanceof Date) return new Date(s);
   if(typeof s === 'object' && s.getTime) return new Date(s);
-  // Se for string em formato ISO (YYYY-MM-DD)
-  if(typeof s === 'string' && s.includes('-')) return new Date(s+"T00:00:00");
-  // Se for string em formato brasileiro (DD/MM/YYYY)
-  if(typeof s === 'string' && s.includes('/')) {
-    const parts = s.split(' ')[0].split('/');
-    if(parts.length === 3) {
-      const [d,m,y] = parts;
-      return new Date(`${y}-${m}-${d}T00:00:00`);
+  if(typeof s === 'string') {
+    // Fast path para ISO (YYYY-MM-DD)
+    if(s.length >= 10 && s[4]==='-' && s[7]==='-') return new Date(s.slice(0,10)+'T00:00:00');
+    if(s.includes('/')) {
+      const parts = s.split(' ')[0].split('/');
+      if(parts.length === 3) { const [d,m,y]=parts; return new Date(`${y}-${m}-${d}T00:00:00`); }
     }
+    if(s.includes('GMT') || s.includes('Horário')) { try { const d=new Date(s); if(!isNaN(d.getTime())) return d; } catch {} }
   }
-  return new Date(s);
-};
-const dispD  = s=>{ 
-  if(!s) return "";
-  
-  // Se é um objeto Date do JavaScript
-  if(s instanceof Date || (typeof s === 'object' && s.getTime)) {
-    const d = new Date(s);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  
-  // Se é string no formato brasileiro DD/MM/YYYY
-  if(typeof s === 'string' && s.includes("/")) {
-    return s.split(" ")[0]; // Remove hora se houver
-  }
-  
-  // Se é string no formato ISO YYYY-MM-DD
-  if(typeof s === 'string' && s.includes("-")) {
-    const[y,m,d]=s.split("-"); 
-    return`${d}/${m}/${y}`;
-  }
-  
-  // Tenta converter para Date como último recurso
-  try {
-    const d = new Date(s);
-    if(!isNaN(d.getTime())) {
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
-  } catch(e) {}
-  
-  return String(s);
+  try { const d=new Date(s); if(!isNaN(d.getTime())) return d; } catch {}
+  return new Date(0);
 };
 
-const dispDH = s=>{ 
+const parseD  = parseAny; // retrocompatibilidade
+
+const dispD = s => {
   if(!s) return "";
-  
-  // Se é string e contém GMT ou fuso horário, limpa
-  if(typeof s === 'string' && (s.includes('GMT') || s.includes('Horário'))) {
-    try {
-      const d = new Date(s);
-      if(!isNaN(d.getTime())) {
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        const hour = String(d.getHours()).padStart(2, '0');
-        const min = String(d.getMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hour}:${min}`;
-      }
-    } catch(e) {}
-  }
-  
-  // Se é um objeto Date
-  if(s instanceof Date || (typeof s === 'object' && s.getTime)) {
-    const d = new Date(s);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hour = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hour}:${min}`;
-  }
-  
-  // Se já está em formato brasileiro
-  if(typeof s === 'string' && s.includes("/")) {
-    // Se já tem hora, retorna apenas data e hora (sem segundos)
-    if(s.includes(":")) {
-      const parts = s.split(" ");
-      if(parts.length >= 2) {
-        const date = parts[0];
-        const timeParts = parts[1].split(":");
-        const time = `${timeParts[0]}:${timeParts[1]}`;
-        return `${date} ${time}`;
-      }
-      return s;
-    }
-    // Se não tem hora, adiciona 00:00
-    return s + " 00:00";
-  }
-  
-  // Tenta converter para Date
-  try {
-    const d = new Date(s);
-    if(!isNaN(d.getTime())) {
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      const hour = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${day}/${month}/${year} ${hour}:${min}`;
-    }
-  } catch(e) {}
-  
-  return String(s);
+  const d = parseAny(s);
+  if(!d.getTime()) return String(s);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 };
-const nowBR = ()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-const normDate = d=>{ 
+
+const dispDH = s => {
+  if(!s) return "";
+  const d = parseAny(s);
+  if(!d.getTime()) return String(s);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+};
+
+const nowBR  = ()=>new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+
+const normDate = d=>{
   if(!d) return null;
-  if(d instanceof Date) return fmt(d);
-  if(typeof d === 'string' && d.includes('-')) return d.slice(0,10);
-  if(typeof d === 'string' && d.includes('/')) {
-    const[day,month,year]=d.split(' ')[0].split('/');
-    return `${year}-${month}-${day}`;
-  }
-  try{ const dt=new Date(d); if(!isNaN(dt.getTime())) return fmt(dt); }catch{}
-  return null;
+  // Fast path para ISO — sem construção de Date
+  if(typeof d==='string' && d.length>=10 && d[4]==='-' && d[7]==='-') return d.slice(0,10);
+  const dt = parseAny(d);
+  return dt.getTime() ? fmt(dt) : null;
 };
-const pctCol = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
-const num    = v=>{ const x=Number(v); return isNaN(x)?0:x; };
+
+const pctCol   = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
+const num      = v=>{ const x=Number(v); return isNaN(x)?0:x; };
+const rowStyle = i=>({background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"});
 const IS = {border:"1px solid #C8D8E4",borderRadius:4,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none"};
 const SS = {...IS,cursor:"pointer"};
 const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:4,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
 
-// ─── SESSION / METAS ──────────────────────────────────────────
+// ─── SESSION ──────────────────────────────────────────────────
 const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); }catch{ return null; } };
 const saveSession = u=>{ try{ localStorage.setItem(SESSION_KEY,JSON.stringify(u)); }catch{} };
 const clearSession= ()=>{ try{ localStorage.removeItem(SESSION_KEY); }catch{} };
 
-function loadMetasDefaults(){
+function loadMetasDefaults(machines){
   const m={};
-  MACHINES.forEach(mac=>{ m[mac.id]=mac.defaultMeta; });
+  (machines||MACHINES_DEFAULT).forEach(mac=>{ m[mac.id]=mac.defaultMeta; });
   return m;
 }
 
 // ─── API ──────────────────────────────────────────────────────
 async function api(action, body={}, userSession=null){
-  // ✅ SEGURO: Adicionar token automaticamente se fornecido
   const payload = {action, ...body};
-  if(userSession?.token) {
-    payload.token = userSession.token;
-  }
-  
+  if(userSession?.token) payload.token = userSession.token;
   const obj     = JSON.stringify(payload);
   const encoded = btoa(encodeURIComponent(obj).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode(parseInt(p,16))));
   const url     = `${SCRIPT_URL}?payload=${encodeURIComponent(encoded)}&t=${Date.now()}`;
@@ -202,14 +118,10 @@ async function api(action, body={}, userSession=null){
   let j;
   try { j = await res.json(); }
   catch(e) { throw new Error("Resposta inválida do servidor. Tente novamente."); }
-  
-  // ✅ Tratar erro de sessão expirada
   if(!j.ok && j.error && j.error.includes("Sessão")) {
-    // Limpar sessão local
     clearSession();
     throw new Error("Sua sessão expirou. Faça login novamente.");
   }
-  
   if(!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
 }
@@ -228,7 +140,6 @@ function useIsMobile(){
 // ─── COMPONENTES BASE ─────────────────────────────────────────
 function el(tag,props,...children){ return h(tag,props,...children); }
 
-// ─── LOGO WEG SVG (oficial) ────────────────────────────────────
 function WEGLogoSVG({height=32,color="#fff"}){
   const w=Math.round(height*5991/4192);
   const s={fill:color,fillRule:"nonzero"};
@@ -261,6 +172,35 @@ function Modal({children}){
   );
 }
 
+// ─── FILTRO REUTILIZÁVEL ──────────────────────────────────────
+function FilterBar({dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno=true,extra=null}){
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
+    el("div",null,
+      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),
+      el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})
+    ),
+    el("div",null,
+      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),
+      el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})
+    ),
+    el("div",null,
+      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
+      el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
+        el("option",{value:"TODAS"},"TODAS"),
+        ...machines.map(m=>el("option",{key:m.id,value:m.name},m.name))
+      )
+    ),
+    showTurno&&el("div",null,
+      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
+      el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
+        el("option",{value:"TODOS"},"TODOS"),
+        ...TURNOS.map(t=>el("option",{key:t,value:t},t))
+      )
+    ),
+    extra
+  );
+}
+
 // ─── AUTH SCREEN ──────────────────────────────────────────────
 function AuthScreen({onLogin}){
   const [mode,setMode]    = useState("login");
@@ -286,13 +226,7 @@ function AuthScreen({onLogin}){
     try{
       const r=await api(mode==="login"?"login":"register",{nome,senha,inviteCode:codigo});
       setAlert({type:"success",msg:mode==="login"?"Bem-vindo!":"Conta criada com sucesso!"});
-      // ✅ SEGURO: Salvar apenas token e dados não sensíveis
-      const session = {
-        token: r.session.token,
-        nome: r.session.nome,
-        role: r.session.role,
-        expiresAt: r.session.expiresAt
-      };
+      const session = {token:r.session.token,nome:r.session.nome,role:r.session.role,expiresAt:r.session.expiresAt};
       setTimeout(()=>{ saveSession(session); onLogin(session); },800);
     }catch(e){ setAlert({type:"error",msg:e.message}); }
     finally{ setLoading(false); }
@@ -344,10 +278,10 @@ function AuthScreen({onLogin}){
   );
 }
 
-// ─── MODAL EDIÇÃO ─────────────────────────────────────────────
-function EditModal({rec,metas,onSave,onClose,saving}){
+// ─── MODALS ───────────────────────────────────────────────────
+function EditModal({rec,metas,machines,onSave,onClose,saving}){
   const mId=Number(rec.machineId);
-  const mac=MACHINES.find(m=>m.id===mId);
+  const mac=machines.find(m=>m.id===mId);
   const metaVal=num(rec.meta)>0?num(rec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
   const [val,setVal]=useState(String(rec.producao));
   const pct=mac?.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
@@ -374,9 +308,8 @@ function EditModal({rec,metas,onSave,onClose,saving}){
   );
 }
 
-// ─── MODAL EXCLUIR ────────────────────────────────────────────
-function DeleteModal({rec,onConfirm,onClose,deleting}){
-  const mac=MACHINES.find(m=>m.id===Number(rec.machineId));
+function DeleteModal({rec,machines,onConfirm,onClose,deleting}){
+  const mac=machines.find(m=>m.id===Number(rec.machineId));
   return el(Modal,{},
     el("div",{style:{fontWeight:800,fontSize:17,color:C.red,marginBottom:10}},"🗑️ Excluir Apontamento"),
     el("div",{style:{fontSize:14,color:"#2D3E4E",marginBottom:20,lineHeight:1.7}},
@@ -392,21 +325,15 @@ function DeleteModal({rec,onConfirm,onClose,deleting}){
   );
 }
 
-// ─── MODAL OBSERVAÇÃO ─────────────────────────────────────────
-function ObsModal({rec, onSave, onClose, saving}) {
-  const mac = MACHINES.find(m => m.id === Number(rec.machineId));
-  const [text, setText] = useState(rec.obs || "");
-  return el(Modal, {},
+function ObsModal({rec,machines,onSave,onClose,saving}){
+  const mac=machines.find(m=>m.id===Number(rec.machineId));
+  const [text,setText]=useState(rec.obs||"");
+  return el(Modal,{},
     el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"💬 Observação"),
     el("div",{style:{fontSize:13,color:C.gray,marginBottom:14}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
-    el("textarea",{
-      value: text,
-      onChange: e => setText(e.target.value),
-      placeholder: "Descreva observações sobre este apontamento...",
-      autoFocus: true,
-      style: {...IS, width:"100%", height:100, resize:"vertical", fontFamily:"inherit", fontSize:14}
-    }),
-    rec.obs && el("div",{style:{fontSize:11,color:C.gray,marginTop:4}},"Observação atual: "+rec.obs),
+    el("textarea",{value:text,onChange:e=>setText(e.target.value),placeholder:"Descreva observações sobre este apontamento...",autoFocus:true,
+      style:{...IS,width:"100%",height:100,resize:"vertical",fontFamily:"inherit",fontSize:14}}),
+    rec.obs&&el("div",{style:{fontSize:11,color:C.gray,marginTop:4}},"Observação atual: "+rec.obs),
     el("div",{style:{display:"flex",gap:10,marginTop:14}},
       el("button",{onClick:onClose,style:{...BTN(C.gray),flex:1}},"Cancelar"),
       el("button",{onClick:()=>onSave(text),disabled:saving,style:{...BTN(C.blue),flex:2,opacity:saving?.6:1}},
@@ -485,7 +412,7 @@ function AdminPanel({user,onClose}){
             el("th",{style:{padding:"8px 10px",textAlign:"center"}},"Ação")
           )),
           el("tbody",null,...users.map((u,i)=>
-            el("tr",{key:u.nome,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+            el("tr",{key:u.nome,style:rowStyle(i)},
               el("td",{style:{padding:"8px 10px",fontWeight:600,color:C.navy}},u.nome),
               el("td",{style:{padding:"8px 10px",textAlign:"center"}},
                 el("span",{style:{background:u.role==="admin"?"#fef3c7":"#E0EFF8",color:u.role==="admin"?"#92400e":"#003057",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}},u.role==="admin"?"Admin":"Operador")
@@ -538,22 +465,15 @@ function AdminPanel({user,onClose}){
 // ─── ECHARTS: CONFIGURAÇÕES DE GRÁFICOS ───────────────────────
 function getChartOption(type, data) {
   const tooltipBase = {
-    backgroundColor: '#fff',
-    borderColor: '#D0DEE8',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: [8, 12],
-    textStyle: {color: '#2D3E4E', fontSize: 12}
+    backgroundColor: '#fff', borderColor: '#D0DEE8', borderWidth: 1,
+    borderRadius: 8, padding: [8, 12], textStyle: {color: '#2D3E4E', fontSize: 12}
   };
 
   if (type === 'bar') {
     return {
-      animation: true,
-      animationDuration: 750,
-      animationEasing: 'cubicOut',
+      animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
-        ...tooltipBase,
-        trigger: 'axis',
+        ...tooltipBase, trigger: 'axis',
         axisPointer: {type: 'shadow', shadowStyle: {color: 'rgba(0,0,0,0.05)'}},
         formatter: params => {
           const d = data[params[0].dataIndex];
@@ -562,48 +482,27 @@ function getChartOption(type, data) {
       },
       legend: {data: ['Meta', 'Produção'], top: 0, right: 0},
       grid: {top: 40, right: 30, bottom: 70, left: 60},
-      xAxis: {
-        type: 'category',
-        data: data.map(d => d.name),
-        axisLabel: {rotate: 15, fontSize: 11, interval: 0}
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: {formatter: v => v.toLocaleString('pt-BR'), fontSize: 11}
-      },
+      xAxis: {type: 'category', data: data.map(d=>d.name), axisLabel: {rotate: 15, fontSize: 11, interval: 0}},
+      yAxis: {type: 'value', axisLabel: {formatter: v=>v.toLocaleString('pt-BR'), fontSize: 11}},
       series: [
-        {
-          name: 'Meta',
-          type: 'bar',
-          data: data.map(d => d.meta),
-          itemStyle: {color: C.gray, borderRadius: [4, 4, 0, 0]}
-        },
-        {
-          name: 'Produção',
-          type: 'bar',
-          data: data.map(d => d.producao),
-          itemStyle: {color: C.blue, borderRadius: [4, 4, 0, 0]}
-        }
+        {name:'Meta',     type:'bar', data:data.map(d=>d.meta),    itemStyle:{color:C.gray,  borderRadius:[4,4,0,0]}},
+        {name:'Produção', type:'bar', data:data.map(d=>d.producao), itemStyle:{color:C.blue, borderRadius:[4,4,0,0]}}
       ]
     };
   }
 
   if (type === 'pie') {
     return {
-      animation: true,
-      animationDuration: 750,
+      animation: true, animationDuration: 750,
       tooltip: {
-        ...tooltipBase,
-        trigger: 'item',
-        formatter: p => `<b>${p.name}</b><br/>${p.value.toLocaleString('pt-BR')} peças<br/>${p.percent.toFixed(0)}%`
+        ...tooltipBase, trigger: 'item',
+        formatter: p=>`<b>${p.name}</b><br/>${p.value.toLocaleString('pt-BR')} peças<br/>${p.percent.toFixed(0)}%`
       },
       legend: {orient: 'horizontal', bottom: 0},
       color: [C.blue, C.green, C.yellow, C.purple, C.teal],
       series: [{
-        type: 'pie',
-        radius: ['35%', '65%'],
-        center: ['50%', '45%'],
-        data: data.map(d => ({name: d.name, value: d.value})),
+        type: 'pie', radius: ['35%', '65%'], center: ['50%', '45%'],
+        data: data.map(d=>({name:d.name, value:d.value})),
         label: {formatter: '{b}: {d}%', fontSize: 12},
         emphasis: {itemStyle: {shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)'}}
       }]
@@ -612,560 +511,112 @@ function getChartOption(type, data) {
 
   if (type === 'line') {
     return {
-      animation: true,
-      animationDuration: 750,
-      animationEasing: 'cubicOut',
+      animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
-        ...tooltipBase,
-        trigger: 'axis',
+        ...tooltipBase, trigger: 'axis',
         axisPointer: {type: 'shadow', shadowStyle: {color: 'rgba(0,0,0,0.05)'}},
         formatter: params => {
-          const lines = params.map(p => `${p.seriesName}: ${Number(p.value).toLocaleString('pt-BR')}`).join('<br/>');
+          const lines = params.map(p=>`${p.seriesName}: ${Number(p.value).toLocaleString('pt-BR')}`).join('<br/>');
           return `<b>${params[0]?.axisValue}</b><br/>${lines}`;
         }
       },
       legend: {data: ['Produção Real', 'Meta'], top: 0, right: 0},
       grid: {top: 40, right: 30, bottom: 60, left: 65},
-      xAxis: {
-        type: 'category',
-        data: data.map(d => d.date),
-        axisLabel: {rotate: 15, fontSize: 11}
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: {formatter: v => v.toLocaleString('pt-BR'), fontSize: 11}
-      },
+      xAxis: {type: 'category', data: data.map(d=>d.date), axisLabel: {rotate: 15, fontSize: 11}},
+      yAxis: {type: 'value', axisLabel: {formatter: v=>v.toLocaleString('pt-BR'), fontSize: 11}},
       series: [
         {
-          name: 'Produção Real',
-          type: 'line',
-          data: data.map(d => d.producao),
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: {color: C.blue, width: 3},
-          itemStyle: {color: C.blue},
-          areaStyle: {color: {type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{offset: 0, color: C.blue + '44'}, {offset: 1, color: C.blue + '00'}]}}
+          name: 'Produção Real', type: 'line', data: data.map(d=>d.producao),
+          smooth: true, symbol: 'circle', symbolSize: 6,
+          lineStyle: {color: C.blue, width: 3}, itemStyle: {color: C.blue},
+          areaStyle: {color: {type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:C.blue+'44'},{offset:1,color:C.blue+'00'}]}}
         },
         {
-          name: 'Meta',
-          type: 'line',
-          data: data.map(d => Math.round(d.meta)),
-          smooth: true,
-          lineStyle: {color: C.purple, width: 2, type: 'dashed'},
-          itemStyle: {color: C.purple},
-          symbol: 'none'
+          name: 'Meta', type: 'line', data: data.map(d=>Math.round(d.meta)),
+          smooth: true, lineStyle: {color: C.purple, width: 2, type: 'dashed'},
+          itemStyle: {color: C.purple}, symbol: 'none'
         }
       ]
     };
   }
 
   if (type === 'horizontalBar') {
-    const colors = data.map(d => d.pct >= 100 ? C.green : d.pct >= 80 ? C.yellow : C.red);
+    const colors = data.map(d=>d.pct>=100?C.green:d.pct>=80?C.yellow:C.red);
     return {
-      animation: true,
-      animationDuration: 750,
-      animationEasing: 'cubicOut',
+      animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
-        ...tooltipBase,
-        trigger: 'axis',
-        axisPointer: {type: 'shadow'},
-        formatter: params => `<b>${params[0].name}</b><br/>% da Meta: ${params[0].value}%`
+        ...tooltipBase, trigger: 'axis', axisPointer: {type: 'shadow'},
+        formatter: params=>`<b>${params[0].name}</b><br/>% da Meta: ${params[0].value}%`
       },
       grid: {top: 10, right: 60, bottom: 10, left: 10, containLabel: true},
-      xAxis: {
-        type: 'value',
-        axisLabel: {formatter: '{value}%', fontSize: 11},
-        max: v => Math.max(v.max * 1.1, 110)
-      },
-      yAxis: {
-        type: 'category',
-        data: data.map(d => d.name),
-        axisLabel: {fontSize: 11, width: 130, overflow: 'truncate'}
-      },
+      xAxis: {type:'value', axisLabel:{formatter:'{value}%',fontSize:11}, max:v=>Math.max(v.max*1.1,110)},
+      yAxis: {type:'category', data:data.map(d=>d.name), axisLabel:{fontSize:11,width:130,overflow:'truncate'}},
       series: [{
         type: 'bar',
-        data: data.map((d, i) => ({value: d.pct, itemStyle: {color: colors[i], borderRadius: [0, 4, 4, 0]}})),
-        label: {show: true, position: 'right', formatter: '{c}%', fontSize: 11, color: '#2D3E4E'}
+        data: data.map((d,i)=>({value:d.pct, itemStyle:{color:colors[i],borderRadius:[0,4,4,0]}})),
+        label: {show:true, position:'right', formatter:'{c}%', fontSize:11, color:'#2D3E4E'}
       }]
     };
   }
-
   return {};
 }
 
 // ─── ECHARTS: COMPONENTE REUTILIZÁVEL ─────────────────────────
-function EChartsComponent({title, subtitle, data, type, height = 350}) {
-  const chartRef = useRef(null);
+function EChartsComponent({title, subtitle, data, type, height=350}){
+  const chartRef  = useRef(null);
   const instanceRef = useRef(null);
 
-  // Inicializa instância apenas uma vez (mount/unmount)
-  useEffect(() => {
-    if (!chartRef.current || typeof echarts === 'undefined') return;
+  useEffect(()=>{
+    if(!chartRef.current || typeof echarts==='undefined') return;
     instanceRef.current = echarts.init(chartRef.current);
-    return () => {
-      if (instanceRef.current) { instanceRef.current.dispose(); instanceRef.current = null; }
-    };
-  }, []);
+    return()=>{ if(instanceRef.current){ instanceRef.current.dispose(); instanceRef.current=null; } };
+  },[]);
 
-  // Atualiza opções apenas quando dados ou tipo mudam
-  useEffect(() => {
-    if (!instanceRef.current || !data || data.length === 0) return;
-    instanceRef.current.setOption(getChartOption(type, data), true);
-  }, [data, type]);
+  useEffect(()=>{
+    if(!instanceRef.current||!data||data.length===0) return;
+    instanceRef.current.setOption(getChartOption(type,data),true);
+  },[data,type]);
 
-  useEffect(() => {
-    const handleResize = () => { if (instanceRef.current) instanceRef.current.resize(); };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  useEffect(()=>{
+    const fn=()=>{ if(instanceRef.current) instanceRef.current.resize(); };
+    window.addEventListener('resize',fn);
+    return()=>window.removeEventListener('resize',fn);
+  },[]);
 
-  if (!data || data.length === 0) {
-    return el("div", {style: {background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
+  if(!data||data.length===0){
+    return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
       el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
       el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
       el("div",{style:{fontSize:13,color:"#8FA4B2",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
     );
   }
-
   return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
-    title && el("div",{style:{marginBottom:12}},
+    title&&el("div",{style:{marginBottom:12}},
       el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-      subtitle && el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+      subtitle&&el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
     ),
     el("div",{ref:chartRef,style:{width:"100%",height}})
   );
 }
 
-// ─── APP PRINCIPAL ────────────────────────────────────────────
-function App(){
-  const [user,setUser]           = useState(()=>loadSession());
-  const [metas,setMetasState]    = useState(loadMetasDefaults);
-  const [metasLoading,setMetasLoading] = useState(false);
-  const [metasSaving,setMetasSaving]   = useState(false);
-  const [records,setRecords]     = useState([]);
-  const [tab,setTab]             = useState("entrada");
-  const [entryDate,setEntryDate] = useState(today());
-  const [entryTurno,setEntryTurno]=useState("TURNO 1");
-  const [inputs,setInputs]       = useState({});
-  const [obsInputs,setObsInputs] = useState({});
-  const [syncSt,setSyncSt]       = useState(null);
-  const [loading,setLoading]     = useState(false);
-  const [lastSync,setLastSync]   = useState(null);
-  const [editRec,setEditRec]     = useState(null);
-  const [deleteRec,setDeleteRec] = useState(null);
-  const [editSaving,setEditSaving]=useState(false);
-  const [deleting,setDeleting]   = useState(false);
-  const [obsRec,setObsRec]       = useState(null);
-  const [obsSaving,setObsSaving] = useState(false);
-  const [showAdmin,setShowAdmin] = useState(false);
-  const [dfIni,setDfIni]         = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
-  const [dfFim,setDfFim]         = useState(today());
-  const [dfMac,setDfMac]         = useState("TODAS");
-  const [dfTur,setDfTur]         = useState("TODOS");
-  const [dView,setDView]         = useState("resumo");
-  const [metaEdit,setMetaEdit]   = useState(false);
-  const pollRef=useRef(null);
-  const metaEditRef=useRef(false);
-  const userRef=useRef(user);
-  const isMobile=useIsMobile();
-
-  // Mantém refs sempre atualizados sem criar dependências reativas
-  useEffect(()=>{ metaEditRef.current=metaEdit; },[metaEdit]);
-  useEffect(()=>{ userRef.current=user; },[user]);
-
-  function updateMeta(id,val){ setMetasState(m=>({...m,[id]:num(val)})); }
-
-  const loadAll=useCallback(async(silent=false)=>{
-    if(!silent) setLoading(true);
-    try{
-      const r=await api("getAll",{},userRef.current);
-      setRecords(r.data||[]);
-      setLastSync(new Date());
-    }catch(e){
-      console.error("Erro ao carregar dados:", e);
-      if(!silent) setSyncSt("error");
-      if(e.message.toLowerCase().includes("sessão")||e.message.toLowerCase().includes("sessao")||e.message.includes("expirou")){
-        handleLogout();
-      }
-    }
-    finally{ if(!silent) setLoading(false); }
-  },[]); // eslint-disable-line
-
-  const loadMetasFromServer=useCallback(async(silent=false)=>{
-    // Não sobrescreve enquanto o usuário está editando
-    if(metaEditRef.current) return;
-    if(!silent) setMetasLoading(true);
-    try{
-      const r=await api("getMetas",{},userRef.current);
-      if(r.ok&&r.metas){
-        const m={};
-        MACHINES.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
-        setMetasState(m);
-      }
-    }catch(e){ console.error("Erro ao carregar metas:", e); }
-    finally{ if(!silent) setMetasLoading(false); }
-  },[]); // eslint-disable-line
-
-  async function saveMetasToServer(){
-    setMetasSaving(true);
-    try{
-      const r=await api("saveMetas",{metas},userRef.current);
-      if(r.ok){
-        setMetaEdit(false);
-        // Recarrega do servidor para confirmar que foi salvo
-        await loadMetasFromServer();
-      } else{ alert("Erro ao salvar metas: "+(r.error||"Tente novamente.")); }
-    }catch(e){ alert("Erro ao salvar metas. Verifique sua conexão."); }
-    finally{ setMetasSaving(false); }
-  }
-
-  useEffect(()=>{
-    if(user){
-      loadAll();
-      loadMetasFromServer();
-      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
-    }
-    return()=>clearInterval(pollRef.current);
-  },[user]); // eslint-disable-line
-
-  // refs removed - handleSave now reads state directly
-
-  const cellKey=(mId,d,t)=>`${mId}_${d}_${t}`;
-
+// ─── TAB APONTAMENTO ──────────────────────────────────────────
+function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
   function getVal(mId){
     const k=cellKey(mId,entryDate,entryTurno);
     if(inputs[k]!==undefined) return inputs[k];
-    
-    // Busca no banco comparando date normalizado
-    const s=records.find(r=>{
-      if(Number(r.machineId)!==Number(mId)) return false;
-      if(r.turno!==entryTurno) return false;
-      
-      // Normaliza data do registro e compara com data de entrada
-      const recDate = normDate(r.date);
-      return recDate === entryDate;
-    });
-    
+    const s=recordsLookup[k];
     return s?String(s.producao):"";
   }
-
-  function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
-
   function getObsVal(mId){
     const k=cellKey(mId,entryDate,entryTurno);
     if(obsInputs[k]!==undefined) return obsInputs[k];
-    const s=records.find(r=>Number(r.machineId)===Number(mId)&&r.turno===entryTurno&&normDate(r.date)===entryDate);
+    const s=recordsLookup[k];
     return s?(s.obs||""):"";
   }
+  function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
-  async function handleSave(){
-    const currentInputs   = {...inputs};
-    const currentObsInputs= {...obsInputs};
-    const currentMetas    = {...metas};
-    const timestamp = nowBR();
-
-    // Coleta todas as chaves com valores pendentes (qualquer data/turno)
-    const pendingKeys=new Set([
-      ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
-      ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
-    ]);
-
-    setSyncSt("syncing");
-    const toSend=[];
-    pendingKeys.forEach(k=>{
-      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
-      const mId=Number(k.substring(0,firstIdx));
-      const rest=k.substring(firstIdx+1);
-      const date=rest.substring(0,10);
-      const turno=rest.substring(11);
-      const m=MACHINES.find(mc=>mc.id===mId); if(!m) return;
-      const val=currentInputs[k];
-      if(val===undefined||val==="") return;
-      const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
-      const obs=currentObsInputs[k];
-      toSend.push({
-        date, turno, machineId:m.id, machineName:m.name,
-        meta:metaVal, producao:num(val), savedBy:user.nome, savedAt:timestamp,
-        editUser:"", editTime:"",
-        obs:(obs!==undefined&&obs!=="")?obs:undefined
-      });
-    });
-    
-    if(!toSend.length){
-      setSyncSt(null);
-      return;
-    }
-    try{
-      const saved=[];
-      for(let i=0;i<toSend.length;i+=4){
-        await api("upsert",{records:toSend.slice(i,i+4)},user);
-        saved.push(...toSend.slice(i,i+4)); // só marca como salvo após sucesso do lote
-      }
-      setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-      setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-      await loadAll(true);
-      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
-    }catch(e){
-      console.error("Erro ao salvar:", e);
-      setSyncSt("error");
-      setTimeout(()=>setSyncSt(null),4000);
-    }
-  }
-
-  async function handleEdit(newVal){
-    if(!editRec) {
-      console.error("Nenhum registro selecionado para editar");
-      return;
-    }
-    
-    const timestamp = nowBR();
-    
-    setEditSaving(true);
-    try{
-      const mId=Number(editRec.machineId);
-      const mac=MACHINES.find(m=>m.id===mId);
-      
-      // Usa a meta que já estava salva no registro, ou a atual se não houver
-      const metaToSave = num(editRec.meta) > 0 
-        ? num(editRec.meta) 
-        : (mac?.hasMeta ? (metas[mId] || mac.defaultMeta || 0) : 0);
-      
-      const nameToSave = mac?.name || editRec.machineName || "";
-      
-      const recordToSave = {
-        date: editRec.date,
-        turno: editRec.turno,
-        machineId: mId,
-        machineName: nameToSave,
-        meta: metaToSave,
-        producao: newVal,
-        savedBy: editRec.savedBy || user.nome,
-        savedAt: editRec.savedAt || timestamp,
-        editUser: user.nome,
-        editTime: timestamp
-      };
-      
-      const result = await api("upsert",{records:[recordToSave]},user);
-      if(!result.ok) throw new Error(result.error || "Erro ao editar");
-      await loadAll(true); 
-      setEditRec(null);
-      
-      // Feedback visual
-      setSyncSt("ok");
-      setTimeout(()=>setSyncSt(null), 2000);
-    }catch(e){
-      console.error("Erro ao editar:", e);
-      setSyncSt("error");
-      setTimeout(()=>setSyncSt(null), 3000);
-    }
-    finally{ setEditSaving(false); }
-  }
-
-  async function handleDelete(){
-    if(!deleteRec) {
-      console.error("Nenhum registro selecionado para deletar");
-      return;
-    }
-    
-    setDeleting(true);
-    
-    const deleteParams = {
-      id: deleteRec.id,
-      date: deleteRec.date,
-      turno: deleteRec.turno,
-      machineId: Number(deleteRec.machineId)
-    };
-
-    try{
-      const result = await api("delete", deleteParams, user);
-      if(!result.ok) throw new Error(result.error || "Erro ao excluir");
-      await loadAll(true); 
-      setDeleteRec(null); 
-      
-      // Feedback visual
-      setSyncSt("ok");
-      setTimeout(()=>setSyncSt(null), 2000);
-    }
-    catch(e){
-      console.error("Erro ao excluir:", e);
-      setSyncSt("error");
-      setTimeout(()=>setSyncSt(null), 3000);
-    }
-    finally{ setDeleting(false); }
-  }
-
-  async function handleSaveObs(text){
-    if(!obsRec) return;
-    setObsSaving(true);
-    try{
-      const mId=Number(obsRec.machineId);
-      const mac=MACHINES.find(m=>m.id===mId);
-      const metaToSave=num(obsRec.meta)>0?num(obsRec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
-      await api("upsert",{records:[{
-        date:obsRec.date, turno:obsRec.turno, machineId:mId,
-        machineName:mac?.name||obsRec.machineName||"",
-        meta:metaToSave, producao:num(obsRec.producao),
-        savedBy:obsRec.savedBy||user.nome, savedAt:obsRec.savedAt||nowBR(),
-        editUser:user.nome, editTime:nowBR(),
-        obs:text
-      }]},user);
-      await loadAll(true);
-      setObsRec(null);
-      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
-    }catch(e){ console.error("Erro ao salvar obs:", e); setSyncSt("error"); setTimeout(()=>setSyncSt(null),3000); }
-    finally{ setObsSaving(false); }
-  }
-
-  function handleLogout(){
-    // Limpa UI imediatamente — sem esperar resposta do servidor
-    clearSession();
-    setUser(null);
-    setRecords([]);
-    clearInterval(pollRef.current);
-    // Invalida token no backend em background (fire-and-forget)
-    if(user?.token) api("logout",{},user).catch(()=>{});
-  }
-
-  const dashData=useMemo(()=>records.filter(r=>{
-    if(!r.date) return false;
-    const recDate=normDate(r.date);
-    if(!recDate) return false;
-    if(recDate<dfIni||recDate>dfFim) return false;
-    if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
-    if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
-    return true;
-  }),[records,dfIni,dfFim,dfTur,dfMac]);
-
-  const machAgg=useMemo(()=>{
-    const agg={};
-    dashData.forEach(r=>{
-      const id=Number(r.machineId);
-      if(!agg[id]){ const mac=MACHINES.find(m=>m.id===id); agg[id]={name:r.machineName||mac?.name||"Máquina "+id,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
-      agg[id].totalProd+=num(r.producao);
-      agg[id].dias.add(r.date);
-      agg[id].turnos[r.turno]=(agg[id].turnos[r.turno]||0)+num(r.producao);
-      if(!agg[id].byDate[r.date]) agg[id].byDate[r.date]={};
-      agg[id].byDate[r.date][r.turno]=num(r.producao);
-    });
-    Object.entries(agg).forEach(([id,a])=>{
-      const nId=Number(id);
-      a.diasCount=a.dias.size;
-      a.totalMeta=a.hasMeta?(metas[nId]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
-      a.pct=a.totalMeta>0?Math.round(a.totalProd/a.totalMeta*100):null;
-    });
-    return agg;
-  },[dashData,metas,dfTur]);
-
-  const totProd=useMemo(()=>dashData.reduce((s,r)=>s+num(r.producao),0),[dashData]);
-  const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
-
-  // ── dados dos gráficos (memoizados: só recalculam quando filtros/dados mudam) ──
-  const chartProdVsMeta=useMemo(()=>
-    MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
-      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>15?m.name.substring(0,13)+"...":m.name,meta:a.totalMeta||0,producao:a.totalProd||0}; })
-      .sort((a,b)=>b.producao-a.producao).slice(0,10)
-  ,[machAgg,dfMac]);
-
-  const chartTurnoData=useMemo(()=>
-    TURNOS.map(turno=>({name:turno,value:dashData.filter(r=>r.turno===turno).reduce((s,r)=>s+num(r.producao),0)})).filter(t=>t.value>0)
-  ,[dashData]);
-
-  const chartTendencia=useMemo(()=>{
-    const byDate={};
-    dashData.forEach(r=>{ if(!byDate[r.date]) byDate[r.date]={prod:0}; byDate[r.date].prod+=num(r.producao); });
-    return Object.keys(byDate).sort().map(date=>({
-      date:dispD(date), producao:byDate[date].prod,
-      meta:Object.values(machAgg).reduce((s,a)=>s+(a.byDate&&a.byDate[date]?a.totalMeta/(a.diasCount||1):0),0)
-    }));
-  },[dashData,machAgg]);
-
-  const chartPerformers=useMemo(()=>
-    MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
-      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>22?m.name.substring(0,20)+"...":m.name,pct:a.pct||0,producao:a.totalProd||0}; })
-      .filter(m=>m.producao>0).sort((a,b)=>b.pct-a.pct).slice(0,8)
-  ,[machAgg,dfMac]);
-
-  // feedbacks: todos os registros com observação no período filtrado
-  const feedbacksData=useMemo(()=>
-    records.filter(r=>{
-      if(!r.obs||!r.obs.trim()) return false;
-      const recDate=normDate(r.date);
-      if(!recDate||recDate<dfIni||recDate>dfFim) return false;
-      if(dfMac!=="TODAS"){ const mac=MACHINES.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
-      return true;
-    }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
-  ,[records,dfIni,dfFim,dfMac]);
-
-  const pendingCount=Object.values(inputs).filter(v=>v!==undefined&&v!=="").length;
-
-  if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
-
-  // ── header ──
-  const header = el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
-    el("div",{style:{display:"flex",alignItems:"center",gap:0}},
-      el("div",{style:{background:"#0064A6",padding:isMobile?"10px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",marginRight:16}},
-        el(WEGLogoSVG,{height:isMobile?22:28,color:"#fff"})
-      ),
-      el("div",{style:{padding:isMobile?"8px 0":"14px 0"}},
-        el("div",{style:{color:"#fff",fontSize:isMobile?13:16,fontWeight:600,letterSpacing:0.2}},(isMobile?"Dashboard":"Dashboard de Produção")),
-        el("div",{style:{color:"#A8C6D8",fontSize:11,marginTop:2}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Sync: ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
-      )
-    ),
-    el("div",{style:{display:"flex",gap:6,alignItems:"center"}},
-      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:12}},"⏳"),
-      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:12}},"✔"),
-      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:12}},"✘"),
-      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background: "#3498db", border:"1px solid #FFFFFF33",color:"#A8C6D8",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,transition:"background .15s"}},"🔄"),
-      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
-      el("button",{onClick:handleLogout,style:{background:"#e74c3c",border:"1px solid #C8102E55",color:"#ffffff",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
-    )
-  );
-
-  // ── tabs ──
-  const tabLabels=[["entrada",isMobile?"📝":"📝 Apontamento"],["dashboard",isMobile?"📊":"📊 Dashboard"],["historico",isMobile?"📋":"📋 Histórico"],["metas",isMobile?"🎯":"🎯 Metas"],["feedbacks",isMobile?"💬":"💬 Feedbacks"]];
-  const tabs = el("div",{style:{background:"#002548",display:"flex",paddingLeft:isMobile?0:0,overflowX:"auto",borderBottom:"1px solid #003E6B"}},
-    ...tabLabels.map(([k,l])=>
-      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"11px 20px",border:"none",borderBottom:tab===k?"3px solid #0064A6":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:"transparent",color:tab===k?"#fff":"#A8C6D8",borderRadius:0,fontSize:isMobile?13:14,transition:"color .15s,border-color .15s",marginBottom:"-1px"}},l)
-    )
-  );
-
-  // ── filtros ──
-  const filterBar = el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
-    el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})),
-    el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})),
-    el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
-      el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
-        el("option",{value:"TODAS"},"TODAS"),
-        ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
-      )
-    ),
-    el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
-      el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
-        el("option",{value:"TODOS"},"TODOS"),
-        ...TURNOS.map(t=>el("option",{key:t,value:t},t))
-      )
-    )
-  );
-
-  // ── KPIs ──
-  const kpis = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:16}},
-    ...[
-      {label:"PRODUÇÃO TOTAL",value:totProd.toLocaleString("pt-BR"),sub:"peças",    color:C.blue},
-      {label:"META TOTAL",    value:totMeta.toLocaleString("pt-BR"),sub:"peças",    color:C.purple},
-      {label:"% ATINGIMENTO", value:totMeta>0?`${Math.round(totProd/totMeta*100)}%`:"—",sub:"geral",color:totMeta>0?pctCol(Math.round(totProd/totMeta*100)):C.gray},
-      {label:"REGISTROS",     value:dashData.length,               sub:"lançamentos",color:C.teal},
-      {label:"MÁQUINAS ATIVAS",value:Object.keys(machAgg).length,  sub:`de ${MACHINES.length}`,color:C.yellow},
-    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",borderLeft:`4px solid ${k.color}`}},
-      el("div",{style:{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.5}},k.label),
-      el("div",{style:{fontSize:22,fontWeight:800,color:k.color,marginTop:4}},k.value),
-      el("div",{style:{fontSize:11,color:"#8FA4B2"}},k.sub)
-    ))
-  );
-
-  // ── tab entrada ──
-  const tabEntrada = el("div",null,
+  return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
@@ -1190,17 +641,17 @@ function App(){
           el("th",{style:{padding:"11px 10px",textAlign:"left",  fontSize:13}},"OBSERVAÇÃO"),
           el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
         )),
-        el("tbody",null,...MACHINES.map((m,i)=>{
+        el("tbody",null,...machines.map((m,i)=>{
           const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
           const obsVal=getObsVal(m.id);
           const isLocal=inputs[k]!==undefined;
           const isObsLocal=obsInputs[k]!==undefined;
-          const isSaved=!isLocal&&records.some(r=>Number(r.machineId)===m.id&&normDate(r.date)===entryDate&&r.turno===entryTurno);
+          const isSaved=!isLocal&&!!recordsLookup[k];
           const metaVal=metas[m.id]||0;
           const pct=m.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
-          return el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+          return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#2D3E4E"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#8FA4B2"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
@@ -1222,33 +673,35 @@ function App(){
           );
         }))
       )
-      ) // fecha overflowX wrapper
+      )
+    )
+  );
+}
+
+// ─── TAB DASHBOARD ────────────────────────────────────────────
+function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}){
+  const kpis = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:16}},
+    ...[
+      {label:"PRODUÇÃO TOTAL",  value:totProd.toLocaleString("pt-BR"),                              sub:"peças",       color:C.blue},
+      {label:"META TOTAL",      value:totMeta.toLocaleString("pt-BR"),                              sub:"peças",       color:C.purple},
+      {label:"% ATINGIMENTO",   value:totMeta>0?`${Math.round(totProd/totMeta*100)}%`:"—",          sub:"geral",       color:totMeta>0?pctCol(Math.round(totProd/totMeta*100)):C.gray},
+      {label:"REGISTROS",       value:dashData.length,                                              sub:"lançamentos", color:C.teal},
+      {label:"MÁQUINAS ATIVAS", value:Object.keys(machAgg).length,                                  sub:`de ${machines.length}`, color:C.yellow},
+    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",borderLeft:`4px solid ${k.color}`}},
+      el("div",{style:{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.5}},k.label),
+      el("div",{style:{fontSize:22,fontWeight:800,color:k.color,marginTop:4}},k.value),
+      el("div",{style:{fontSize:11,color:"#8FA4B2"}},k.sub)
+    ))
+  );
+
+  const viewButtons = el("div",{style:{display:"flex",gap:6}},
+    ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"],["graficos","📈 Gráficos"]].map(([k,l])=>
+      el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:`1px solid ${dView===k?"#0064A6":"#C8D8E4"}`,borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#0064A6":"#fff",color:dView===k?"#fff":"#5E6E78"}},l)
     )
   );
 
-  // ── tab dashboard ──
-  const tabDashboard = el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
-        el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
-          el("option",{value:"TODAS"},"TODAS"),
-          ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
-        )
-      ),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
-        el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
-          el("option",{value:"TODOS"},"TODOS"),
-          ...TURNOS.map(t=>el("option",{key:t,value:t},t))
-        )
-      ),
-      el("div",{style:{display:"flex",gap:6}},
-        ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"],["graficos","📈 Gráficos"]].map(([k,l])=>
-          el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:`1px solid ${dView===k?"#0064A6":"#C8D8E4"}`,borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#0064A6":"#fff",color:dView===k?"#fff":"#5E6E78"}},l)
-        )
-      )
-    ),
+  return el("div",null,
+    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,extra:viewButtons}),
     kpis,
     dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
@@ -1261,9 +714,9 @@ function App(){
           el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"%"),
           el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,minWidth:100}},"PROGRESSO")
         )),
-        el("tbody",null,...MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
+        el("tbody",null,...machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
           const a=machAgg[m.id];
-          return el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+          return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name),
             el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:13}},a?.diasCount??0),
             el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:15,fontWeight:700,color:C.navy}},(a?.totalProd??0).toLocaleString("pt-BR")),
@@ -1273,7 +726,7 @@ function App(){
           );
         }))
       )
-      ) // fecha overflowX
+      )
     ),
     dView==="detalhado"&&el("div",null,
       ...Object.values(machAgg).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>
@@ -1291,7 +744,7 @@ function App(){
               )),
               el("tbody",null,...Object.keys(a.byDate).sort().reverse().map((date,i)=>{
                 const dt=TURNOS.reduce((s,t)=>s+(a.byDate[date][t]||0),0);
-                return el("tr",{key:date,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+                return el("tr",{key:date,style:rowStyle(i)},
                   el("td",{style:{padding:"7px 14px",fontSize:13,fontWeight:600}},dispD(date)),
                   ...TURNOS.map(t=>el("td",{key:t,style:{padding:"7px 14px",textAlign:"center",fontSize:13}},a.byDate[date][t]!==undefined?a.byDate[date][t].toLocaleString("pt-BR"):el("span",{style:{color:"#B8CDD8"}},"—"))),
                   el("td",{style:{padding:"7px 14px",textAlign:"center",fontWeight:700}},dt.toLocaleString("pt-BR"))
@@ -1313,12 +766,12 @@ function App(){
           el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"TOTAL"),
           el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"MELHOR")
         )),
-        el("tbody",null,...MACHINES.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
+        el("tbody",null,...machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
           const a=machAgg[m.id];
           const tp=TURNOS.map(t=>({t,v:a?.turnos[t]||0}));
           const best=tp.reduce((b,x)=>x.v>b.v?x:b,{t:"—",v:-1});
           const total=a?.totalProd??0;
-          return el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+          return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name),
             ...tp.map(({t,v})=>el("td",{key:t,style:{padding:"9px 14px",textAlign:"center",fontSize:13}},
               v>0?el("div",null,el("div",{style:{fontWeight:700}},v.toLocaleString("pt-BR")),total>0&&el("div",{style:{fontSize:10,color:C.gray}},`${Math.round(v/total*100)}%`)):el("span",{style:{color:"#B8CDD8"}},"—")
@@ -1328,7 +781,7 @@ function App(){
           );
         }))
       )
-      ) // fecha overflowX comparativo
+      )
     ),
     dView==="graficos"&&(
       chartProdVsMeta.length===0&&chartTurnoData.length===0
@@ -1345,10 +798,12 @@ function App(){
           )
     )
   );
+}
 
-  // ── tab histórico ──
-  const tabHistorico = el("div",null,
-    filterBar,
+// ─── TAB HISTÓRICO ────────────────────────────────────────────
+function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}){
+  return el("div",null,
+    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
         el("span",null,"📋 Apontamentos Salvos"),
@@ -1367,16 +822,16 @@ function App(){
             el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#003057"}},"AÇÕES")
           )),
           el("tbody",null,
-            dashData.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
-            ...[...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno)).map((r,i)=>{
+            sortedHistorico.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
+            ...sortedHistorico.map((r,i)=>{
               const mId=Number(r.machineId);
-              const mac=MACHINES.find(m=>m.id===mId);
+              const mac=machines.find(m=>m.id===mId);
               const savedMeta=num(r.meta);
               const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
               const prod=num(r.producao);
               const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
               const savedByName=r.savedBy||"";
-              return el("tr",{key:r.id||r.date+"_"+r.turno+"_"+mId,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+              return el("tr",{key:r.id||r.date+"_"+r.turno+"_"+mId,style:rowStyle(i)},
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt||r.date)),
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
@@ -1402,19 +857,21 @@ function App(){
       )
     )
   );
+}
 
-  // ── tab metas ──
-  const tabMetas = el("div",null,
+// ─── TAB METAS ────────────────────────────────────────────────
+function TabMetas({machines,metas,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
+  return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
         el("span",{style:{fontWeight:700,fontSize:15}},"🎯 Metas por Máquina"+(metasLoading?" ⏳":"")),
         el("div",{style:{display:"flex",gap:8,alignItems:"center"}},
           metaEdit&&el("button",{onClick:()=>setMetaEdit(false),disabled:metasSaving,style:{background:"#ffffff22",border:"1px solid #ffffff44",color:"#fff",borderRadius:4,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}},"✕ Cancelar"),
           el("button",{
-            onClick: metaEdit ? saveMetasToServer : ()=>setMetaEdit(true),
-            disabled: metasLoading||metasSaving,
+            onClick:metaEdit?saveMetasToServer:()=>setMetaEdit(true),
+            disabled:metasLoading||metasSaving,
             style:{background:metaEdit?C.green+"cc":"#ffffff22",border:`1px solid ${metaEdit?C.green:"#ffffff44"}`,color:"#fff",borderRadius:4,padding:"5px 14px",cursor:(metasLoading||metasSaving)?"not-allowed":"pointer",fontSize:13,fontWeight:600}
-          }, metasSaving?"⏳ Salvando...":metaEdit?"💾 Salvar Metas":"✏ Editar Metas")
+          },metasSaving?"⏳ Salvando...":metaEdit?"💾 Salvar Metas":"✏ Editar Metas")
         )
       ),
       metasLoading
@@ -1426,8 +883,8 @@ function App(){
               el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
               el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)")
             )),
-            el("tbody",null,...MACHINES.map((m,i)=>
-              el("tr",{key:m.id,style:{background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"}},
+            el("tbody",null,...machines.map((m,i)=>
+              el("tr",{key:m.id,style:rowStyle(i)},
                 el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
                   m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
                 ),
@@ -1446,24 +903,18 @@ function App(){
       )
     )
   );
+}
 
-  // ── tab feedbacks ──
-  const tabFeedbacks = el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
-        el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
-          el("option",{value:"TODAS"},"TODAS"),
-          ...MACHINES.map(m=>el("option",{key:m.id,value:m.name},m.name))
-        )
-      ),
-      el("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}},
-        el("div",{style:{background:C.blue+"11",border:`1px solid ${C.blue}33`,borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:C.blue}},
-          `${feedbacksData.length} observaç${feedbacksData.length!==1?"ões":"ão"}`
-        )
-      )
-    ),
+// ─── TAB FEEDBACKS ────────────────────────────────────────────
+function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec}){
+  const counter = el("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}},
+    el("div",{style:{background:C.blue+"11",border:`1px solid ${C.blue}33`,borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:C.blue}},
+      `${feedbacksData.length} observaç${feedbacksData.length!==1?"ões":"ão"}`
+    )
+  );
+
+  return el("div",null,
+    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno:false,extra:counter}),
     feedbacksData.length===0
       ? el("div",{style:{background:"#fff",borderRadius:12,padding:60,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
           el("div",{style:{fontSize:52,marginBottom:14}},"💬"),
@@ -1472,14 +923,14 @@ function App(){
         )
       : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}},
           ...feedbacksData.map(r=>{
-            const mac=MACHINES.find(m=>m.id===Number(r.machineId));
+            const mac=machines.find(m=>m.id===Number(r.machineId));
             const prod=num(r.producao);
             const savedMeta=num(r.meta);
             const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[r.machineId]||0):0);
             const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
             const savedByName=r.savedBy||"";
-            const regBy   = r.editUser || r.savedBy || "—";
-            const regDate = r.editTime ? dispDH(r.editTime) : dispDH(r.savedAt);
+            const regBy   = r.editUser||r.savedBy||"—";
+            const regDate = r.editTime?dispDH(r.editTime):dispDH(r.savedAt);
             return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
               el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
@@ -1501,19 +952,368 @@ function App(){
           })
         )
   );
+}
+
+// ─── APP PRINCIPAL ────────────────────────────────────────────
+function App(){
+  const [user,setUser]               = useState(()=>loadSession());
+  const [machines,setMachines]       = useState(MACHINES_DEFAULT);
+  const [metas,setMetasState]        = useState(()=>loadMetasDefaults(MACHINES_DEFAULT));
+  const [metasLoading,setMetasLoading] = useState(false);
+  const [metasSaving,setMetasSaving]   = useState(false);
+  const [records,setRecords]         = useState([]);
+  const [tab,setTab]                 = useState("entrada");
+  const [entryDate,setEntryDate]     = useState(today());
+  const [entryTurno,setEntryTurno]   = useState("TURNO 1");
+  const [inputs,setInputs]           = useState({});
+  const [obsInputs,setObsInputs]     = useState({});
+  const [syncSt,setSyncSt]           = useState(null);
+  const [loading,setLoading]         = useState(false);
+  const [lastSync,setLastSync]       = useState(null);
+  const [editRec,setEditRec]         = useState(null);
+  const [deleteRec,setDeleteRec]     = useState(null);
+  const [editSaving,setEditSaving]   = useState(false);
+  const [deleting,setDeleting]       = useState(false);
+  const [obsRec,setObsRec]           = useState(null);
+  const [obsSaving,setObsSaving]     = useState(false);
+  const [showAdmin,setShowAdmin]     = useState(false);
+  const [dfIni,setDfIni]             = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
+  const [dfFim,setDfFim]             = useState(today());
+  const [dfMac,setDfMac]             = useState("TODAS");
+  const [dfTur,setDfTur]             = useState("TODOS");
+  const [dView,setDView]             = useState("resumo");
+  const [metaEdit,setMetaEdit]       = useState(false);
+  const pollRef    = useRef(null);
+  const metaEditRef= useRef(false);
+  const userRef    = useRef(user);
+  const isMobile   = useIsMobile();
+
+  useEffect(()=>{ metaEditRef.current=metaEdit; },[metaEdit]);
+  useEffect(()=>{ userRef.current=user; },[user]);
+
+  function updateMeta(id,val){ setMetasState(m=>({...m,[id]:num(val)})); }
+
+  const loadAll=useCallback(async(silent=false)=>{
+    if(!silent) setLoading(true);
+    try{
+      const r=await api("getAll",{},userRef.current);
+      setRecords(r.data||[]);
+      setLastSync(new Date());
+    }catch(e){
+      console.error("Erro ao carregar dados:", e);
+      if(!silent) setSyncSt("error");
+      if(e.message.toLowerCase().includes("sessão")||e.message.toLowerCase().includes("sessao")||e.message.includes("expirou")){
+        handleLogout();
+      }
+    }
+    finally{ if(!silent) setLoading(false); }
+  },[]); // eslint-disable-line
+
+  const loadMetasFromServer=useCallback(async(silent=false)=>{
+    if(metaEditRef.current) return;
+    if(!silent) setMetasLoading(true);
+    try{
+      const r=await api("getMetas",{},userRef.current);
+      if(r.ok&&r.metas){
+        const m={};
+        // usa machines do ref para não criar dependência
+        MACHINES_DEFAULT.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
+        setMetasState(m);
+      }
+    }catch(e){ console.error("Erro ao carregar metas:", e); }
+    finally{ if(!silent) setMetasLoading(false); }
+  },[]); // eslint-disable-line
+
+  const loadMachines=useCallback(async()=>{
+    try{
+      const r=await api("getMachines",{},userRef.current);
+      if(r.ok&&r.machines&&r.machines.length>0) setMachines(r.machines);
+    }catch(e){ console.warn("getMachines falhou, usando fallback local:", e.message); }
+  },[]); // eslint-disable-line
+
+  async function saveMetasToServer(){
+    setMetasSaving(true);
+    try{
+      const r=await api("saveMetas",{metas},userRef.current);
+      if(r.ok){
+        setMetaEdit(false);
+        await loadMetasFromServer();
+      } else{ alert("Erro ao salvar metas: "+(r.error||"Tente novamente.")); }
+    }catch(e){ alert("Erro ao salvar metas. Verifique sua conexão."); }
+    finally{ setMetasSaving(false); }
+  }
+
+  useEffect(()=>{
+    if(user){
+      loadAll();
+      loadMetasFromServer();
+      loadMachines();
+      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
+    }
+    return()=>clearInterval(pollRef.current);
+  },[user]); // eslint-disable-line
+
+  async function handleSave(){
+    const currentInputs   = {...inputs};
+    const currentObsInputs= {...obsInputs};
+    const currentMetas    = {...metas};
+    const timestamp = nowBR();
+
+    const pendingKeys=new Set([
+      ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
+      ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
+    ]);
+
+    setSyncSt("syncing");
+    const toSend=[];
+    pendingKeys.forEach(k=>{
+      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
+      const mId=Number(k.substring(0,firstIdx));
+      const rest=k.substring(firstIdx+1);
+      const date=rest.substring(0,10);
+      const turno=rest.substring(11);
+      const m=machines.find(mc=>mc.id===mId); if(!m) return;
+      const val=currentInputs[k];
+      let producao;
+      if(val!==undefined&&val!==""){
+        producao=num(val);
+      } else {
+        const ex=records.find(r=>Number(r.machineId)===mId&&r.turno===turno&&normDate(r.date)===date);
+        if(!ex) return;
+        producao=num(ex.producao);
+      }
+      const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
+      const obs=currentObsInputs[k];
+      toSend.push({
+        date, turno, machineId:m.id, machineName:m.name,
+        meta:metaVal, producao, savedBy:user.nome, savedAt:timestamp,
+        editUser:"", editTime:"",
+        obs:(obs!==undefined&&obs!=="")?obs:undefined
+      });
+    });
+
+    if(!toSend.length){ setSyncSt(null); return; }
+    try{
+      const saved=[];
+      for(let i=0;i<toSend.length;i+=4){
+        await api("upsert",{records:toSend.slice(i,i+4)},user);
+        saved.push(...toSend.slice(i,i+4));
+      }
+      setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+      setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+      await loadAll(true);
+      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
+    }catch(e){
+      console.error("Erro ao salvar:", e);
+      setSyncSt("error");
+      setTimeout(()=>setSyncSt(null),4000);
+    }
+  }
+
+  async function handleEdit(newVal){
+    if(!editRec) return;
+    const timestamp = nowBR();
+    setEditSaving(true);
+    try{
+      const mId=Number(editRec.machineId);
+      const mac=machines.find(m=>m.id===mId);
+      const metaToSave=num(editRec.meta)>0?num(editRec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
+      const result=await api("upsert",{records:[{
+        date:editRec.date, turno:editRec.turno, machineId:mId,
+        machineName:mac?.name||editRec.machineName||"",
+        meta:metaToSave, producao:newVal,
+        savedBy:editRec.savedBy||user.nome, savedAt:editRec.savedAt||timestamp,
+        editUser:user.nome, editTime:timestamp
+      }]},user);
+      if(!result.ok) throw new Error(result.error||"Erro ao editar");
+      await loadAll(true);
+      setEditRec(null);
+      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
+    }catch(e){
+      console.error("Erro ao editar:", e);
+      setSyncSt("error"); setTimeout(()=>setSyncSt(null),3000);
+    }
+    finally{ setEditSaving(false); }
+  }
+
+  async function handleDelete(){
+    if(!deleteRec) return;
+    setDeleting(true);
+    try{
+      const result=await api("delete",{id:deleteRec.id,date:deleteRec.date,turno:deleteRec.turno,machineId:Number(deleteRec.machineId)},user);
+      if(!result.ok) throw new Error(result.error||"Erro ao excluir");
+      await loadAll(true);
+      setDeleteRec(null);
+      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
+    }catch(e){
+      console.error("Erro ao excluir:", e);
+      setSyncSt("error"); setTimeout(()=>setSyncSt(null),3000);
+    }
+    finally{ setDeleting(false); }
+  }
+
+  async function handleSaveObs(text){
+    if(!obsRec) return;
+    setObsSaving(true);
+    try{
+      const mId=Number(obsRec.machineId);
+      const mac=machines.find(m=>m.id===mId);
+      const metaToSave=num(obsRec.meta)>0?num(obsRec.meta):(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
+      const now=nowBR();
+      await api("upsert",{records:[{
+        date:obsRec.date, turno:obsRec.turno, machineId:mId,
+        machineName:mac?.name||obsRec.machineName||"",
+        meta:metaToSave, producao:num(obsRec.producao),
+        savedBy:obsRec.savedBy||user.nome, savedAt:obsRec.savedAt||now,
+        editUser:user.nome, editTime:now,
+        obs:text
+      }]},user);
+      await loadAll(true);
+      setObsRec(null);
+      setSyncSt("ok"); setTimeout(()=>setSyncSt(null),2000);
+    }catch(e){ console.error("Erro ao salvar obs:", e); setSyncSt("error"); setTimeout(()=>setSyncSt(null),3000); }
+    finally{ setObsSaving(false); }
+  }
+
+  function handleLogout(){
+    const token=user?.token;
+    clearSession();
+    setUser(null);
+    setRecords([]);
+    clearInterval(pollRef.current);
+    if(token) api("logout",{token}).catch(()=>{});
+  }
+
+  // ── dados filtrados ──
+  const dashData=useMemo(()=>records.filter(r=>{
+    if(!r.date) return false;
+    const recDate=normDate(r.date);
+    if(!recDate) return false;
+    if(recDate<dfIni||recDate>dfFim) return false;
+    if(dfTur!=="TODOS"&&r.turno!==dfTur) return false;
+    if(dfMac!=="TODAS"){ const mac=machines.find(m=>m.name===dfMac); if(!mac||Number(r.machineId)!==mac.id) return false; }
+    return true;
+  }),[records,dfIni,dfFim,dfTur,dfMac,machines]);
+
+  const machAgg=useMemo(()=>{
+    const agg={};
+    dashData.forEach(r=>{
+      const id=Number(r.machineId);
+      const nd=normDate(r.date);
+      if(!agg[id]){ const mac=machines.find(m=>m.id===id); agg[id]={name:r.machineName||mac?.name||"Máquina "+id,hasMeta:mac?.hasMeta??false,totalProd:0,dias:new Set(),turnos:{},byDate:{}}; }
+      agg[id].totalProd+=num(r.producao);
+      agg[id].dias.add(nd);
+      agg[id].turnos[r.turno]=(agg[id].turnos[r.turno]||0)+num(r.producao);
+      if(!agg[id].byDate[nd]) agg[id].byDate[nd]={};
+      agg[id].byDate[nd][r.turno]=num(r.producao);
+    });
+    Object.entries(agg).forEach(([id,a])=>{
+      const nId=Number(id);
+      a.diasCount=a.dias.size;
+      a.totalMeta=a.hasMeta?(metas[nId]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
+      a.pct=a.totalMeta>0?Math.round(a.totalProd/a.totalMeta*100):null;
+    });
+    return agg;
+  },[dashData,metas,dfTur,machines]);
+
+  const totProd=useMemo(()=>dashData.reduce((s,r)=>s+num(r.producao),0),[dashData]);
+  const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
+
+  const chartProdVsMeta=useMemo(()=>
+    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>15?m.name.substring(0,13)+"...":m.name,meta:a.totalMeta||0,producao:a.totalProd||0}; })
+      .sort((a,b)=>b.producao-a.producao).slice(0,10)
+  ,[machAgg,dfMac,machines]);
+
+  const chartTurnoData=useMemo(()=>{
+    const totals={};
+    dashData.forEach(r=>{ totals[r.turno]=(totals[r.turno]||0)+num(r.producao); });
+    return TURNOS.map(t=>({name:t,value:totals[t]||0})).filter(t=>t.value>0);
+  },[dashData]);
+
+  const chartTendencia=useMemo(()=>{
+    const byDate={};
+    dashData.forEach(r=>{ const nd=normDate(r.date); if(!nd) return; if(!byDate[nd]) byDate[nd]={prod:0}; byDate[nd].prod+=num(r.producao); });
+    return Object.keys(byDate).sort().map(date=>({
+      date:dispD(date), producao:byDate[date].prod,
+      meta:Object.values(machAgg).reduce((s,a)=>s+(a.byDate&&a.byDate[date]?a.totalMeta/(a.diasCount||1):0),0)
+    }));
+  },[dashData,machAgg]);
+
+  const chartPerformers=useMemo(()=>
+    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>22?m.name.substring(0,20)+"...":m.name,pct:a.pct||0,producao:a.totalProd||0}; })
+      .filter(m=>m.producao>0).sort((a,b)=>b.pct-a.pct).slice(0,8)
+  ,[machAgg,dfMac,machines]);
+
+  const feedbacksData=useMemo(()=>
+    records.filter(r=>{
+      if(!r.obs||!r.obs.trim()) return false;
+      const recDate=normDate(r.date);
+      if(!recDate||recDate<dfIni||recDate>dfFim) return false;
+      if(dfMac!=="TODAS"){ const mac=machines.find(m=>m.id===Number(r.machineId)); if(!mac||mac.name!==dfMac) return false; }
+      return true;
+    }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
+  ,[records,dfIni,dfFim,dfMac,machines]);
+
+  // O(1) lookup para TabEntrada
+  const recordsLookup=useMemo(()=>{
+    const m={};
+    records.forEach(r=>{ const nd=normDate(r.date); if(nd) m[`${r.machineId}_${nd}_${r.turno}`]=r; });
+    return m;
+  },[records]);
+
+  const sortedHistorico=useMemo(()=>
+    [...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
+  ,[dashData]);
+
+  const pendingCount=
+    Object.values(inputs).filter(v=>v!==undefined&&v!=="").length+
+    Object.values(obsInputs).filter(v=>v!==undefined&&v!=="").length;
+
+  if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
+
+  // ── header ──
+  const header=el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
+    el("div",{style:{display:"flex",alignItems:"center",gap:0}},
+      el("div",{style:{background:"#0064A6",padding:isMobile?"10px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",marginRight:16}},
+        el(WEGLogoSVG,{height:isMobile?22:28,color:"#fff"})
+      ),
+      el("div",{style:{padding:isMobile?"8px 0":"14px 0"}},
+        el("div",{style:{color:"#fff",fontSize:isMobile?13:16,fontWeight:600,letterSpacing:0.2}},(isMobile?"Dashboard":"Dashboard de Produção")),
+        el("div",{style:{color:"#A8C6D8",fontSize:11,marginTop:2}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Sync: ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
+      )
+    ),
+    el("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:12}},"⏳"),
+      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:12}},"✔"),
+      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:12}},"✘"),
+      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background:"#3498db",border:"1px solid #FFFFFF33",color:"#A8C6D8",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,transition:"background .15s"}},"🔄"),
+      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
+      el("button",{onClick:handleLogout,style:{background:"#e74c3c",border:"1px solid #C8102E55",color:"#ffffff",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
+    )
+  );
+
+  // ── tabs ──
+  const tabLabels=[["entrada",isMobile?"📝":"📝 Apontamento"],["dashboard",isMobile?"📊":"📊 Dashboard"],["historico",isMobile?"📋":"📋 Histórico"],["metas",isMobile?"🎯":"🎯 Metas"],["feedbacks",isMobile?"💬":"💬 Feedbacks"]];
+  const tabs=el("div",{style:{background:"#002548",display:"flex",paddingLeft:0,overflowX:"auto",borderBottom:"1px solid #003E6B"}},
+    ...tabLabels.map(([k,l])=>
+      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"11px 20px",border:"none",borderBottom:tab===k?"3px solid #0064A6":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:"transparent",color:tab===k?"#fff":"#A8C6D8",borderRadius:0,fontSize:isMobile?13:14,transition:"color .15s,border-color .15s",marginBottom:"-1px"}},l)
+    )
+  );
 
   return el("div",{style:{fontFamily:"'Segoe UI',sans-serif",background:"#F0F2F5",minHeight:"100vh"}},
-    editRec&&el(EditModal,{rec:editRec,metas,onSave:handleEdit,onClose:()=>setEditRec(null),saving:editSaving}),
-    deleteRec&&el(DeleteModal,{rec:deleteRec,onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
-    obsRec&&el(ObsModal,{rec:obsRec,onSave:handleSaveObs,onClose:()=>setObsRec(null),saving:obsSaving}),
+    editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
+    deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
+    obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
     el("div",{style:{padding:isMobile?10:20}},
-      tab==="entrada"&&tabEntrada,
-      tab==="dashboard"&&tabDashboard,
-      tab==="historico"&&tabHistorico,
-      tab==="metas"&&tabMetas,
-      tab==="feedbacks"&&tabFeedbacks
+      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
+      tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
+      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
+      tab==="metas"     &&el(TabMetas,     {machines,metas,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
+      tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
     )
   );
 }

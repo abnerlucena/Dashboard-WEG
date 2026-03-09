@@ -28,28 +28,31 @@ const AUDIT_HEADERS = ["timestamp", "user", "action", "details", "ip"];
 const INVITE_HEADERS = ["code", "createdBy", "createdAt", "usedBy", "usedAt", "status"];
 const METAS_HEADERS = ["machineId", "machineName", "meta", "updatedBy", "updatedAt"];
 
-// Metas padrão — espelha o array MACHINES do frontend
-const DEFAULT_METAS = [
-  {id:1,  name:"HORIZONTAL 1",                       meta:500},
-  {id:2,  name:"HORIZONTAL 2",                       meta:500},
-  {id:3,  name:"VERTICAL PLACAS / SUP. 1",           meta:400},
-  {id:4,  name:"VERTICAL PLACAS / SUP. 2",           meta:400},
-  {id:5,  name:"VERTICAL MÓDULOS 1",                 meta:350},
-  {id:6,  name:"VERTICAL MÓDULOS 2",                 meta:350},
-  {id:7,  name:"A GRANEL",                           meta:600},
-  {id:8,  name:"MÁQUINA INTERRUPTOR",                meta:300},
-  {id:9,  name:"TESTE INTERRUPTORES",                meta:250},
-  {id:10, name:"MANUAL INTERRUPTOR",                 meta:200},
-  {id:11, name:"MONTAGEM DIVERSOS",                  meta:150},
-  {id:12, name:"MONTAGEM PLACA REFINATTO",           meta:180},
-  {id:13, name:"KIT 1 PARAFUSO",                     meta:220},
-  {id:14, name:"KIT 2 PARAFUSO",                     meta:220},
-  {id:15, name:"MONTAGEM TOMADAS MANUAL",            meta:160},
-  {id:16, name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      meta:500},
-  {id:17, name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  meta:0},
-  {id:18, name:"FECHAMENTO TECLA INTERRUPTORES",     meta:0},
-  {id:19, name:"RETRABALHO GERAL",                   meta:0}
+// Definição canônica das máquinas — única fonte de verdade no backend
+// O frontend busca via getMachines; MACHINES_DEFAULT no app.js é apenas fallback
+const MACHINE_DEFS = [
+  {id:1,  name:"HORIZONTAL 1",                       hasMeta:true,  defaultMeta:500},
+  {id:2,  name:"HORIZONTAL 2",                       hasMeta:true,  defaultMeta:500},
+  {id:3,  name:"VERTICAL PLACAS / SUP. 1",           hasMeta:true,  defaultMeta:400},
+  {id:4,  name:"VERTICAL PLACAS / SUP. 2",           hasMeta:true,  defaultMeta:400},
+  {id:5,  name:"VERTICAL MÓDULOS 1",                 hasMeta:true,  defaultMeta:350},
+  {id:6,  name:"VERTICAL MÓDULOS 2",                 hasMeta:true,  defaultMeta:350},
+  {id:7,  name:"A GRANEL",                           hasMeta:true,  defaultMeta:600},
+  {id:8,  name:"MÁQUINA INTERRUPTOR",                hasMeta:true,  defaultMeta:300},
+  {id:9,  name:"TESTE INTERRUPTORES",                hasMeta:true,  defaultMeta:250},
+  {id:10, name:"MANUAL INTERRUPTOR",                 hasMeta:true,  defaultMeta:200},
+  {id:11, name:"MONTAGEM DIVERSOS",                  hasMeta:true,  defaultMeta:150},
+  {id:12, name:"MONTAGEM PLACA REFINATTO",           hasMeta:true,  defaultMeta:180},
+  {id:13, name:"KIT 1 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
+  {id:14, name:"KIT 2 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
+  {id:15, name:"MONTAGEM TOMADAS MANUAL",            hasMeta:true,  defaultMeta:160},
+  {id:16, name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      hasMeta:true,  defaultMeta:500},
+  {id:17, name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:false, defaultMeta:0},
+  {id:18, name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:false, defaultMeta:0},
+  {id:19, name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0}
 ];
+// Derivado de MACHINE_DEFS — não precisa ser mantido manualmente
+const DEFAULT_METAS = MACHINE_DEFS.map(m => ({id: m.id, name: m.name, meta: m.defaultMeta}));
 
 // ══════════════════════════════════════════════════════════════
 // 🔧 FUNÇÕES AUXILIARES - MANAGEMENT DE SENHAS
@@ -657,6 +660,8 @@ function doGet(e) {
         return json(actionUpsert(payload.token, payload.records || []));
       case "delete":
         return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId, payload.id));
+      case "getMachines":
+        return json(actionGetMachines(payload.token));
       case "getMetas":
         return json(actionGetMetas(payload.token));
       case "saveMetas":
@@ -987,6 +992,12 @@ function actionAdminCreateUser(token, nome, senha) {
 // ══════════════════════════════════════════════════════════════
 // METAS GLOBAIS (compartilhadas entre todos os usuários)
 // ══════════════════════════════════════════════════════════════
+
+function actionGetMachines(token) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada. Faça login novamente." };
+  return { ok: true, machines: MACHINE_DEFS };
+}
 
 function actionGetMetas(token) {
   const session = validateSession(token);
