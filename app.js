@@ -1092,7 +1092,7 @@ function App(){
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
   // ── header ──
-  const header = el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
+  const header = el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",paddingRight:10,display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
     el("div",{style:{display:"flex",alignItems:"center",gap:0}},
       el("div",{style:{background:"#0064A6",padding:isMobile?"10px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",marginRight:16}},
         el(WEGLogoSVG,{height:isMobile?22:28,color:"#fff"})
