@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwW8-pj3QPY8ZpMTvmfiHvixRV3PWvMymXbjEWkZc7BtEoEtqF5Hd53j3PewndZiZPN/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdbuR6Bmr-kWLA1x0U-5D6Ubsmuh0BUcCy0d7yn7DxpcHIartHmefr4DQA3LdM-l4pBA/exec";
 
 // Fallback local — substituído pela lista do servidor via getMachines após login
 const MACHINES_DEFAULT = [
@@ -201,14 +201,6 @@ const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SESSION_KE
 const saveSession = u=>{ try{ localStorage.setItem(SESSION_KEY,JSON.stringify(u)); }catch{} };
 const clearSession= ()=>{ try{ localStorage.removeItem(SESSION_KEY); }catch{} };
 
-// ─── CACHE LOCAL (carregamento instantâneo) ──────────────────
-const CACHE_KEY = "prod_records_cache";
-const CACHE_METAS_KEY = "prod_metas_cache";
-function loadCachedRecords(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)||"[]"); }catch{ return []; } }
-function saveCachedRecords(data){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(data)); }catch{} }
-function loadCachedMetas(){ try{ const m=JSON.parse(localStorage.getItem(CACHE_METAS_KEY)||"null"); return m; }catch{ return null; } }
-function saveCachedMetas(m){ try{ localStorage.setItem(CACHE_METAS_KEY,JSON.stringify(m)); }catch{} }
-
 function loadMetasDefaults(machines){
   const m={};
   (machines||MACHINES_DEFAULT).forEach(mac=>{ m[mac.id]=mac.defaultMeta; });
@@ -239,8 +231,7 @@ async function api(action, body={}, userSession=null){
   catch(e) { throw new Error("Resposta inválida do servidor. Tente novamente."); }
   if(!j.ok && j.error && j.error.includes("Sessão")) {
     clearSession();
-    window.location.reload();
-    throw new Error("Sessão expirada. Reconectando...");
+    throw new Error("Sua sessão expirou. Faça login novamente.");
   }
   if(!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
@@ -399,55 +390,6 @@ function AuthScreen({onLogin}){
 }
 
 // ─── MODALS ───────────────────────────────────────────────────
-function ConflictModal({conflicts,onReplace,onAddWithObs,onClose}){
-  const [obsMap,setObsMap]=useState(()=>{const m={};conflicts.forEach(c=>{m[c.key]=""});return m;});
-  const [mode,setMode]=useState(null); // null, "replace", "addObs"
-  const allObsFilled=conflicts.every(c=>obsMap[c.key]&&obsMap[c.key].trim().length>0);
-  return el(Modal,{},
-    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"⚠️ Conflito de Apontamento"),
-    el("div",{style:{fontSize:13,color:C.gray,marginBottom:14}},"Os seguintes apontamentos já existem no sistema:"),
-    el("div",{style:{maxHeight:200,overflowY:"auto",marginBottom:16}},
-      ...conflicts.map(c=>el("div",{key:c.key,style:{background:"#FFF8E1",border:"1px solid #FFE082",borderRadius:8,padding:"10px 14px",marginBottom:8}},
-        el("div",{style:{fontWeight:700,fontSize:13,color:C.navy}},c.machineName),
-        el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},`${dispD(c.date)} · ${c.turno}`),
-        el("div",{style:{fontSize:12,marginTop:4,display:"flex",gap:16}},
-          el("span",null,"Salvo: ",el("b",{style:{color:C.blue}},`${c.existingProd.toLocaleString("pt-BR")} pç`)),
-          el("span",null,"Novo: ",el("b",{style:{color:C.yellow}},`${c.newProd.toLocaleString("pt-BR")} pç`))
-        ),
-        mode==="addObs"&&el("div",{style:{marginTop:8}},
-          el("input",{type:"text",placeholder:"Justificativa do novo apontamento (obrigatório)...",value:obsMap[c.key]||"",onChange:e=>setObsMap(p=>({...p,[c.key]:e.target.value})),style:{...IS,width:"100%",fontSize:12,borderColor:obsMap[c.key]?.trim()?"#27AE60":"#E87722",borderWidth:2}})
-        )
-      ))
-    ),
-    !mode&&el("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      el("div",{style:{fontSize:13,fontWeight:700,color:"#2D3E4E",marginBottom:4}},"O que deseja fazer?"),
-      el("button",{onClick:()=>setMode("replace"),style:BTN("#E87722",{width:"100%",textAlign:"left",padding:"12px 16px"})},
-        el("div",{style:{fontWeight:700}},"Substituir apontamentos existentes"),
-        el("div",{style:{fontSize:11,fontWeight:400,marginTop:2,opacity:.85}},"Os valores antigos serão sobrescritos pelos novos")
-      ),
-      el("button",{onClick:()=>setMode("addObs"),style:BTN(C.blue,{width:"100%",textAlign:"left",padding:"12px 16px"})},
-        el("div",{style:{fontWeight:700}},"Criar novo apontamento (manter o existente)"),
-        el("div",{style:{fontSize:11,fontWeight:400,marginTop:2,opacity:.85}},"Ambos os registros serão mantidos — justificativa obrigatória")
-      ),
-      el("button",{onClick:onClose,style:{background:"#F0F2F5",color:"#5E6E78",border:"1px solid #C8D8E4",borderRadius:4,padding:"10px 16px",cursor:"pointer",fontWeight:600,fontSize:14,width:"100%"}},"Cancelar")
-    ),
-    mode==="replace"&&el("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      el("div",{style:{fontSize:13,color:C.gray}},"Confirma a substituição de ",el("b",null,conflicts.length)," registro(s)?"),
-      el("div",{style:{display:"flex",gap:8}},
-        el("button",{onClick:()=>onReplace(),style:BTN("#E87722",{flex:1})},"Confirmar Substituição"),
-        el("button",{onClick:()=>setMode(null),style:{background:"#F0F2F5",color:"#5E6E78",border:"1px solid #C8D8E4",borderRadius:4,padding:"9px 16px",cursor:"pointer",fontWeight:600,fontSize:14,flex:1}},"Voltar")
-      )
-    ),
-    mode==="addObs"&&el("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      !allObsFilled&&el("div",{style:{fontSize:12,color:"#E87722",fontWeight:600}},"Preencha a justificativa de todos os registros acima."),
-      el("div",{style:{display:"flex",gap:8}},
-        el("button",{onClick:()=>onAddWithObs(obsMap),disabled:!allObsFilled,style:{...BTN(C.blue,{flex:1}),opacity:allObsFilled?1:.5}},"Confirmar Novo Apontamento"),
-        el("button",{onClick:()=>setMode(null),style:{background:"#F0F2F5",color:"#5E6E78",border:"1px solid #C8D8E4",borderRadius:4,padding:"9px 16px",cursor:"pointer",fontWeight:600,fontSize:14,flex:1}},"Voltar")
-      )
-    )
-  );
-}
-
 function EditModal({rec,metas,machines,onSave,onClose,saving}){
   const mId=Number(rec.machineId);
   const mac=machines.find(m=>m.id===mId);
@@ -769,11 +711,21 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
 }
 
 // ─── TAB APONTAMENTO ──────────────────────────────────────────
-function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
-  function getVal(mId){ return inputs[mId]!==undefined?inputs[mId]:""; }
-  function getObsVal(mId){ return obsInputs[mId]!==undefined?obsInputs[mId]:""; }
-  function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
-  function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
+function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
+  function getVal(mId){
+    const k=cellKey(mId,entryDate,entryTurno);
+    if(inputs[k]!==undefined) return inputs[k];
+    const s=recordsLookup[k];
+    return s?String(s.producao):"";
+  }
+  function getObsVal(mId){
+    const k=cellKey(mId,entryDate,entryTurno);
+    if(obsInputs[k]!==undefined) return obsInputs[k];
+    const s=recordsLookup[k];
+    return s?(s.obs||""):"";
+  }
+  function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
+  function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
 
   return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
@@ -801,21 +753,21 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
           el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
         )),
         el("tbody",null,...machines.map((m,i)=>{
+          const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
           const obsVal=getObsVal(m.id);
-          const isLocal=inputs[m.id]!==undefined&&inputs[m.id]!=="";
-          const isObsLocal=obsInputs[m.id]!==undefined&&obsInputs[m.id]!=="";
+          const isLocal=inputs[k]!==undefined;
+          const isObsLocal=obsInputs[k]!==undefined;
+          const isSaved=!isLocal&&!!recordsLookup[k];
           const metaVal=metas[m.id]||0;
+          // FIX #2: divisão por zero quando metaVal===0 — exibia "Infinity%" ou "NaN%"
           const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:rowStyle(i)},
-            el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},
-              m.name,
-              !m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
-            ),
+            el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#2D3E4E"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#8FA4B2"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
-              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:isLocal?C.yellow:"#B8CDD8",borderWidth:isLocal?2:1}})
+              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:isLocal?C.yellow:isSaved?C.blue:"#B8CDD8",borderWidth:isLocal||isSaved?2:1}})
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center"}},
               pct!==null?el("span",{style:{background:col+"22",color:col,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${pct}%`):
@@ -827,6 +779,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:12}},
               isLocal||isObsLocal?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
+              isSaved?el("span",{style:{color:C.green,fontWeight:700}},"✔"):
               el("span",{style:{color:"#B8CDD8"}},"—")
             )
           );
@@ -1138,10 +1091,10 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
 function App(){
   const [user,setUser]               = useState(()=>loadSession());
   const [machines,setMachines]       = useState(MACHINES_DEFAULT);
-  const [metas,setMetasState]        = useState(()=>loadCachedMetas()||loadMetasDefaults(MACHINES_DEFAULT));
+  const [metas,setMetasState]        = useState(()=>loadMetasDefaults(MACHINES_DEFAULT));
   const [metasLoading,setMetasLoading] = useState(false);
   const [metasSaving,setMetasSaving]   = useState(false);
-  const [records,setRecords]         = useState(()=>loadCachedRecords());
+  const [records,setRecords]         = useState([]);
   const [tab,setTab]                 = useState("entrada");
   const [entryDate,setEntryDate]     = useState(today());
   const [entryTurno,setEntryTurno]   = useState("TURNO 1");
@@ -1157,7 +1110,6 @@ function App(){
   const [obsRec,setObsRec]           = useState(null);
   const [obsSaving,setObsSaving]     = useState(false);
   const [showAdmin,setShowAdmin]     = useState(false);
-  const [conflictInfo,setConflictInfo] = useState(null);
   const [dfIni,setDfIni]             = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
   const [dfFim,setDfFim]             = useState(today());
   const [dfMac,setDfMac]             = useState("TODAS");
@@ -1179,13 +1131,14 @@ function App(){
     if(!silent) setLoading(true);
     try{
       const r=await api("getAll",{},userRef.current);
-      const data=r.data||[];
-      setRecords(data);
-      saveCachedRecords(data);
+      setRecords(r.data||[]);
       setLastSync(new Date());
     }catch(e){
       console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
+      if(e.message.toLowerCase().includes("sessão")||e.message.toLowerCase().includes("sessao")||e.message.includes("expirou")){
+        handleLogout();
+      }
     }
     finally{ if(!silent) setLoading(false); }
   },[]); // eslint-disable-line
@@ -1199,7 +1152,6 @@ function App(){
         const m={};
         MACHINES_DEFAULT.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
         setMetasState(m);
-        saveCachedMetas(m);
         if(r.metasInfo) setMetasInfo(r.metasInfo);
       }
     }catch(e){ console.error("Erro ao carregar metas:", e); }
@@ -1230,51 +1182,57 @@ function App(){
       loadAll();
       loadMetasFromServer();
       loadMachines();
-      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },60000);
+      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
     }
     return()=>clearInterval(pollRef.current);
   },[user]); // eslint-disable-line
 
-  function buildToSend(overrideObs){
+  async function handleSave(){
     const currentInputs   = {...inputs};
     const currentObsInputs= {...obsInputs};
     const currentMetas    = {...metas};
     const timestamp = nowBR();
-    const date = entryDate;
-    const turno = entryTurno;
-    const toSend=[];
-    // Iterar por mId — inputs keyed por machine ID
-    const pendingMIds=new Set([
+
+    const pendingKeys=new Set([
       ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
       ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
     ]);
-    pendingMIds.forEach(mIdStr=>{
-      const mId=Number(mIdStr);
+
+    setSyncSt("syncing");
+    const toSend=[];
+    pendingKeys.forEach(k=>{
+      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
+      const mId=Number(k.substring(0,firstIdx));
+      const rest=k.substring(firstIdx+1);
+      const date=rest.substring(0,10);
+      const turno=rest.substring(11);
       const m=machines.find(mc=>mc.id===mId); if(!m) return;
-      const val=currentInputs[mIdStr];
-      if(val===undefined||val==="") return;
-      const producao=num(val);
+      const val=currentInputs[k];
+      let producao;
+      if(val!==undefined&&val!==""){
+        producao=num(val);
+      } else {
+        const ex=records.find(r=>Number(r.machineId)===mId&&r.turno===turno&&normDate(r.date)===date);
+        if(!ex) return;
+        producao=num(ex.producao);
+      }
       const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
-      let obs=currentObsInputs[mIdStr];
-      if(overrideObs&&overrideObs[mIdStr]) obs=(obs?obs+" | ":"")+overrideObs[mIdStr];
+      const obs=currentObsInputs[k];
       toSend.push({
         date, turno, machineId:m.id, machineName:m.name,
         meta:metaVal, producao, savedBy:user.nome, savedAt:timestamp,
         editUser:"", editTime:"",
-        obs:(obs!==undefined&&obs!=="")?obs:undefined,
-        _key:mIdStr
+        obs:(obs!==undefined&&obs!=="")?obs:undefined
       });
     });
-    return toSend;
-  }
 
-  async function doSave(toSend, action){
-    const apiAction = action || "upsert";
-    setSyncSt("syncing");
+    if(!toSend.length){ setSyncSt(null); return; }
+    // FIX #4: se batch 2 falhar, batch 1 já foi salvo no servidor mas ficava "pendente" no UI.
+    // Agora limpa registros confirmados mesmo em falha parcial.
     const saved=[];
     try{
       for(let i=0;i<toSend.length;i+=4){
-        await api(apiAction,{records:toSend.slice(i,i+4)},user);
+        await api("upsert",{records:toSend.slice(i,i+4)},user);
         saved.push(...toSend.slice(i,i+4));
       }
       await loadAll(true);
@@ -1285,46 +1243,11 @@ function App(){
       setTimeout(()=>setSyncSt(null),4000);
     }finally{
       if(saved.length>0){
-        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
-        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
-        if(saved.length<toSend.length) loadAll(true);
+        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+        if(saved.length<toSend.length) loadAll(true); // recarrega se houve falha parcial
       }
     }
-  }
-
-  async function handleSave(){
-    const toSend=buildToSend();
-    if(!toSend.length){ setSyncSt(null); return; }
-
-    // Detectar conflitos com registros já salvos
-    const rl=recordsLookup;
-    const conflicts=[];
-    toSend.forEach(r=>{
-      const k=cellKey(r.machineId,r.date,r.turno);
-      const existing=rl[k];
-      if(existing){
-        conflicts.push({key:r._key,date:r.date,turno:r.turno,machineId:r.machineId,machineName:r.machineName,existingProd:num(existing.producao),newProd:r.producao});
-      }
-    });
-
-    if(conflicts.length>0){
-      setConflictInfo({conflicts,toSend});
-      return;
-    }
-
-    await doSave(toSend);
-  }
-
-  function handleConflictReplace(){
-    const toSend=conflictInfo.toSend;
-    setConflictInfo(null);
-    doSave(toSend);
-  }
-
-  function handleConflictAddObs(obsMap){
-    const toSend=buildToSend(obsMap);
-    setConflictInfo(null);
-    doSave(toSend, "append");
   }
 
   async function handleEdit(newVal){
@@ -1395,8 +1318,6 @@ function App(){
   function handleLogout(){
     const token=user?.token;
     clearSession();
-    saveCachedRecords([]);
-    saveCachedMetas(null);
     setUser(null);
     setRecords([]);
     clearInterval(pollRef.current);
@@ -1486,13 +1407,9 @@ function App(){
     [...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[dashData]);
 
-  const pendingCount=useMemo(()=>{
-    const mIds=new Set([
-      ...Object.keys(inputs).filter(k=>inputs[k]!==undefined&&inputs[k]!==""),
-      ...Object.keys(obsInputs).filter(k=>obsInputs[k]!==undefined&&obsInputs[k]!=="")
-    ]);
-    return mIds.size;
-  },[inputs,obsInputs]);
+  const pendingCount=
+    Object.values(inputs).filter(v=>v!==undefined&&v!=="").length+
+    Object.values(obsInputs).filter(v=>v!==undefined&&v!=="").length;
 
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
@@ -1529,11 +1446,10 @@ function App(){
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
-    conflictInfo&&el(ConflictModal,{conflicts:conflictInfo.conflicts,onReplace:handleConflictReplace,onAddWithObs:handleConflictAddObs,onClose:()=>setConflictInfo(null)}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
     el("div",{style:{padding:isMobile?10:20}},
-      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
+      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
       tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
       tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
