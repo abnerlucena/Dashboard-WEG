@@ -238,7 +238,9 @@ async function api(action, body={}, userSession=null){
   try { j = await res.json(); }
   catch(e) { throw new Error("Resposta inválida do servidor. Tente novamente."); }
   if(!j.ok && j.error && j.error.includes("Sessão")) {
-    throw new Error("Erro de sessão. Tente recarregar a página.");
+    clearSession();
+    window.location.reload();
+    throw new Error("Sessão expirada. Reconectando...");
   }
   if(!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
@@ -767,13 +769,11 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
 }
 
 // ─── TAB APONTAMENTO ──────────────────────────────────────────
-function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
+function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
   function getVal(mId){ return inputs[mId]!==undefined?inputs[mId]:""; }
   function getObsVal(mId){ return obsInputs[mId]!==undefined?obsInputs[mId]:""; }
   function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
-  function hasSavedRecord(mId){ return !!recordsLookup[cellKey(mId,entryDate,entryTurno)]; }
-  function getSavedProd(mId){ const s=recordsLookup[cellKey(mId,entryDate,entryTurno)]; return s?num(s.producao):null; }
 
   return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
@@ -805,16 +805,13 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
           const obsVal=getObsVal(m.id);
           const isLocal=inputs[m.id]!==undefined&&inputs[m.id]!=="";
           const isObsLocal=obsInputs[m.id]!==undefined&&obsInputs[m.id]!=="";
-          const saved=hasSavedRecord(m.id);
-          const savedProd=getSavedProd(m.id);
           const metaVal=metas[m.id]||0;
           const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},
               m.name,
-              !m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta"),
-              saved&&el("div",{style:{fontSize:10,color:C.blue,fontWeight:600,marginTop:2}},`já apontado: ${savedProd!==null?savedProd.toLocaleString("pt-BR"):""} pç`)
+              !m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#2D3E4E"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#8FA4B2"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
@@ -830,7 +827,6 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:12}},
               isLocal||isObsLocal?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
-              saved?el("span",{style:{color:C.blue,fontWeight:600}},"✔ salvo"):
               el("span",{style:{color:"#B8CDD8"}},"—")
             )
           );
@@ -1537,7 +1533,7 @@ function App(){
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
     el("div",{style:{padding:isMobile?10:20}},
-      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
+      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
       tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
       tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
