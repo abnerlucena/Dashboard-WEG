@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyiThLWbvC6QckziUFtvE_FuW1WnTTySmfeon-dUsC4JUUu8bqFdZMY_ZY6FMQeez1HkQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkWvnns25-x7Xc-0C0-rBtmCdZ_QCYpjFq5Imagiv5uXb1qaX5tkuddZUq4k4wT_H7ug/exec";
 
 // Fallback local — substituído pela lista do servidor via getMachines após login
 const MACHINES_DEFAULT = [
