@@ -658,6 +658,8 @@ function doGet(e) {
         return json(actionGetAll(payload.token));
       case "upsert":
         return json(actionUpsert(payload.token, payload.records || []));
+      case "append":
+        return json(actionAppend(payload.token, payload.records || []));
       case "delete":
         return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId, payload.id));
       case "getMachines":
@@ -1243,6 +1245,64 @@ function actionUpsert(token, records) {
     
   } catch (err) {
     logError("actionUpsert", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// APPEND — cria novo registro sem substituir existente
+// ══════════════════════════════════════════════════════════════
+
+function actionAppend(token, records) {
+  const session = validateSession(token);
+  if(!session) {
+    return { ok: false, error: "Sessão inválida ou expirada" };
+  }
+
+  try {
+    if (!records || records.length === 0) {
+      return { ok: false, error: "Nenhum registro fornecido" };
+    }
+
+    const sheet = getProdSheet();
+
+    records.forEach((rec, idx) => {
+      if (!rec.date || !rec.turno || !rec.machineId) {
+        Logger.log(`[APPEND] Registro ${idx} ignorado - campos obrigatórios ausentes`);
+        return;
+      }
+      if(!VALID_TURNOS.includes(rec.turno)) {
+        throw new Error(`Turno inválido: ${rec.turno}`);
+      }
+      const dateStr = String(rec.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        throw new Error(`Formato de data inválido: ${dateStr}`);
+      }
+
+      const rowData = PROD_HEADERS.map(header => {
+        if (header === "id") return Utilities.getUuid();
+        if (header === "date") return dateStr;
+        if (header === "turno") return rec.turno;
+        if (header === "machineId") return sanitizeNumber(rec.machineId, 1, 100);
+        if (header === "machineName") return sanitizeString(rec.machineName, 100);
+        if (header === "meta") return sanitizeNumber(rec.meta, 0, 1000000);
+        if (header === "producao") return sanitizeNumber(rec.producao, 0, 100000);
+        if (header === "savedBy") return sanitizeString(rec.savedBy, 50);
+        if (header === "savedAt") return sanitizeString(rec.savedAt, 50);
+        if (header === "editUser") return sanitizeString(rec.editUser, 50);
+        if (header === "editTime") return sanitizeString(rec.editTime, 50);
+        if (header === "obs") return rec.obs ? sanitizeString(rec.obs, 500) : "";
+        return "";
+      });
+
+      sheet.appendRow(rowData);
+      auditLog(session.nome, "RECORD_APPENDED", {date: rec.date, turno: rec.turno, machineId: rec.machineId, obs: rec.obs || ""});
+    });
+
+    SpreadsheetApp.flush();
+    return { ok: true, appended: records.length };
+  } catch (err) {
+    logError("actionAppend", err);
     return { ok: false, error: err.message };
   }
 }

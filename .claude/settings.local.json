@@ -5,7 +5,8 @@
       "WebFetch(domain:www.weg.net)",
       "WebSearch",
       "WebFetch(domain:www.brandcolorcode.com)",
-      "Bash(node -c app.js)"
+      "Bash(node -c app.js)",
+      "Bash(node -c c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js)"
     ]
   }
 }

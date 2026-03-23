@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdbuR6Bmr-kWLA1x0U-5D6Ubsmuh0BUcCy0d7yn7DxpcHIartHmefr4DQA3LdM-l4pBA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwW8-pj3QPY8ZpMTvmfiHvixRV3PWvMymXbjEWkZc7BtEoEtqF5Hd53j3PewndZiZPN/exec";
 
 // Fallback local — substituído pela lista do servidor via getMachines após login
 const MACHINES_DEFAULT = [
@@ -413,7 +413,7 @@ function ConflictModal({conflicts,onReplace,onAddWithObs,onClose}){
           el("span",null,"Novo: ",el("b",{style:{color:C.yellow}},`${c.newProd.toLocaleString("pt-BR")} pç`))
         ),
         mode==="addObs"&&el("div",{style:{marginTop:8}},
-          el("input",{type:"text",placeholder:"Motivo da alteração (obrigatório)...",value:obsMap[c.key]||"",onChange:e=>setObsMap(p=>({...p,[c.key]:e.target.value})),style:{...IS,width:"100%",fontSize:12,borderColor:obsMap[c.key]?.trim()?"#27AE60":"#E87722",borderWidth:2}})
+          el("input",{type:"text",placeholder:"Justificativa do novo apontamento (obrigatório)...",value:obsMap[c.key]||"",onChange:e=>setObsMap(p=>({...p,[c.key]:e.target.value})),style:{...IS,width:"100%",fontSize:12,borderColor:obsMap[c.key]?.trim()?"#27AE60":"#E87722",borderWidth:2}})
         )
       ))
     ),
@@ -424,8 +424,8 @@ function ConflictModal({conflicts,onReplace,onAddWithObs,onClose}){
         el("div",{style:{fontSize:11,fontWeight:400,marginTop:2,opacity:.85}},"Os valores antigos serão sobrescritos pelos novos")
       ),
       el("button",{onClick:()=>setMode("addObs"),style:BTN(C.blue,{width:"100%",textAlign:"left",padding:"12px 16px"})},
-        el("div",{style:{fontWeight:700}},"Adicionar com feedback obrigatório"),
-        el("div",{style:{fontSize:11,fontWeight:400,marginTop:2,opacity:.85}},"Informe o motivo da alteração para cada registro")
+        el("div",{style:{fontWeight:700}},"Criar novo apontamento (manter o existente)"),
+        el("div",{style:{fontSize:11,fontWeight:400,marginTop:2,opacity:.85}},"Ambos os registros serão mantidos — justificativa obrigatória")
       ),
       el("button",{onClick:onClose,style:{background:"#F0F2F5",color:"#5E6E78",border:"1px solid #C8D8E4",borderRadius:4,padding:"10px 16px",cursor:"pointer",fontWeight:600,fontSize:14,width:"100%"}},"Cancelar")
     ),
@@ -437,9 +437,9 @@ function ConflictModal({conflicts,onReplace,onAddWithObs,onClose}){
       )
     ),
     mode==="addObs"&&el("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      !allObsFilled&&el("div",{style:{fontSize:12,color:"#E87722",fontWeight:600}},"Preencha o motivo de todos os registros acima."),
+      !allObsFilled&&el("div",{style:{fontSize:12,color:"#E87722",fontWeight:600}},"Preencha a justificativa de todos os registros acima."),
       el("div",{style:{display:"flex",gap:8}},
-        el("button",{onClick:()=>onAddWithObs(obsMap),disabled:!allObsFilled,style:{...BTN(C.blue,{flex:1}),opacity:allObsFilled?1:.5}},"Confirmar com Feedback"),
+        el("button",{onClick:()=>onAddWithObs(obsMap),disabled:!allObsFilled,style:{...BTN(C.blue,{flex:1}),opacity:allObsFilled?1:.5}},"Confirmar Novo Apontamento"),
         el("button",{onClick:()=>setMode(null),style:{background:"#F0F2F5",color:"#5E6E78",border:"1px solid #C8D8E4",borderRadius:4,padding:"9px 16px",cursor:"pointer",fontWeight:600,fontSize:14,flex:1}},"Voltar")
       )
     )
@@ -768,16 +768,10 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
 
 // ─── TAB APONTAMENTO ──────────────────────────────────────────
 function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
-  function getVal(mId){
-    const k=cellKey(mId,entryDate,entryTurno);
-    return inputs[k]!==undefined?inputs[k]:"";
-  }
-  function getObsVal(mId){
-    const k=cellKey(mId,entryDate,entryTurno);
-    return obsInputs[k]!==undefined?obsInputs[k]:"";
-  }
-  function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
-  function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
+  function getVal(mId){ return inputs[mId]!==undefined?inputs[mId]:""; }
+  function getObsVal(mId){ return obsInputs[mId]!==undefined?obsInputs[mId]:""; }
+  function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
+  function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
   function hasSavedRecord(mId){ return !!recordsLookup[cellKey(mId,entryDate,entryTurno)]; }
   function getSavedProd(mId){ const s=recordsLookup[cellKey(mId,entryDate,entryTurno)]; return s?num(s.producao):null; }
 
@@ -807,11 +801,10 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
           el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
         )),
         el("tbody",null,...machines.map((m,i)=>{
-          const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
           const obsVal=getObsVal(m.id);
-          const isLocal=inputs[k]!==undefined;
-          const isObsLocal=obsInputs[k]!==undefined;
+          const isLocal=inputs[m.id]!==undefined&&inputs[m.id]!=="";
+          const isObsLocal=obsInputs[m.id]!==undefined&&obsInputs[m.id]!=="";
           const saved=hasSavedRecord(m.id);
           const savedProd=getSavedProd(m.id);
           const metaVal=metas[m.id]||0;
@@ -1251,41 +1244,41 @@ function App(){
     const currentObsInputs= {...obsInputs};
     const currentMetas    = {...metas};
     const timestamp = nowBR();
-    const pendingKeys=new Set([
+    const date = entryDate;
+    const turno = entryTurno;
+    const toSend=[];
+    // Iterar por mId — inputs keyed por machine ID
+    const pendingMIds=new Set([
       ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
       ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
     ]);
-    const toSend=[];
-    pendingKeys.forEach(k=>{
-      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
-      const mId=Number(k.substring(0,firstIdx));
-      const rest=k.substring(firstIdx+1);
-      const date=rest.substring(0,10);
-      const turno=rest.substring(11);
+    pendingMIds.forEach(mIdStr=>{
+      const mId=Number(mIdStr);
       const m=machines.find(mc=>mc.id===mId); if(!m) return;
-      const val=currentInputs[k];
+      const val=currentInputs[mIdStr];
       if(val===undefined||val==="") return;
       const producao=num(val);
       const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
-      let obs=currentObsInputs[k];
-      if(overrideObs&&overrideObs[k]) obs=(obs?obs+" | ":"")+overrideObs[k];
+      let obs=currentObsInputs[mIdStr];
+      if(overrideObs&&overrideObs[mIdStr]) obs=(obs?obs+" | ":"")+overrideObs[mIdStr];
       toSend.push({
         date, turno, machineId:m.id, machineName:m.name,
         meta:metaVal, producao, savedBy:user.nome, savedAt:timestamp,
         editUser:"", editTime:"",
         obs:(obs!==undefined&&obs!=="")?obs:undefined,
-        _key:k
+        _key:mIdStr
       });
     });
     return toSend;
   }
 
-  async function doSave(toSend){
+  async function doSave(toSend, action){
+    const apiAction = action || "upsert";
     setSyncSt("syncing");
     const saved=[];
     try{
       for(let i=0;i<toSend.length;i+=4){
-        await api("upsert",{records:toSend.slice(i,i+4)},user);
+        await api(apiAction,{records:toSend.slice(i,i+4)},user);
         saved.push(...toSend.slice(i,i+4));
       }
       await loadAll(true);
@@ -1296,8 +1289,8 @@ function App(){
       setTimeout(()=>setSyncSt(null),4000);
     }finally{
       if(saved.length>0){
-        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
+        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
         if(saved.length<toSend.length) loadAll(true);
       }
     }
@@ -1335,7 +1328,7 @@ function App(){
   function handleConflictAddObs(obsMap){
     const toSend=buildToSend(obsMap);
     setConflictInfo(null);
-    doSave(toSend);
+    doSave(toSend, "append");
   }
 
   async function handleEdit(newVal){
@@ -1497,9 +1490,13 @@ function App(){
     [...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[dashData]);
 
-  const pendingCount=
-    Object.values(inputs).filter(v=>v!==undefined&&v!=="").length+
-    Object.values(obsInputs).filter(v=>v!==undefined&&v!=="").length;
+  const pendingCount=useMemo(()=>{
+    const mIds=new Set([
+      ...Object.keys(inputs).filter(k=>inputs[k]!==undefined&&inputs[k]!==""),
+      ...Object.keys(obsInputs).filter(k=>obsInputs[k]!==undefined&&obsInputs[k]!=="")
+    ]);
+    return mIds.size;
+  },[inputs,obsInputs]);
 
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
