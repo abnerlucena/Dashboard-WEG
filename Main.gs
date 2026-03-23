@@ -14,7 +14,7 @@ const ADMIN_USER = "Admin";
 // Configurações de Segurança
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutos
-const SESSION_DURATION = 30 * 60 * 1000; // 30 minutos
+const SESSION_DURATION = 365 * 24 * 60 * 60 * 1000; // Sem limite prático (1 ano)
 const VALID_TURNOS = ["TURNO 1", "TURNO 2", "TURNO 3"];
 
 const PROD_HEADERS = [
