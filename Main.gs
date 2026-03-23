@@ -47,9 +47,9 @@ const MACHINE_DEFS = [
   {id:14, name:"KIT 2 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
   {id:15, name:"MONTAGEM TOMADAS MANUAL",            hasMeta:true,  defaultMeta:160},
   {id:16, name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      hasMeta:true,  defaultMeta:500},
-  {id:17, name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:false, defaultMeta:0},
-  {id:18, name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:false, defaultMeta:0},
-  {id:19, name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0}
+  {id:17, name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:true, defaultMeta:0},
+  {id:18, name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:true, defaultMeta:0},
+  {id:19, name:"RETRABALHO GERAL",                   hasMeta:true, defaultMeta:0}
 ];
 // Derivado de MACHINE_DEFS — não precisa ser mantido manualmente
 const DEFAULT_METAS = MACHINE_DEFS.map(m => ({id: m.id, name: m.name, meta: m.defaultMeta}));
@@ -1175,7 +1175,7 @@ function actionUpsert(token, records) {
         turno: rec.turno,
         machineId: sanitizeNumber(rec.machineId, 1, 100),
         machineName: sanitizeString(rec.machineName, 100),
-        meta: sanitizeNumber(rec.meta, 0, 10000),
+        meta: sanitizeNumber(rec.meta, 0, 1000000),
         producao: sanitizeNumber(rec.producao, 0, 100000),
         savedBy: sanitizeString(rec.savedBy, 50),
         savedAt: sanitizeString(rec.savedAt, 50),

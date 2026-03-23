@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkWvnns25-x7Xc-0C0-rBtmCdZ_QCYpjFq5Imagiv5uXb1qaX5tkuddZUq4k4wT_H7ug/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdbuR6Bmr-kWLA1x0U-5D6Ubsmuh0BUcCy0d7yn7DxpcHIartHmefr4DQA3LdM-l4pBA/exec";
 
 // Fallback local — substituído pela lista do servidor via getMachines após login
 const MACHINES_DEFAULT = [
@@ -19,9 +19,9 @@ const MACHINES_DEFAULT = [
   {id:14,name:"KIT 2 PARAFUSO",                     hasMeta:true,  defaultMeta:220},
   {id:15,name:"MONTAGEM TOMADAS MANUAL",            hasMeta:true,  defaultMeta:160},
   {id:16,name:"MÁQUINA DE TOMADAS AUTOMÁTICA",      hasMeta:true,  defaultMeta:500},
-  {id:17,name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:false, defaultMeta:0},
-  {id:18,name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:false, defaultMeta:0},
-  {id:19,name:"RETRABALHO GERAL",                   hasMeta:false, defaultMeta:0},
+  {id:17,name:"INSERÇÃO DOS CONTATOS INTERRUPTOR",  hasMeta:true, defaultMeta:0},
+  {id:18,name:"FECHAMENTO TECLA INTERRUPTORES",     hasMeta:true, defaultMeta:0},
+  {id:19,name:"RETRABALHO GERAL",                   hasMeta:true, defaultMeta:0},
 ];
 const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
 const SESSION_KEY = "prod_session_v3";
@@ -88,8 +88,21 @@ const SS = {...IS,cursor:"pointer"};
 const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:4,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
 
 // ─── EXPORTAÇÃO ───────────────────────────────────────────────
-function exportCSV(data, machines, dfIni, dfFim) {
+function exportCSV(data, machines, dfIni, dfFim, extras) {
   const bom = '\uFEFF';
+  const totProd = extras?.totProd ?? data.reduce((s,r)=>s+num(r.producao),0);
+  const totMeta = extras?.totMeta ?? 0;
+  const pctGeral = totMeta > 0 ? Math.round(totProd/totMeta*100)+'%' : '—';
+  // Resumo KPI no topo
+  const summary = [
+    `"Relatório de Produção WEG"`,
+    `"Período:";"${dispD(dfIni)} a ${dispD(dfFim)}"`,
+    `"Produção Total:";"${totProd.toLocaleString('pt-BR')}"`,
+    `"Meta Total:";"${totMeta > 0 ? totMeta.toLocaleString('pt-BR') : '—'}"`,
+    `"% Atingimento:";"${pctGeral}"`,
+    `"Registros:";"${data.length}"`,
+    ``
+  ];
   const header = ['Data','Turno','Máquina','Meta (turno)','Produção','% Meta','Apontado por','Editado por','Observação'];
   const rows = data.map(r => {
     const mac = machines.find(m => m.id === Number(r.machineId));
@@ -102,7 +115,7 @@ function exportCSV(data, machines, dfIni, dfFim) {
       r.savedBy||'', r.editUser||'', r.obs||''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
   });
-  const csv = bom + [header.map(h=>`"${h}"`).join(';'), ...rows].join('\n');
+  const csv = bom + [...summary, header.map(h=>`"${h}"`).join(';'), ...rows].join('\n');
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'})),
     download: `producao_${dfIni}_a_${dfFim}.csv`
@@ -110,7 +123,34 @@ function exportCSV(data, machines, dfIni, dfFim) {
   a.click(); URL.revokeObjectURL(a.href);
 }
 
-function printReport(data, machines, dfIni, dfFim) {
+function captureCharts() {
+  const images = [];
+  if(typeof echarts === 'undefined') return images;
+  const containers = document.querySelectorAll('[_echarts_instance_]');
+  containers.forEach(dom => {
+    const inst = echarts.getInstanceByDom(dom);
+    if(inst){
+      try{
+        const url = inst.getDataURL({type:'png', pixelRatio:2, backgroundColor:'#fff'});
+        images.push(url);
+      }catch(e){ console.warn('Chart capture failed:', e); }
+    }
+  });
+  return images;
+}
+
+function printReport(data, machines, dfIni, dfFim, extras) {
+  const totProd = extras?.totProd ?? data.reduce((s,r)=>s+num(r.producao),0);
+  const totMeta = extras?.totMeta ?? 0;
+  const pctGeral = totMeta > 0 ? Math.round(totProd/totMeta*100) : null;
+  const pctGeralCol = pctGeral===null?'#666':pctGeral>=100?'#27AE60':pctGeral>=80?'#E87722':'#C8102E';
+
+  // Capturar gráficos ECharts como imagens
+  const chartImages = captureCharts();
+  const chartsHtml = chartImages.length > 0
+    ? `<h3 style="color:#003057;margin:24px 0 12px">Gráficos</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:16px">${chartImages.map(src=>`<img src="${src}" style="width:100%;max-width:700px;border:1px solid #eee;border-radius:8px" />`).join('')}</div>`
+    : '';
+
   const rows = data.map(r => {
     const mac = machines.find(m => m.id === Number(r.machineId));
     const meta = num(r.meta)||0;
@@ -119,24 +159,36 @@ function printReport(data, machines, dfIni, dfFim) {
     const col  = pct===null?'#666':pct>=100?'#27AE60':pct>=80?'#E87722':'#C8102E';
     return `<tr><td>${dispD(r.date)}</td><td>${r.turno}</td><td>${r.machineName||(mac?.name||'')}</td><td align="center">${mac?.hasMeta?meta.toLocaleString('pt-BR'):'—'}</td><td align="center" style="font-weight:700">${prod.toLocaleString('pt-BR')}</td><td align="center" style="color:${col};font-weight:700">${pct!==null?pct+'%':'—'}</td></tr>`;
   }).join('');
-  const total = data.reduce((s,r)=>s+num(r.producao),0);
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — Dashboard WEG</title>
 <style>*{box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;font-size:12px;color:#222;margin:0;padding:20px}
-h2{color:#003057;margin:0 0 4px}p{margin:0 0 12px;color:#555;font-size:12px}
+h2{color:#003057;margin:0 0 4px}h3{page-break-before:auto}p{margin:0 0 12px;color:#555;font-size:12px}
 table{width:100%;border-collapse:collapse}
 th{background:#003057;color:#fff;padding:7px 10px;text-align:left;font-size:12px}
 td{padding:6px 10px;border-bottom:1px solid #eee}
 tr:nth-child(even){background:#f5f8fa}
 tfoot td{font-weight:700;background:#E0EFF8;border-top:2px solid #003057}
+.kpi-row{display:flex;gap:12px;margin:12px 0 16px;flex-wrap:wrap}
+.kpi-card{background:#f5f8fa;border-radius:8px;padding:10px 16px;border-left:4px solid #0064A6;min-width:140px}
+.kpi-label{font-size:10px;color:#5E6E78;font-weight:700;letter-spacing:.5px}
+.kpi-value{font-size:20px;font-weight:800;margin-top:2px}
 .btn{display:inline-block;margin-bottom:14px;padding:8px 20px;background:#0064A6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px}
-@media print{.btn{display:none}}</style></head>
+img{page-break-inside:avoid}
+@media print{.btn{display:none}.kpi-row{display:flex!important}}</style></head>
 <body>
 <h2>Dashboard de Produção WEG</h2>
-<p>Período: ${dispD(dfIni)} a ${dispD(dfFim)} &nbsp;·&nbsp; ${data.length} registros &nbsp;·&nbsp; Total: ${total.toLocaleString('pt-BR')} peças</p>
-<button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<p>Período: ${dispD(dfIni)} a ${dispD(dfFim)} &nbsp;·&nbsp; ${data.length} registros</p>
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-label">PRODUÇÃO TOTAL</div><div class="kpi-value" style="color:#0064A6">${totProd.toLocaleString('pt-BR')}</div></div>
+  <div class="kpi-card" style="border-color:#004A80"><div class="kpi-label">META TOTAL</div><div class="kpi-value" style="color:#004A80">${totMeta>0?totMeta.toLocaleString('pt-BR'):'—'}</div></div>
+  <div class="kpi-card" style="border-color:${pctGeralCol}"><div class="kpi-label">% ATINGIMENTO</div><div class="kpi-value" style="color:${pctGeralCol}">${pctGeral!==null?pctGeral+'%':'—'}</div></div>
+  <div class="kpi-card" style="border-color:#0095A8"><div class="kpi-label">REGISTROS</div><div class="kpi-value" style="color:#0095A8">${data.length}</div></div>
+</div>
+<button class="btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+${chartsHtml}
+<h3 style="color:#003057;margin:20px 0 10px">Dados Detalhados</h3>
 <table><thead><tr><th>Data</th><th>Turno</th><th>Máquina</th><th>Meta</th><th>Produção</th><th>%</th></tr></thead>
 <tbody>${rows}</tbody>
-<tfoot><tr><td colspan="4" style="text-align:right;padding:7px 10px">TOTAL</td><td align="center">${total.toLocaleString('pt-BR')}</td><td></td></tr></tfoot>
+<tfoot><tr><td colspan="4" style="text-align:right;padding:7px 10px">TOTAL</td><td align="center">${totProd.toLocaleString('pt-BR')}</td><td align="center" style="color:${pctGeralCol};font-weight:700">${pctGeral!==null?pctGeral+'%':''}</td></tr></tfoot>
 </table></body></html>`;
   const url = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
   const w = window.open(url, '_blank');
@@ -762,8 +814,8 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 
   const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"8px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
     el("span",{style:{fontSize:12,color:C.gray,fontWeight:600,marginRight:2}},"📥 EXPORTAR:"),
-    el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
-    el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim),disabled:dashData.length===0,style:{...BTN(C.purple,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"🖨️ PDF")
+    el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
+    el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.purple,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"🖨️ PDF")
   );
 
   return el("div",null,
