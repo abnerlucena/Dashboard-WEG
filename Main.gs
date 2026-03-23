@@ -939,8 +939,9 @@ function actionResetPassword(token, targetNome, novaSenha) {
     return { ok: false, error: "Acesso negado" };
   }
   
-  if (!novaSenha || novaSenha.length < 8) {
-    return { ok: false, error: "Senha deve ter pelo menos 8 caracteres" };
+  // FIX #3: exigia 8 chars mas registration/adminCreate aceitam 4 — frontend dizia "Mín. 4"
+  if (!novaSenha || novaSenha.length < 4) {
+    return { ok: false, error: "Senha deve ter pelo menos 4 caracteres" };
   }
   
   const users = getAllUsers();

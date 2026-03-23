@@ -30,7 +30,9 @@ const SESSION_KEY = "prod_session_v3";
 const C={green:"#27AE60",yellow:"#E87722",red:"#C8102E",blue:"#0064A6",gray:"#5E6E78",purple:"#004A80",teal:"#0095A8",navy:"#003057"};
 const h = React.createElement;
 const {useState,useEffect,useMemo,useCallback,useRef} = React;
-const fmt    = d=>d.toISOString().slice(0,10);
+// FIX #1: toISOString() retorna UTC — após 21h em BRT (UTC-3), devolvia o dia seguinte.
+// Agora usa getters locais para garantir a data no fuso do navegador.
+const fmt    = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const today  = ()=>fmt(new Date());
 const cellKey= (mId,d,t)=>`${mId}_${d}_${t}`;
 
@@ -706,7 +708,8 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
           const isObsLocal=obsInputs[k]!==undefined;
           const isSaved=!isLocal&&!!recordsLookup[k];
           const metaVal=metas[m.id]||0;
-          const pct=m.hasMeta&&val!==""?Math.round(num(val)/metaVal*100):null;
+          // FIX #2: divisão por zero quando metaVal===0 — exibia "Infinity%" ou "NaN%"
+          const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
@@ -1172,20 +1175,26 @@ function App(){
     });
 
     if(!toSend.length){ setSyncSt(null); return; }
+    // FIX #4: se batch 2 falhar, batch 1 já foi salvo no servidor mas ficava "pendente" no UI.
+    // Agora limpa registros confirmados mesmo em falha parcial.
+    const saved=[];
     try{
-      const saved=[];
       for(let i=0;i<toSend.length;i+=4){
         await api("upsert",{records:toSend.slice(i,i+4)},user);
         saved.push(...toSend.slice(i,i+4));
       }
-      setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-      setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
       await loadAll(true);
       setSyncSt("ok"); setTimeout(()=>setSyncSt(null),3000);
     }catch(e){
       console.error("Erro ao salvar:", e);
       setSyncSt("error");
       setTimeout(()=>setSyncSt(null),4000);
+    }finally{
+      if(saved.length>0){
+        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
+        if(saved.length<toSend.length) loadAll(true); // recarrega se houve falha parcial
+      }
     }
   }
 
