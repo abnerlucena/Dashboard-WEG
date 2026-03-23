@@ -24,5 +24,14 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[SW] Registrado:', reg.scope))
+        .catch(err => console.warn('[SW] Falha no registro:', err));
+    });
+  }
+</script>
 </body>
 </html>

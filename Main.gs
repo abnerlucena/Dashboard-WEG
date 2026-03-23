@@ -26,7 +26,7 @@ const USER_HEADERS = ["nome", "senhaHash", "role", "criadoEm", "status", "loginA
 const SESSION_HEADERS = ["token", "nome", "role", "createdAt", "expiresAt"];
 const AUDIT_HEADERS = ["timestamp", "user", "action", "details", "ip"];
 const INVITE_HEADERS = ["code", "createdBy", "createdAt", "usedBy", "usedAt", "status"];
-const METAS_HEADERS = ["machineId", "machineName", "meta", "updatedBy", "updatedAt"];
+const METAS_HEADERS = ["machineId", "machineName", "meta", "updatedBy", "updatedAt", "vigenciaInicio"];
 
 // Definição canônica das máquinas — única fonte de verdade no backend
 // O frontend busca via getMachines; MACHINES_DEFAULT no app.js é apenas fallback
@@ -665,7 +665,7 @@ function doGet(e) {
       case "getMetas":
         return json(actionGetMetas(payload.token));
       case "saveMetas":
-        return json(actionSaveMetas(payload.token, payload.metas));
+        return json(actionSaveMetas(payload.token, payload.metas, payload.vigenciaInicio));
       default:
         auditLog("UNKNOWN", "INVALID_ACTION", {action: payload.action});
         return json({ ok: false, error: "Ação desconhecida" });
@@ -1008,25 +1008,31 @@ function actionGetMetas(token) {
   try {
     const sheet = getMetasSheet();
     const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) return { ok: true, metas: {} };
+    if (lastRow <= 1) return { ok: true, metas: {}, metasInfo: {} };
 
     const data = sheet.getRange(2, 1, lastRow - 1, METAS_HEADERS.length).getValues();
     const metas = {};
+    const metasInfo = {};
     data.forEach(row => {
       const machineId = Number(row[0]);
       if (machineId > 0) {
         metas[machineId] = Number(row[2]);
+        metasInfo[machineId] = {
+          updatedBy: String(row[3] || ""),
+          updatedAt: row[4] ? String(row[4]) : "",
+          vigenciaInicio: row[5] ? String(row[5]) : ""
+        };
       }
     });
 
-    return { ok: true, metas };
+    return { ok: true, metas, metasInfo };
   } catch (err) {
     logError("actionGetMetas", err);
     return { ok: false, error: "Erro ao carregar metas" };
   }
 }
 
-function actionSaveMetas(token, metas) {
+function actionSaveMetas(token, metas, vigenciaInicio) {
   const session = validateSession(token);
   if (!session) {
     return { ok: false, error: "Sessão inválida ou expirada" };
@@ -1040,6 +1046,10 @@ function actionSaveMetas(token, metas) {
     const sheet = getMetasSheet();
     const allData = sheet.getDataRange().getValues();
     const now = new Date().toISOString();
+    // vigenciaInicio: data a partir da qual a meta entra em vigor (padrão: hoje)
+    const vigDate = vigenciaInicio
+      ? String(vigenciaInicio).slice(0, 10)
+      : Utilities.formatDate(new Date(), "America/Sao_Paulo", "yyyy-MM-dd");
 
     Object.keys(metas).forEach(machineIdStr => {
       const machineId = Number(machineIdStr);
@@ -1057,13 +1067,13 @@ function actionSaveMetas(token, metas) {
       }
 
       if (foundRow > 0) {
-        // Atualizar meta, responsável e timestamp
-        sheet.getRange(foundRow, 3, 1, 3).setValues([[metaVal, session.nome, now]]);
+        // Atualizar meta, responsável, timestamp e vigenciaInicio
+        sheet.getRange(foundRow, 3, 1, 4).setValues([[metaVal, session.nome, now, vigDate]]);
       }
     });
 
     SpreadsheetApp.flush();
-    auditLog(session.nome, "METAS_SAVED", {});
+    auditLog(session.nome, "METAS_SAVED", { vigenciaInicio: vigDate });
     return { ok: true };
   } catch (err) {
     logError("actionSaveMetas", err);
@@ -1233,6 +1243,142 @@ function actionUpsert(token, records) {
   } catch (err) {
     logError("actionUpsert", err);
     return { ok: false, error: err.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ALERTAS AUTOMÁTICOS POR EMAIL
+// ══════════════════════════════════════════════════════════════
+// Como usar:
+//   1. Abra o GAS editor → Executar → setupDailyTrigger()
+//   2. Autorize as permissões (MailApp, Trigger)
+//   3. O relatório será enviado às 23:00 todo dia para o e-mail da conta Google
+//   4. Para cancelar: Gatilhos → delete "sendDailyReport"
+
+function setupDailyTrigger() {
+  // Remove triggers existentes para evitar duplicação
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'sendDailyReport')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('sendDailyReport')
+    .timeBased()
+    .everyDays(1)
+    .atHour(23)
+    .create();
+
+  Logger.log("✅ Trigger configurado: sendDailyReport será executado às 23:00 todo dia.");
+  Logger.log("   E-mail será enviado para: " + Session.getActiveUser().getEmail());
+}
+
+function sendDailyReport() {
+  try {
+    const tz = "America/Sao_Paulo";
+    const today = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+    const dateFormatted = Utilities.formatDate(new Date(), tz, "dd/MM/yyyy");
+
+    // Carregar dados de produção da planilha
+    const sheet = getProdSheet();
+    const allData = sheet.getDataRange().getValues();
+    if (allData.length <= 1) return;
+    const headers = allData[0];
+
+    const dateIdx    = PROD_HEADERS.indexOf("date");
+    const machIdIdx  = PROD_HEADERS.indexOf("machineId");
+    const machNameIdx= PROD_HEADERS.indexOf("machineName");
+    const prodIdx    = PROD_HEADERS.indexOf("producao");
+
+    // Filtrar registros de hoje
+    const todayRows = allData.slice(1).filter(row => {
+      const d = row[dateIdx];
+      if (!d) return false;
+      const ds = d instanceof Date
+        ? Utilities.formatDate(d, tz, "yyyy-MM-dd")
+        : String(d).slice(0, 10);
+      return ds === today;
+    });
+
+    if (todayRows.length === 0) {
+      Logger.log("[sendDailyReport] Sem dados para hoje (" + today + "). E-mail não enviado.");
+      return;
+    }
+
+    // Carregar metas
+    const metaMap = {};
+    getMetasSheet().getDataRange().getValues().slice(1).forEach(r => {
+      metaMap[Number(r[0])] = Number(r[2]);
+    });
+
+    // Agregar produção por máquina (soma todos os turnos)
+    const agg = {};
+    todayRows.forEach(row => {
+      const mId = Number(row[machIdIdx]);
+      if (!agg[mId]) agg[mId] = { name: String(row[machNameIdx] || "Máquina " + mId), prod: 0 };
+      agg[mId].prod += Number(row[prodIdx]) || 0;
+    });
+
+    // Calcular % da meta diária (meta * 3 turnos)
+    const report = [];
+    const alerts = [];
+    Object.entries(agg).forEach(function(entry) {
+      var id = entry[0]; var a = entry[1];
+      const metaDia = (metaMap[Number(id)] || 0) * 3;
+      const pct = metaDia > 0 ? Math.round(a.prod / metaDia * 100) : null;
+      report.push({ name: a.name, prod: a.prod, meta: metaDia, pct: pct });
+      if (pct !== null && pct < 80) {
+        alerts.push({ name: a.name, prod: a.prod, meta: metaDia, pct: pct });
+      }
+    });
+
+    if (alerts.length === 0) {
+      Logger.log("[sendDailyReport] Todas as máquinas >= 80%. E-mail não enviado.");
+      auditLog("SYSTEM", "DAILY_REPORT_SKIPPED", { reason: "all_ok", date: today });
+      return;
+    }
+
+    // Montar HTML do e-mail
+    function colFor(pct) {
+      return pct === null ? '#666' : pct >= 100 ? '#27AE60' : pct >= 80 ? '#E87722' : '#C8102E';
+    }
+    function tr(r) {
+      var c = colFor(r.pct);
+      return '<tr><td style="padding:7px 12px;border-bottom:1px solid #eee">' + r.name +
+        '</td><td style="padding:7px 12px;border-bottom:1px solid #eee;text-align:center">' + r.prod.toLocaleString() +
+        '</td><td style="padding:7px 12px;border-bottom:1px solid #eee;text-align:center">' + (r.meta > 0 ? r.meta.toLocaleString() : '—') +
+        '</td><td style="padding:7px 12px;border-bottom:1px solid #eee;text-align:center;color:' + c + ';font-weight:bold">' +
+        (r.pct !== null ? r.pct + '%' : '—') + '</td></tr>';
+    }
+    var thead = '<tr><th style="padding:8px 12px;background:#003057;color:#fff;text-align:left">Máquina</th>' +
+      '<th style="padding:8px 12px;background:#003057;color:#fff;text-align:center">Produção</th>' +
+      '<th style="padding:8px 12px;background:#003057;color:#fff;text-align:center">Meta Dia</th>' +
+      '<th style="padding:8px 12px;background:#003057;color:#fff;text-align:center">% Meta</th></tr>';
+
+    var alertRows = alerts.sort(function(a,b){ return (a.pct||0)-(b.pct||0); }).map(tr).join('');
+    var reportRows = report.sort(function(a,b){ return a.name.localeCompare(b.name); }).map(tr).join('');
+
+    var body = '<div style="font-family:\'Segoe UI\',sans-serif;max-width:700px">' +
+      '<div style="background:#003057;padding:20px 28px;border-radius:6px 6px 0 0">' +
+      '<h2 style="color:#fff;margin:0;font-size:18px">⚠️ Alerta de Produção — ' + dateFormatted + '</h2>' +
+      '<p style="color:#A8C6D8;margin:6px 0 0;font-size:13px">' + alerts.length + ' máquina(s) abaixo de 80% da meta diária</p>' +
+      '</div><div style="background:#fff;padding:20px 28px;border:1px solid #ddd;border-top:none">' +
+      '<h3 style="color:#C8102E;margin-top:0">🚨 Máquinas em Alerta</h3>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>' + thead + '</thead><tbody>' + alertRows + '</tbody></table>' +
+      '<h3 style="color:#003057;margin-top:24px">📊 Resumo Completo do Dia</h3>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>' + thead + '</thead><tbody>' + reportRows + '</tbody></table>' +
+      '<p style="color:#999;font-size:11px;margin-top:20px">Enviado automaticamente às ' +
+      Utilities.formatDate(new Date(), tz, "HH:mm") + ' pelo Dashboard de Produção WEG.</p>' +
+      '</div></div>';
+
+    var email = Session.getActiveUser().getEmail();
+    var subject = '⚠️ [Dashboard WEG] ' + alerts.length + ' máquina(s) abaixo de 80% — ' + dateFormatted;
+
+    MailApp.sendEmail({ to: email, subject: subject, htmlBody: body });
+    auditLog("SYSTEM", "DAILY_REPORT_SENT", { alerts: alerts.length, to: email, date: today });
+    Logger.log("[sendDailyReport] E-mail enviado para " + email + ". " + alerts.length + " alerta(s).");
+
+  } catch (err) {
+    Logger.log("[sendDailyReport] ERRO: " + err.message + "\n" + err.stack);
+    auditLog("SYSTEM", "DAILY_REPORT_ERROR", { error: err.message });
   }
 }
 

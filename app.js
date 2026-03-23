@@ -85,6 +85,63 @@ const IS = {border:"1px solid #C8D8E4",borderRadius:4,padding:"7px 10px",fontSiz
 const SS = {...IS,cursor:"pointer"};
 const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:4,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
 
+// ─── EXPORTAÇÃO ───────────────────────────────────────────────
+function exportCSV(data, machines, dfIni, dfFim) {
+  const bom = '\uFEFF';
+  const header = ['Data','Turno','Máquina','Meta (turno)','Produção','% Meta','Apontado por','Editado por','Observação'];
+  const rows = data.map(r => {
+    const mac = machines.find(m => m.id === Number(r.machineId));
+    const meta = num(r.meta);
+    const prod = num(r.producao);
+    const pct  = mac?.hasMeta && meta > 0 ? Math.round(prod/meta*100)+'%' : '';
+    return [
+      dispD(r.date), r.turno, r.machineName||(mac?.name||''),
+      mac?.hasMeta ? meta : '', prod, pct,
+      r.savedBy||'', r.editUser||'', r.obs||''
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';');
+  });
+  const csv = bom + [header.map(h=>`"${h}"`).join(';'), ...rows].join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'})),
+    download: `producao_${dfIni}_a_${dfFim}.csv`
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function printReport(data, machines, dfIni, dfFim) {
+  const rows = data.map(r => {
+    const mac = machines.find(m => m.id === Number(r.machineId));
+    const meta = num(r.meta)||0;
+    const prod = num(r.producao);
+    const pct  = mac?.hasMeta && meta > 0 ? Math.round(prod/meta*100) : null;
+    const col  = pct===null?'#666':pct>=100?'#27AE60':pct>=80?'#E87722':'#C8102E';
+    return `<tr><td>${dispD(r.date)}</td><td>${r.turno}</td><td>${r.machineName||(mac?.name||'')}</td><td align="center">${mac?.hasMeta?meta.toLocaleString('pt-BR'):'—'}</td><td align="center" style="font-weight:700">${prod.toLocaleString('pt-BR')}</td><td align="center" style="color:${col};font-weight:700">${pct!==null?pct+'%':'—'}</td></tr>`;
+  }).join('');
+  const total = data.reduce((s,r)=>s+num(r.producao),0);
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — Dashboard WEG</title>
+<style>*{box-sizing:border-box}body{font-family:'Segoe UI',sans-serif;font-size:12px;color:#222;margin:0;padding:20px}
+h2{color:#003057;margin:0 0 4px}p{margin:0 0 12px;color:#555;font-size:12px}
+table{width:100%;border-collapse:collapse}
+th{background:#003057;color:#fff;padding:7px 10px;text-align:left;font-size:12px}
+td{padding:6px 10px;border-bottom:1px solid #eee}
+tr:nth-child(even){background:#f5f8fa}
+tfoot td{font-weight:700;background:#E0EFF8;border-top:2px solid #003057}
+.btn{display:inline-block;margin-bottom:14px;padding:8px 20px;background:#0064A6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px}
+@media print{.btn{display:none}}</style></head>
+<body>
+<h2>Dashboard de Produção WEG</h2>
+<p>Período: ${dispD(dfIni)} a ${dispD(dfFim)} &nbsp;·&nbsp; ${data.length} registros &nbsp;·&nbsp; Total: ${total.toLocaleString('pt-BR')} peças</p>
+<button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+<table><thead><tr><th>Data</th><th>Turno</th><th>Máquina</th><th>Meta</th><th>Produção</th><th>%</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td colspan="4" style="text-align:right;padding:7px 10px">TOTAL</td><td align="center">${total.toLocaleString('pt-BR')}</td><td></td></tr></tfoot>
+</table></body></html>`;
+  const url = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
+  const w = window.open(url, '_blank');
+  if(!w){ alert('Permita popups para exportar o relatório PDF.'); }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
 // ─── SESSION ──────────────────────────────────────────────────
 const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); }catch{ return null; } };
 const saveSession = u=>{ try{ localStorage.setItem(SESSION_KEY,JSON.stringify(u)); }catch{} };
@@ -700,9 +757,16 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     )
   );
 
+  const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"8px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+    el("span",{style:{fontSize:12,color:C.gray,fontWeight:600,marginRight:2}},"📥 EXPORTAR:"),
+    el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
+    el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim),disabled:dashData.length===0,style:{...BTN(C.purple,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"🖨️ PDF")
+  );
+
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,extra:viewButtons}),
     kpis,
+    exportBar,
     dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:520}},
@@ -860,7 +924,7 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,df
 }
 
 // ─── TAB METAS ────────────────────────────────────────────────
-function TabMetas({machines,metas,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
+function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
   return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
@@ -876,27 +940,41 @@ function TabMetas({machines,metas,updateMeta,metasLoading,metasSaving,metaEdit,s
       ),
       metasLoading
         ? el("div",{style:{padding:40,textAlign:"center",color:C.gray,fontSize:14}},"⏳ Carregando metas do servidor...")
-        : el("table",{style:{width:"100%",borderCollapse:"collapse"}},
-            el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-              el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
-              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / TURNO"),
-              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
-              el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)")
-            )),
-            el("tbody",null,...machines.map((m,i)=>
-              el("tr",{key:m.id,style:rowStyle(i)},
-                el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
-                  m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
-                ),
-                el("td",{style:{padding:"7px 14px",textAlign:"center"}},
-                  metaEdit&&m.hasMeta
-                    ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
-                    :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#8FA4B2"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
-                ),
-                el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
-                el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—")
-              )
-            ))
+        : el("div",{style:{overflowX:"auto"}},
+            el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:580}},
+              el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
+                el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / TURNO"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"VIGENTE DESDE")
+              )),
+              el("tbody",null,...machines.map((m,i)=>{
+                const info = metasInfo?.[m.id];
+                const vigencia = info?.vigenciaInicio ? dispD(info.vigenciaInicio) : (info?.updatedAt ? dispD(info.updatedAt) : "—");
+                const updatedBy = info?.updatedBy || "";
+                return el("tr",{key:m.id,style:rowStyle(i)},
+                  el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
+                    m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
+                  ),
+                  el("td",{style:{padding:"7px 14px",textAlign:"center"}},
+                    metaEdit&&m.hasMeta
+                      ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
+                      :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#8FA4B2"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
+                  ),
+                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:12,color:C.gray}},
+                    m.hasMeta
+                      ? el("div",null,
+                          el("div",{style:{fontWeight:600,color:"#2D3E4E"}},vigencia),
+                          updatedBy&&el("div",{style:{fontSize:11,color:C.gray,marginTop:2}},`por ${updatedBy}`)
+                        )
+                      : el("span",{style:{color:"#B8CDD8"}},"—")
+                  )
+                );
+              }))
+            )
           ),
       el("div",{style:{padding:"12px 16px",background:"#F5F8FA",borderTop:"1px solid #D0DEE8",fontSize:12,color:C.gray}},
         "🌐 Metas são ",el("b",null,"globais")," — todos os usuários verão as mesmas metas simultaneamente. Clique em ",el("b",null,"Editar Metas")," para alterar e em ",el("b",null,"Salvar Metas")," para aplicar a todos."
@@ -983,6 +1061,7 @@ function App(){
   const [dfTur,setDfTur]             = useState("TODOS");
   const [dView,setDView]             = useState("resumo");
   const [metaEdit,setMetaEdit]       = useState(false);
+  const [metasInfo,setMetasInfo]     = useState({});
   const pollRef    = useRef(null);
   const metaEditRef= useRef(false);
   const userRef    = useRef(user);
@@ -1016,9 +1095,9 @@ function App(){
       const r=await api("getMetas",{},userRef.current);
       if(r.ok&&r.metas){
         const m={};
-        // usa machines do ref para não criar dependência
         MACHINES_DEFAULT.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
         setMetasState(m);
+        if(r.metasInfo) setMetasInfo(r.metasInfo);
       }
     }catch(e){ console.error("Erro ao carregar metas:", e); }
     finally{ if(!silent) setMetasLoading(false); }
@@ -1312,7 +1391,7 @@ function App(){
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
       tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
-      tab==="metas"     &&el(TabMetas,     {machines,metas,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
+      tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
       tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
     )
   );
