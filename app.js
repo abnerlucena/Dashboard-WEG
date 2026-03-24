@@ -282,7 +282,7 @@ function MiniBar({pct,color}){
 function Alert({type,msg}){
   if(!msg) return null;
   const s={error:{bg:"#fef2f2",br:"#fca5a5",tx:C.red},success:{bg:"#f0fdf4",br:"#86efac",tx:"#16a34a"},info:{bg:"#EAF4FB",br:"#AAD0EA",tx:"#0064A6"}}[type]||{bg:"#EAF4FB",br:"#AAD0EA",tx:"#0064A6"};
-  return el("div",{style:{background:s.bg,border:`1px solid ${s.br}`,borderRadius:8,padding:"10px 14px",fontSize:13,color:s.tx,marginTop:10,fontWeight:500}},
+  return el("div",{style:{background:s.bg,border:`1px solid ${s.br}`,borderRadius:6,padding:"10px 14px",fontSize:13,color:s.tx,marginTop:10,fontWeight:500}},
     (type==="error"?"⚠ ":type==="success"?"✔ ":"ℹ ")+msg
   );
 }
@@ -297,7 +297,7 @@ function Modal({children}){
 
 // ─── FILTRO REUTILIZÁVEL ──────────────────────────────────────
 function FilterBar({dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno=true,extra=null}){
-  return el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
+  return el("div",{style:{background:"#fff",borderRadius:8,padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
     el("div",null,
       el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),
       el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})
@@ -357,7 +357,7 @@ function AuthScreen({onLogin}){
 
   const isLogin=mode==="login";
   return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#003057 0%,#0064A6 100%)"}},
-    el("div",{style:{background:"#fff",borderRadius:6,padding:"36px 32px",width:380,boxShadow:"0 12px 48px rgba(0,48,87,0.35)"}},
+    el("div",{style:{background:"#fff",borderRadius:8,padding:"36px 32px",width:380,maxWidth:"95vw",boxShadow:"0 12px 48px rgba(0,48,87,0.35)"}},
       el("div",{style:{textAlign:"center",marginBottom:28}},
         el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:3,padding:"10px 20px",marginBottom:12}},
           el(WEGLogoSVG,{height:38,color:"#fff"})
@@ -738,13 +738,13 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
   },[]);
 
   if(!data||data.length===0){
-    return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
+    return el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
       el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
       el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
       el("div",{style:{fontSize:13,color:"#8FA4B2",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
     );
   }
-  return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
+  return el("div",{style:{background:"#fff",borderRadius:8,padding:20,boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
     title&&el("div",{style:{marginBottom:12}},
       el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
       subtitle&&el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
@@ -763,7 +763,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
 
   return el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
+    el("div",{style:{background:"#fff",borderRadius:8,padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
       el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
         el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"auto"}},
@@ -776,7 +776,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
         ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`⚠ ${pendingCount} não salvo(s)`)
       )
     ),
-    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
+    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:660}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
@@ -829,20 +829,20 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
       {label:"% ATINGIMENTO",   value:totMeta>0?`${Math.round(totProd/totMeta*100)}%`:"—",          sub:"geral",       color:totMeta>0?pctCol(Math.round(totProd/totMeta*100)):C.gray},
       {label:"REGISTROS",       value:dashData.length,                                              sub:"lançamentos", color:C.teal},
       {label:"MÁQUINAS ATIVAS", value:Object.keys(machAgg).length,                                  sub:`de ${machines.length}`, color:C.yellow},
-    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",borderLeft:`4px solid ${k.color}`}},
-      el("div",{style:{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.5}},k.label),
-      el("div",{style:{fontSize:22,fontWeight:800,color:k.color,marginTop:4}},k.value),
-      el("div",{style:{fontSize:11,color:"#8FA4B2"}},k.sub)
+    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:8,padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",borderLeft:`4px solid ${k.color}`}},
+      el("div",{style:{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.6,textTransform:"uppercase"}},k.label),
+      el("div",{style:{fontSize:24,fontWeight:800,color:k.color,marginTop:4,lineHeight:1.1}},k.value),
+      el("div",{style:{fontSize:11,color:"#8FA4B2",marginTop:2}},k.sub)
     ))
   );
 
-  const viewButtons = el("div",{style:{display:"flex",gap:6}},
+  const viewButtons = el("div",{style:{display:"flex",gap:4,background:"#F0F2F5",borderRadius:6,padding:3}},
     ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"],["graficos","📈 Gráficos"]].map(([k,l])=>
-      el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:`1px solid ${dView===k?"#0064A6":"#C8D8E4"}`,borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:600,background:dView===k?"#0064A6":"#fff",color:dView===k?"#fff":"#5E6E78"}},l)
+      el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:"none",borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:dView===k?700:500,background:dView===k?"#0064A6":"transparent",color:dView===k?"#fff":"#5E6E78",transition:"all .2s"}},l)
     )
   );
 
-  const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"8px 14px",boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+  const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"10px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
     el("span",{style:{fontSize:12,color:C.gray,fontWeight:600,marginRight:2}},"📥 EXPORTAR:"),
     el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
     el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.purple,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"🖨️ PDF")
@@ -852,7 +852,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,extra:viewButtons}),
     kpis,
     exportBar,
-    dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
+    dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:520}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
@@ -879,7 +879,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     ),
     dView==="detalhado"&&el("div",null,
       ...Object.values(machAgg).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>
-        el("div",{key:a.name,style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:12,overflow:"hidden"}},
+        el("div",{key:a.name,style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:12,overflow:"hidden"}},
           el("div",{style:{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between"}},
             el("span",{style:{fontWeight:700}},a.name),
             el("span",{style:{fontSize:13,color:"#A8C6D8"}},`Total: ${a.totalProd.toLocaleString("pt-BR")} pç${a.pct!=null?` — ${a.pct}% meta`:""}`)
@@ -903,9 +903,9 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
           )
         )
       ),
-      Object.keys(machAgg).length===0&&el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",color:"#8FA4B2"}},"Nenhum dado encontrado.")
+      Object.keys(machAgg).length===0&&el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",color:"#8FA4B2"}},"Nenhum dado encontrado.")
     ),
-    dView==="comparativo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
+    dView==="comparativo"&&el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"11px 16px",fontWeight:700}},"Comparativo por Turno"),
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:440}},
@@ -934,7 +934,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     ),
     dView==="graficos"&&(
       chartProdVsMeta.length===0&&chartTurnoData.length===0
-        ? el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
+        ? el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
             el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
             el("div",{style:{fontSize:13,color:"#8FA4B2",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
@@ -953,10 +953,10 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}){
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
-    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
-        el("span",null,"📋 Apontamentos Salvos"),
-        el("span",{style:{fontSize:12,color:"#A8C6D8"}},`${dashData.length} registros`)
+    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
+      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"8px 8px 0 0"}},
+        el("span",{style:{fontSize:14,letterSpacing:0.2}},"📋 Apontamentos Salvos"),
+        el("span",{style:{fontSize:12,color:"#A8C6D8",fontWeight:500}},`${dashData.length} registros`)
       ),
       el("div",{style:{overflowX:"auto"}},
         el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
@@ -1011,7 +1011,7 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,df
 // ─── TAB METAS ────────────────────────────────────────────────
 function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
   return el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",overflow:"hidden"}},
+    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
         el("span",{style:{fontWeight:700,fontSize:15}},"🎯 Metas por Máquina"+(metasLoading?" ⏳":"")),
         el("div",{style:{display:"flex",gap:8,alignItems:"center"}},
@@ -1079,7 +1079,7 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno:false,extra:counter}),
     feedbacksData.length===0
-      ? el("div",{style:{background:"#fff",borderRadius:12,padding:60,textAlign:"center",boxShadow:"0 2px 8px rgba(0,48,87,0.08)"}},
+      ? el("div",{style:{background:"#fff",borderRadius:8,padding:60,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
           el("div",{style:{fontSize:52,marginBottom:14}},"💬"),
           el("div",{style:{fontSize:17,fontWeight:700,color:C.navy,marginBottom:6}},"Nenhuma observação no período"),
           el("div",{style:{fontSize:13,color:C.gray}},"Adicione observações nos apontamentos pelo ",el("b",null,"Histórico")," (botão 💬 em cada linha)")
@@ -1094,7 +1094,7 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
             const savedByName=r.savedBy||"";
             const regBy   = r.editUser||r.savedBy||"—";
             const regDate = r.editTime?dispDH(r.editTime):dispDH(r.savedAt);
-            return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
+            return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:8,padding:16,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
               el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
                   el("div",{style:{fontWeight:700,fontSize:14,color:C.navy}},r.machineName||(mac?.name||"—")),
@@ -1216,7 +1216,7 @@ function App(){
       loadAll();
       loadMetasFromServer();
       loadMachines();
-      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },60000); // FIX: 60s polling (era 30s)
+      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000); // Auto-update: 30s polling
     }
     return()=>clearInterval(pollRef.current);
   },[user]); // eslint-disable-line
@@ -1482,24 +1482,23 @@ function App(){
       ),
       el("div",{style:{padding:isMobile?"8px 0":"14px 0"}},
         el("div",{style:{color:"#fff",fontSize:isMobile?13:16,fontWeight:600,letterSpacing:0.2}},(isMobile?"Dashboard":"Dashboard de Produção")),
-        el("div",{style:{color:"#A8C6D8",fontSize:11,marginTop:2}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Sync: ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
+        el("div",{style:{color:"#A8C6D8",fontSize:11,marginTop:2}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
       )
     ),
-    el("div",{style:{display:"flex",gap:6,alignItems:"center"}},
-      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:12}},"⏳"),
-      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:12}},"✔"),
-      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:12}},"✘"),
-      el("button",{onClick:()=>loadAll(),title:"Recarregar",style:{background:"#3498db",border:"1px solid #FFFFFF33",color:"#A8C6D8",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,transition:"background .15s"}},"🔄"),
-      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
-      el("button",{onClick:handleLogout,style:{background:"#e74c3c",border:"1px solid #C8102E55",color:"#ffffff",borderRadius:4,padding:"5px 10px",cursor:"pointer",fontSize:12}},isMobile?"⏏":"Sair")
+    el("div",{style:{display:"flex",gap:8,alignItems:"center",padding:isMobile?"0":"0 16px 0 0"}},
+      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:11,fontWeight:500}},"⏳ Sync..."),
+      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:11,fontWeight:500}},"✔ Salvo"),
+      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"✘ Erro"),
+      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
+      el("button",{onClick:handleLogout,style:{background:"#C8102E22",border:"1px solid #C8102E44",color:"#fca5a5",borderRadius:4,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⏏":"Sair")
     )
   );
 
   // ── tabs ──
   const tabLabels=[["entrada",isMobile?"📝":"📝 Apontamento"],["dashboard",isMobile?"📊":"📊 Dashboard"],["historico",isMobile?"📋":"📋 Histórico"],["metas",isMobile?"🎯":"🎯 Metas"],["feedbacks",isMobile?"💬":"💬 Feedbacks"]];
-  const tabs=el("div",{style:{background:"#002548",display:"flex",paddingLeft:0,overflowX:"auto",borderBottom:"1px solid #003E6B"}},
+  const tabs=el("div",{style:{background:"#002548",display:"flex",paddingLeft:0,overflowX:"auto",borderBottom:"none"}},
     ...tabLabels.map(([k,l])=>
-      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"11px 20px",border:"none",borderBottom:tab===k?"3px solid #0064A6":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:400,background:"transparent",color:tab===k?"#fff":"#A8C6D8",borderRadius:0,fontSize:isMobile?13:14,transition:"color .15s,border-color .15s",marginBottom:"-1px"}},l)
+      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"12px 22px",border:"none",borderBottom:tab===k?"3px solid #0064A6":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:500,background:tab===k?"#003057":"transparent",color:tab===k?"#fff":"#8FAABB",borderRadius:0,fontSize:isMobile?13:14,transition:"all .2s",letterSpacing:0.2}},l)
     )
   );
 
@@ -1510,7 +1509,7 @@ function App(){
     conflictInfo&&el(ConflictModal,{conflicts:conflictInfo.conflicts,onReplace:handleConflictReplace,onAppend:handleConflictAppend,onClose:()=>setConflictInfo(null)}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
-    el("div",{style:{padding:isMobile?10:20}},
+    el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
       tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
