@@ -1,5 +1,5 @@
 // ─── CONFIGURE AQUI ───────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwdbuR6Bmr-kWLA1x0U-5D6Ubsmuh0BUcCy0d7yn7DxpcHIartHmefr4DQA3LdM-l4pBA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzmBKk-1mvDfuegj3vrJ0dKvJQi6gc_67RlVUYDd8AJ3bCynSX9LOiYDxTp4pZ8qtjug/exec";
 
 // Fallback local — substituído pela lista do servidor via getMachines após login
 const MACHINES_DEFAULT = [
@@ -201,6 +201,14 @@ const loadSession = ()=>{ try{ return JSON.parse(localStorage.getItem(SESSION_KE
 const saveSession = u=>{ try{ localStorage.setItem(SESSION_KEY,JSON.stringify(u)); }catch{} };
 const clearSession= ()=>{ try{ localStorage.removeItem(SESSION_KEY); }catch{} };
 
+// FIX: localStorage cache para startup instantâneo
+const CACHE_KEY = "prod_records_cache";
+const CACHE_METAS_KEY = "prod_metas_cache";
+function loadCachedRecords(){ try{ return JSON.parse(localStorage.getItem(CACHE_KEY)||"[]"); }catch{ return []; } }
+function saveCachedRecords(data){ try{ localStorage.setItem(CACHE_KEY,JSON.stringify(data)); }catch{} }
+function loadCachedMetas(){ try{ const m=JSON.parse(localStorage.getItem(CACHE_METAS_KEY)||"null"); return m; }catch{ return null; } }
+function saveCachedMetas(m){ try{ localStorage.setItem(CACHE_METAS_KEY,JSON.stringify(m)); }catch{} }
+
 function loadMetasDefaults(machines){
   const m={};
   (machines||MACHINES_DEFAULT).forEach(mac=>{ m[mac.id]=mac.defaultMeta; });
@@ -229,9 +237,13 @@ async function api(action, body={}, userSession=null){
   let j;
   try { j = await res.json(); }
   catch(e) { throw new Error("Resposta inválida do servidor. Tente novamente."); }
+  // FIX: sessão expirada → limpa localStorage e recarrega página para forçar re-login
   if(!j.ok && j.error && j.error.includes("Sessão")) {
     clearSession();
-    throw new Error("Sua sessão expirou. Faça login novamente.");
+    saveCachedRecords([]);
+    saveCachedMetas(null);
+    window.location.reload();
+    throw new Error("Sessão expirada. Reconectando...");
   }
   if(!j.ok) throw new Error(j.error||"Erro no servidor");
   return j;
@@ -450,6 +462,37 @@ function ObsModal({rec,machines,onSave,onClose,saving}){
       el("button",{onClick:()=>onSave(text),disabled:saving,style:{...BTN(C.blue),flex:2,opacity:saving?.6:1}},
         saving?"⏳ Salvando...":"💬 Salvar Observação"
       )
+    )
+  );
+}
+
+// ─── CONFLICT MODAL ──────────────────────────────────────
+// FIX: Modal de conflito — quando o usuário salva sobre registro existente,
+// pode escolher substituir (upsert) ou criar novo apontamento (append com justificativa obrigatória)
+function ConflictModal({conflicts,onReplace,onAppend,onClose}){
+  const [obs,setObs]=useState("");
+  const count=conflicts?conflicts.length:0;
+  return el(Modal,{},
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.yellow,marginBottom:8}},"⚠️ Conflito de Apontamento"),
+    el("div",{style:{fontSize:13,color:"#2D3E4E",marginBottom:14,lineHeight:1.7}},
+      `${count} máquina(s) já ${count===1?"possui":"possuem"} apontamento para esta data/turno.`
+    ),
+    el("div",{style:{background:"#FFF8E7",borderRadius:8,padding:12,marginBottom:16,fontSize:12,color:"#92400e",border:"1px solid #FDE68A"}},
+      "Escolha como deseja proceder:"
+    ),
+    el("button",{onClick:onReplace,style:{...BTN("#0064A6"),width:"100%",marginBottom:10,padding:"11px",fontSize:14}},
+      "🔄 Substituir apontamentos existentes"
+    ),
+    el("div",{style:{marginBottom:10}},
+      el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"JUSTIFICATIVA (obrigatória para novo apontamento)"),
+      el("textarea",{value:obs,onChange:e=>setObs(e.target.value),placeholder:"Descreva o motivo do novo apontamento...",
+        style:{...IS,width:"100%",height:70,resize:"vertical",fontFamily:"inherit",fontSize:13}})
+    ),
+    el("button",{onClick:()=>onAppend(obs),disabled:!obs.trim(),style:{...BTN(C.green),width:"100%",marginBottom:10,padding:"11px",fontSize:14,opacity:obs.trim()?"1":"0.5"}},
+      "➕ Criar novo apontamento (manter o existente)"
+    ),
+    el("button",{onClick:onClose,style:{...BTN(C.gray),width:"100%",padding:"9px",fontSize:13}},
+      "Cancelar"
     )
   );
 }
@@ -711,21 +754,13 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
 }
 
 // ─── TAB APONTAMENTO ──────────────────────────────────────────
-function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
-  function getVal(mId){
-    const k=cellKey(mId,entryDate,entryTurno);
-    if(inputs[k]!==undefined) return inputs[k];
-    const s=recordsLookup[k];
-    return s?String(s.producao):"";
-  }
-  function getObsVal(mId){
-    const k=cellKey(mId,entryDate,entryTurno);
-    if(obsInputs[k]!==undefined) return obsInputs[k];
-    const s=recordsLookup[k];
-    return s?(s.obs||""):"";
-  }
-  function setVal(mId,val){ setInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
-  function setObsVal(mId,val){ setObsInputs(p=>({...p,[cellKey(mId,entryDate,entryTurno)]:val})); }
+// FIX: TabEntrada refatorada — inputs chaveados por mId (persistem entre filtros),
+// sem exibição de "já apontado" (tabela é apenas para inserção de dados)
+function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
+  function getVal(mId){ return inputs[mId]!==undefined?inputs[mId]:""; }
+  function getObsVal(mId){ return obsInputs[mId]!==undefined?obsInputs[mId]:""; }
+  function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
+  function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
 
   return el("div",null,
     el("div",{style:{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 2px 8px rgba(0,48,87,0.08)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
@@ -753,21 +788,17 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
           el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
         )),
         el("tbody",null,...machines.map((m,i)=>{
-          const k=cellKey(m.id,entryDate,entryTurno);
           const val=getVal(m.id);
           const obsVal=getObsVal(m.id);
-          const isLocal=inputs[k]!==undefined;
-          const isObsLocal=obsInputs[k]!==undefined;
-          const isSaved=!isLocal&&!!recordsLookup[k];
+          const hasPending=val!==""||obsVal!=="";
           const metaVal=metas[m.id]||0;
-          // FIX #2: divisão por zero quando metaVal===0 — exibia "Infinity%" ou "NaN%"
           const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:rowStyle(i)},
             el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#2D3E4E"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#8FA4B2"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
-              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:isLocal?C.yellow:isSaved?C.blue:"#B8CDD8",borderWidth:isLocal||isSaved?2:1}})
+              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:hasPending?C.yellow:"#B8CDD8",borderWidth:hasPending?2:1}})
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center"}},
               pct!==null?el("span",{style:{background:col+"22",color:col,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${pct}%`):
@@ -775,11 +806,10 @@ function TabEntrada({machines,metas,inputs,obsInputs,recordsLookup,entryDate,set
               el("span",{style:{color:"#B8CDD8"}},"—")
             ),
             el("td",{style:{padding:"6px 10px"}},
-              el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",minWidth:140,fontSize:12,borderColor:isObsLocal?C.blue:"#B8CDD8",borderWidth:isObsLocal?2:1}})
+              el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",minWidth:140,fontSize:12,borderColor:obsVal!==""?C.blue:"#B8CDD8",borderWidth:obsVal!==""?2:1}})
             ),
             el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:12}},
-              isLocal||isObsLocal?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
-              isSaved?el("span",{style:{color:C.green,fontWeight:700}},"✔"):
+              hasPending?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
               el("span",{style:{color:"#B8CDD8"}},"—")
             )
           );
@@ -1091,10 +1121,13 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
 function App(){
   const [user,setUser]               = useState(()=>loadSession());
   const [machines,setMachines]       = useState(MACHINES_DEFAULT);
-  const [metas,setMetasState]        = useState(()=>loadMetasDefaults(MACHINES_DEFAULT));
+  const [metas,setMetasState]        = useState(()=>{
+    const cached=loadCachedMetas(); return cached||loadMetasDefaults(MACHINES_DEFAULT);
+  });
   const [metasLoading,setMetasLoading] = useState(false);
   const [metasSaving,setMetasSaving]   = useState(false);
-  const [records,setRecords]         = useState([]);
+  const [records,setRecords]         = useState(()=>loadCachedRecords());
+  const [conflictInfo,setConflictInfo] = useState(null); // {toSend, conflicts}
   const [tab,setTab]                 = useState("entrada");
   const [entryDate,setEntryDate]     = useState(today());
   const [entryTurno,setEntryTurno]   = useState("TURNO 1");
@@ -1131,14 +1164,14 @@ function App(){
     if(!silent) setLoading(true);
     try{
       const r=await api("getAll",{},userRef.current);
-      setRecords(r.data||[]);
+      const data=r.data||[];
+      setRecords(data);
+      saveCachedRecords(data); // FIX: persiste no cache para startup instantâneo
       setLastSync(new Date());
     }catch(e){
       console.error("Erro ao carregar dados:", e);
       if(!silent) setSyncSt("error");
-      if(e.message.toLowerCase().includes("sessão")||e.message.toLowerCase().includes("sessao")||e.message.includes("expirou")){
-        handleLogout();
-      }
+      // FIX: api() já faz clearSession+reload em erro de sessão — não precisa handleLogout aqui
     }
     finally{ if(!silent) setLoading(false); }
   },[]); // eslint-disable-line
@@ -1152,6 +1185,7 @@ function App(){
         const m={};
         MACHINES_DEFAULT.forEach(mac=>{ m[mac.id]=r.metas[mac.id]!==undefined?r.metas[mac.id]:mac.defaultMeta; });
         setMetasState(m);
+        saveCachedMetas(m); // FIX: persiste no cache
         if(r.metasInfo) setMetasInfo(r.metasInfo);
       }
     }catch(e){ console.error("Erro ao carregar metas:", e); }
@@ -1182,57 +1216,51 @@ function App(){
       loadAll();
       loadMetasFromServer();
       loadMachines();
-      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },30000);
+      pollRef.current=setInterval(()=>{ loadAll(true); loadMetasFromServer(true); },60000); // FIX: 60s polling (era 30s)
     }
     return()=>clearInterval(pollRef.current);
   },[user]); // eslint-disable-line
 
-  async function handleSave(){
+  // FIX: buildToSend usa entryDate/entryTurno correntes para TODOS os inputs pendentes (chaveados por mId)
+  function buildToSend(overrideObs){
     const currentInputs   = {...inputs};
     const currentObsInputs= {...obsInputs};
     const currentMetas    = {...metas};
     const timestamp = nowBR();
+    const date = entryDate;
+    const turno = entryTurno;
 
-    const pendingKeys=new Set([
-      ...Object.keys(currentInputs).filter(k=>currentInputs[k]!==undefined&&currentInputs[k]!==""),
-      ...Object.keys(currentObsInputs).filter(k=>currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="")
-    ]);
+    // Coleta mIds únicos com input ou obs pendente
+    const pendingMIds=new Set();
+    Object.keys(currentInputs).forEach(k=>{ if(currentInputs[k]!==undefined&&currentInputs[k]!=="") pendingMIds.add(Number(k)); });
+    Object.keys(currentObsInputs).forEach(k=>{ if(currentObsInputs[k]!==undefined&&currentObsInputs[k]!=="") pendingMIds.add(Number(k)); });
 
-    setSyncSt("syncing");
     const toSend=[];
-    pendingKeys.forEach(k=>{
-      const firstIdx=k.indexOf("_"); if(firstIdx<0) return;
-      const mId=Number(k.substring(0,firstIdx));
-      const rest=k.substring(firstIdx+1);
-      const date=rest.substring(0,10);
-      const turno=rest.substring(11);
+    pendingMIds.forEach(mId=>{
       const m=machines.find(mc=>mc.id===mId); if(!m) return;
-      const val=currentInputs[k];
-      let producao;
-      if(val!==undefined&&val!==""){
-        producao=num(val);
-      } else {
-        const ex=records.find(r=>Number(r.machineId)===mId&&r.turno===turno&&normDate(r.date)===date);
-        if(!ex) return;
-        producao=num(ex.producao);
-      }
+      const val=currentInputs[mId];
+      if(val===undefined||val==="") return; // só envia se tem produção digitada
       const metaVal=m.hasMeta?(currentMetas[m.id]||m.defaultMeta||0):0;
-      const obs=currentObsInputs[k];
+      const obsVal=overrideObs!==undefined?overrideObs:(currentObsInputs[mId]||undefined);
       toSend.push({
         date, turno, machineId:m.id, machineName:m.name,
-        meta:metaVal, producao, savedBy:user.nome, savedAt:timestamp,
+        meta:metaVal, producao:num(val), savedBy:user.nome, savedAt:timestamp,
         editUser:"", editTime:"",
-        obs:(obs!==undefined&&obs!=="")?obs:undefined
+        obs:(obsVal!==undefined&&obsVal!=="")?obsVal:undefined
       });
     });
+    return toSend;
+  }
 
+  // FIX: doSave — aceita action "upsert" ou "append", limpa inputs por mId
+  async function doSave(toSend, action){
+    const apiAction = action || "upsert";
     if(!toSend.length){ setSyncSt(null); return; }
-    // FIX #4: se batch 2 falhar, batch 1 já foi salvo no servidor mas ficava "pendente" no UI.
-    // Agora limpa registros confirmados mesmo em falha parcial.
+    setSyncSt("syncing");
     const saved=[];
     try{
       for(let i=0;i<toSend.length;i+=4){
-        await api("upsert",{records:toSend.slice(i,i+4)},user);
+        await api(apiAction,{records:toSend.slice(i,i+4)},user);
         saved.push(...toSend.slice(i,i+4));
       }
       await loadAll(true);
@@ -1243,11 +1271,45 @@ function App(){
       setTimeout(()=>setSyncSt(null),4000);
     }finally{
       if(saved.length>0){
-        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[cellKey(r.machineId,r.date,r.turno)]); return next; });
-        if(saved.length<toSend.length) loadAll(true); // recarrega se houve falha parcial
+        // FIX: limpa por machineId (não por cellKey)
+        setInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
+        setObsInputs(prev=>{ const next={...prev}; saved.forEach(r=>delete next[r.machineId]); return next; });
+        if(saved.length<toSend.length) loadAll(true);
       }
     }
+  }
+
+  // FIX: handleSave com detecção de conflito
+  async function handleSave(){
+    const toSend = buildToSend();
+    if(!toSend.length){ setSyncSt(null); return; }
+
+    // Detectar conflitos: registros que já existem para date/turno/machineId
+    const conflicts=toSend.filter(r=>{
+      return records.some(ex=>Number(ex.machineId)===r.machineId && normDate(ex.date)===r.date && ex.turno===r.turno);
+    });
+
+    if(conflicts.length>0){
+      // Mostrar modal de conflito
+      setConflictInfo({toSend, conflicts});
+    } else {
+      // Sem conflito — upsert direto
+      await doSave(toSend, "upsert");
+    }
+  }
+
+  // Ações do ConflictModal
+  function handleConflictReplace(){
+    if(!conflictInfo) return;
+    setConflictInfo(null);
+    doSave(conflictInfo.toSend, "upsert");
+  }
+  function handleConflictAppend(obs){
+    if(!conflictInfo) return;
+    // Adiciona justificativa obrigatória a todos os registros
+    const toSend=conflictInfo.toSend.map(r=>({...r, obs: obs||r.obs||""}));
+    setConflictInfo(null);
+    doSave(toSend, "append");
   }
 
   async function handleEdit(newVal){
@@ -1318,6 +1380,8 @@ function App(){
   function handleLogout(){
     const token=user?.token;
     clearSession();
+    saveCachedRecords([]); // FIX: limpa cache ao sair
+    saveCachedMetas(null);
     setUser(null);
     setRecords([]);
     clearInterval(pollRef.current);
@@ -1396,20 +1460,17 @@ function App(){
     }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[records,dfIni,dfFim,dfMac,machines]);
 
-  // O(1) lookup para TabEntrada
-  const recordsLookup=useMemo(()=>{
-    const m={};
-    records.forEach(r=>{ const nd=normDate(r.date); if(nd) m[`${r.machineId}_${nd}_${r.turno}`]=r; });
-    return m;
-  },[records]);
-
   const sortedHistorico=useMemo(()=>
     [...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[dashData]);
 
-  const pendingCount=
-    Object.values(inputs).filter(v=>v!==undefined&&v!=="").length+
-    Object.values(obsInputs).filter(v=>v!==undefined&&v!=="").length;
+  // FIX: pendingCount conta mIds únicos (não double-conta input+obs da mesma máquina)
+  const pendingCount=useMemo(()=>{
+    const mIds=new Set();
+    Object.keys(inputs).forEach(k=>{ if(inputs[k]!==undefined&&inputs[k]!=="") mIds.add(k); });
+    Object.keys(obsInputs).forEach(k=>{ if(obsInputs[k]!==undefined&&obsInputs[k]!=="") mIds.add(k); });
+    return mIds.size;
+  },[inputs,obsInputs]);
 
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
@@ -1446,10 +1507,11 @@ function App(){
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
+    conflictInfo&&el(ConflictModal,{conflicts:conflictInfo.conflicts,onReplace:handleConflictReplace,onAppend:handleConflictAppend,onClose:()=>setConflictInfo(null)}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     header, tabs,
     el("div",{style:{padding:isMobile?10:20}},
-      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,recordsLookup,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
+      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}),
       tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
       tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),

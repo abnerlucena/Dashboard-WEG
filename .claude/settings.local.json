@@ -4,7 +4,9 @@
       "WebFetch(domain:i.imgur.com)",
       "WebFetch(domain:www.weg.net)",
       "WebSearch",
-      "WebFetch(domain:www.brandcolorcode.com)"
+      "WebFetch(domain:www.brandcolorcode.com)",
+      "Bash(node -c app.js)",
+      "Bash(node -e \"const fs=require\\(''fs''\\); const html=fs.readFileSync\\(''index.html'',''utf8''\\); console.log\\(''Lines:'',html.split\\(''\\\\n''\\).length\\); if\\(html.includes\\(''style.css''\\)\\) console.log\\(''WARN: style.css still referenced''\\); if\\(html.includes\\(\"\"''/sw.js''\"\"\\)\\) console.log\\(''WARN: absolute sw.js path''\\); console.log\\(''OK''\\);\")"
     ]
   }
 }
