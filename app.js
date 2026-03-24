@@ -27,7 +27,7 @@ const TURNOS = ["TURNO 1","TURNO 2","TURNO 3"];
 const SESSION_KEY = "prod_session_v3";
 
 // ─── HELPERS ──────────────────────────────────────────────────
-const C={green:"#27AE60",yellow:"#E87722",red:"#C8102E",blue:"#0064A6",gray:"#5E6E78",purple:"#004A80",teal:"#0095A8",navy:"#003057"};
+const C={green:"#22C55E",yellow:"#F59E0B",red:"#EF4444",blue:"#0066B3",gray:"#6B7280",purple:"#003366",teal:"#0095A8",navy:"#003366",info:"#3B82F6"};
 const h = React.createElement;
 const {useState,useEffect,useMemo,useCallback,useRef} = React;
 // FIX #1: toISOString() retorna UTC — após 21h em BRT (UTC-3), devolvia o dia seguinte.
@@ -82,10 +82,10 @@ const normDate = d=>{
 
 const pctCol   = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
 const num      = v=>{ const x=Number(v); return isNaN(x)?0:x; };
-const rowStyle = i=>({background:i%2===0?"#F5F8FA":"#fff",borderBottom:"1px solid #D0DEE8"});
-const IS = {border:"1px solid #C8D8E4",borderRadius:4,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none"};
+const rowStyle = i=>({background:i%2===0?"#F8FAFC":"#fff",borderBottom:"1px solid #E5E7EB"});
+const IS = {border:"1px solid #D1D5DB",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none",transition:"border-color .15s,box-shadow .15s"};
 const SS = {...IS,cursor:"pointer"};
-const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:4,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",...ex});
+const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",transition:"filter .15s",...ex});
 
 // ─── EXPORTAÇÃO ───────────────────────────────────────────────
 function exportCSV(data, machines, dfIni, dfFim, extras) {
@@ -274,22 +274,22 @@ function WEGLogoSVG({height=32,color="#fff"}){
 }
 
 function MiniBar({pct,color}){
-  return el("div",{style:{background:"#D0DEE8",borderRadius:4,height:10,overflow:"hidden"}},
-    el("div",{style:{width:`${Math.min(pct??0,100)}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s"}})
+  return el("div",{style:{background:"#E5E7EB",borderRadius:4,height:8,overflow:"hidden",minWidth:80}},
+    el("div",{style:{width:`${Math.min(pct??0,100)}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s ease"}})
   );
 }
 
 function Alert({type,msg}){
   if(!msg) return null;
-  const s={error:{bg:"#fef2f2",br:"#fca5a5",tx:C.red},success:{bg:"#f0fdf4",br:"#86efac",tx:"#16a34a"},info:{bg:"#EAF4FB",br:"#AAD0EA",tx:"#0064A6"}}[type]||{bg:"#EAF4FB",br:"#AAD0EA",tx:"#0064A6"};
+  const s={error:{bg:"#fef2f2",br:"#fecaca",tx:"#dc2626"},success:{bg:"#f0fdf4",br:"#bbf7d0",tx:"#16a34a"},info:{bg:"#eff6ff",br:"#bfdbfe",tx:"#2563eb"}}[type]||{bg:"#eff6ff",br:"#bfdbfe",tx:"#2563eb"};
   return el("div",{style:{background:s.bg,border:`1px solid ${s.br}`,borderRadius:6,padding:"10px 14px",fontSize:13,color:s.tx,marginTop:10,fontWeight:500}},
     (type==="error"?"⚠ ":type==="success"?"✔ ":"ℹ ")+msg
   );
 }
 
 function Modal({children}){
-  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
-    el("div",{style:{background:"#fff",borderRadius:6,padding:28,width:"100%",maxWidth:420,boxShadow:"0 8px 40px rgba(0,48,87,0.25)",maxHeight:"90vh",overflowY:"auto"}},
+  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
+    el("div",{style:{background:"#fff",borderRadius:14,padding:28,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,0.3)",maxHeight:"90vh",overflowY:"auto"}},
       ...children
     )
   );
@@ -297,24 +297,25 @@ function Modal({children}){
 
 // ─── FILTRO REUTILIZÁVEL ──────────────────────────────────────
 function FilterBar({dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno=true,extra=null}){
-  return el("div",{style:{background:"#fff",borderRadius:8,padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}},
+  const lbl={fontSize:11,color:"#6B7280",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"};
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
     el("div",null,
-      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DE"),
+      el("div",{style:lbl},"DE"),
       el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})
     ),
     el("div",null,
-      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"ATÉ"),
+      el("div",{style:lbl},"ATÉ"),
       el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})
     ),
     el("div",null,
-      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"MÁQUINA"),
+      el("div",{style:lbl},"MÁQUINA"),
       el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
         el("option",{value:"TODAS"},"TODAS"),
         ...machines.map(m=>el("option",{key:m.id,value:m.name},m.name))
       )
     ),
     showTurno&&el("div",null,
-      el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
+      el("div",{style:lbl},"TURNO"),
       el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
         el("option",{value:"TODOS"},"TODOS"),
         ...TURNOS.map(t=>el("option",{key:t,value:t},t))
@@ -356,47 +357,47 @@ function AuthScreen({onLogin}){
   }
 
   const isLogin=mode==="login";
-  return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#003057 0%,#0064A6 100%)"}},
-    el("div",{style:{background:"#fff",borderRadius:8,padding:"36px 32px",width:380,maxWidth:"95vw",boxShadow:"0 12px 48px rgba(0,48,87,0.35)"}},
+  return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#003366 0%,#0066B3 100%)"}},
+    el("div",{style:{background:"#fff",borderRadius:12,padding:"36px 32px",width:380,maxWidth:"95vw",boxShadow:"0 12px 48px rgba(0,33,66,0.35)"}},
       el("div",{style:{textAlign:"center",marginBottom:28}},
-        el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:3,padding:"10px 20px",marginBottom:12}},
+        el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:4,padding:"10px 20px",marginBottom:12}},
           el(WEGLogoSVG,{height:38,color:"#fff"})
         ),
         el("div",{style:{fontSize:15,fontWeight:700,color:C.navy,marginTop:2,letterSpacing:0.3}},"Dashboard de Produção"),
-        el("div",{style:{fontSize:13,color:C.gray,marginTop:4}},isLogin?"Faça login para continuar":"Crie sua conta de acesso")
+        el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},isLogin?"Faça login para continuar":"Crie sua conta de acesso")
       ),
       el("div",{style:{display:"flex",background:"#F0F2F5",borderRadius:4,padding:4,marginBottom:22}},
         ...[["login","Entrar"],["register","Criar Conta"]].map(([k,l])=>
-          el("button",{key:k,onClick:()=>switchMode(k),style:{flex:1,padding:"8px",border:"none",borderRadius:3,cursor:"pointer",fontWeight:700,fontSize:14,background:mode===k?"#fff":"transparent",color:mode===k?C.navy:C.gray,boxShadow:mode===k?"0 1px 4px #0002":"none",transition:"all .2s"}},l)
+          el("button",{key:k,onClick:()=>switchMode(k),style:{flex:1,padding:"8px",border:"none",borderRadius:3,cursor:"pointer",fontWeight:700,fontSize:14,background:mode===k?"#fff":"transparent",color:mode===k?C.navy:"#94A3B8",boxShadow:mode===k?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all .2s"}},l)
         )
       ),
       el("form",{onSubmit:submit},
         el("div",{style:{marginBottom:14}},
-          el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"NOME DE USUÁRIO"),
+          el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5}},"NOME DE USUÁRIO"),
           el("input",{value:nome,onChange:e=>setNome(e.target.value),placeholder:"Seu nome",style:{...IS,width:"100%"},autoFocus:true})
         ),
         el("div",{style:{marginBottom:14}},
-          el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"SENHA"),
+          el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5}},"SENHA"),
           el("div",{style:{position:"relative"}},
             el("input",{type:showPw?"text":"password",value:senha,onChange:e=>setSenha(e.target.value),placeholder:"Mínimo 4 caracteres",style:{...IS,width:"100%",paddingRight:42}}),
-            el("span",{onClick:()=>setShowPw(!showPw),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",fontSize:18}},showPw?"🙈":"👁")
+            el("span",{onClick:()=>setShowPw(!showPw),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",fontSize:16,color:"#94A3B8"}},showPw?"Ocultar":"Mostrar")
           )
         ),
         !isLogin&&el("div",{style:{marginBottom:14}},
-          el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"CONFIRMAR SENHA"),
+          el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5}},"CONFIRMAR SENHA"),
           el("input",{type:showPw?"text":"password",value:senha2,onChange:e=>setSenha2(e.target.value),placeholder:"Repita a senha",style:{...IS,width:"100%"}})
         ),
         !isLogin&&el("div",{style:{marginBottom:14}},
-          el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"CÓDIGO DE ACESSO"),
+          el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5}},"CÓDIGO DE ACESSO"),
           el("input",{value:codigo,onChange:e=>setCodigo(e.target.value),placeholder:"Digite o código de acesso",style:{...IS,width:"100%"}}),
-          el("div",{style:{fontSize:11,color:C.gray,marginTop:3}},"Solicite o código de acesso ao administrador.")
+          el("div",{style:{fontSize:11,color:"#94A3B8",marginTop:3}},"Solicite o código de acesso ao administrador.")
         ),
         el(Alert,{type:alert.type,msg:alert.msg}),
-        el("button",{type:"submit",disabled:loading,style:{...BTN("#0064A6"),width:"100%",marginTop:18,padding:"11px",fontSize:15,opacity:loading?.7:1}},
-          loading?"⏳ Aguarde...":(isLogin?"Entrar →":"Criar Conta")
+        el("button",{type:"submit",disabled:loading,style:{...BTN("linear-gradient(135deg,#003366,#0066B3)"),width:"100%",marginTop:18,padding:"11px",fontSize:15,opacity:loading?.7:1}},
+          loading?"Aguarde...":(isLogin?"Entrar":"Criar Conta")
         )
       ),
-      isLogin&&el("div",{style:{marginTop:14,textAlign:"center",fontSize:12,color:C.gray}},"Esqueceu a senha? Fale com o ",el("b",null,"administrador"),"."),
+      isLogin&&el("div",{style:{marginTop:14,textAlign:"center",fontSize:12,color:"#94A3B8"}},"Esqueceu a senha? Fale com o ",el("b",null,"administrador"),"."),
     )
   );
 }
@@ -409,23 +410,23 @@ function EditModal({rec,metas,machines,onSave,onClose,saving}){
   const [val,setVal]=useState(String(rec.producao));
   const pct=mac?.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
   return el(Modal,{},
-    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"✏️ Editar Apontamento"),
-    el("div",{style:{fontSize:13,color:C.gray,marginBottom:18}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"Editar Apontamento"),
+    el("div",{style:{fontSize:13,color:"#94A3B8",marginBottom:18}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
     el("div",{style:{marginBottom:14}},
-      el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"PRODUÇÃO (peças)"),
+      el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5,textTransform:"uppercase"}},"PRODUÇÃO (peças)"),
       el("input",{type:"number",min:"0",value:val,onChange:e=>setVal(e.target.value),autoFocus:true,style:{...IS,width:"100%",fontSize:22,fontWeight:800,textAlign:"center",padding:"10px"}})
     ),
-    pct!==null&&el("div",{style:{textAlign:"center",fontSize:13,color:C.gray,marginBottom:8}},
+    pct!==null&&el("div",{style:{textAlign:"center",fontSize:13,color:"#94A3B8",marginBottom:8}},
       `Meta: ${metaVal.toLocaleString("pt-BR")} · `,el("b",{style:{color:pctCol(pct)}},`${pct}% da meta`)
     ),
-    rec.savedBy&&el("div",{style:{fontSize:11,color:C.gray,textAlign:"center",marginBottom:14}},
+    rec.savedBy&&el("div",{style:{fontSize:11,color:"#94A3B8",textAlign:"center",marginBottom:14}},
       `Criado por ${rec.savedBy} em ${rec.savedAt}`,
       rec.editUser&&el("span",null,` | Editado por ${rec.editUser} em ${rec.editTime}`)
     ),
     el("div",{style:{display:"flex",gap:10}},
       el("button",{onClick:onClose,style:{...BTN(C.gray),flex:1}},"Cancelar"),
-      el("button",{onClick:()=>onSave(num(val)),disabled:saving||val==="",style:{...BTN("#0064A6"),flex:2,opacity:saving||val===""?.6:1}},
-        saving?"⏳ Salvando...":"💾 Salvar edição"
+      el("button",{onClick:()=>onSave(num(val)),disabled:saving||val==="",style:{...BTN("linear-gradient(135deg,#003366,#0066B3)"),flex:2,opacity:saving||val===""?.6:1}},
+        saving?"Salvando...":"Salvar edição"
       )
     )
   );
@@ -434,15 +435,15 @@ function EditModal({rec,metas,machines,onSave,onClose,saving}){
 function DeleteModal({rec,machines,onConfirm,onClose,deleting}){
   const mac=machines.find(m=>m.id===Number(rec.machineId));
   return el(Modal,{},
-    el("div",{style:{fontWeight:800,fontSize:17,color:C.red,marginBottom:10}},"🗑️ Excluir Apontamento"),
-    el("div",{style:{fontSize:14,color:"#2D3E4E",marginBottom:20,lineHeight:1.7}},
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.red,marginBottom:10}},"Excluir Apontamento"),
+    el("div",{style:{fontSize:14,color:"#1E293B",marginBottom:20,lineHeight:1.7}},
       "Tem certeza que deseja excluir o apontamento de ",el("b",null,mac?.name)," em ",el("b",null,dispD(rec.date))," — ",el("b",null,rec.turno),"?",
       el("br"),el("span",{style:{color:C.red,fontSize:13}},"Esta ação não pode ser desfeita.")
     ),
     el("div",{style:{display:"flex",gap:10}},
       el("button",{onClick:onClose,style:{...BTN(C.gray),flex:1}},"Cancelar"),
-      el("button",{onClick:onConfirm,disabled:deleting,style:{...BTN(C.red),flex:2,opacity:deleting?.6:1}},
-        deleting?"⏳ Excluindo...":"🗑️ Confirmar Exclusão"
+      el("button",{onClick:onConfirm,disabled:deleting,style:{...BTN("linear-gradient(135deg,#dc2626,#EF4444)"),flex:2,opacity:deleting?.6:1}},
+        deleting?"Excluindo...":"Confirmar Exclusão"
       )
     )
   );
@@ -452,15 +453,15 @@ function ObsModal({rec,machines,onSave,onClose,saving}){
   const mac=machines.find(m=>m.id===Number(rec.machineId));
   const [text,setText]=useState(rec.obs||"");
   return el(Modal,{},
-    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"💬 Observação"),
-    el("div",{style:{fontSize:13,color:C.gray,marginBottom:14}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.navy,marginBottom:4}},"Observação"),
+    el("div",{style:{fontSize:13,color:"#94A3B8",marginBottom:14}},`${mac?.name} · ${dispD(rec.date)} · ${rec.turno}`),
     el("textarea",{value:text,onChange:e=>setText(e.target.value),placeholder:"Descreva observações sobre este apontamento...",autoFocus:true,
       style:{...IS,width:"100%",height:100,resize:"vertical",fontFamily:"inherit",fontSize:14}}),
     rec.obs&&el("div",{style:{fontSize:11,color:C.gray,marginTop:4}},"Observação atual: "+rec.obs),
     el("div",{style:{display:"flex",gap:10,marginTop:14}},
       el("button",{onClick:onClose,style:{...BTN(C.gray),flex:1}},"Cancelar"),
-      el("button",{onClick:()=>onSave(text),disabled:saving,style:{...BTN(C.blue),flex:2,opacity:saving?.6:1}},
-        saving?"⏳ Salvando...":"💬 Salvar Observação"
+      el("button",{onClick:()=>onSave(text),disabled:saving,style:{...BTN("linear-gradient(135deg,#003366,#0066B3)"),flex:2,opacity:saving?.6:1}},
+        saving?"Salvando...":"Salvar Observação"
       )
     )
   );
@@ -473,23 +474,23 @@ function ConflictModal({conflicts,onReplace,onAppend,onClose}){
   const [obs,setObs]=useState("");
   const count=conflicts?conflicts.length:0;
   return el(Modal,{},
-    el("div",{style:{fontWeight:800,fontSize:17,color:C.yellow,marginBottom:8}},"⚠️ Conflito de Apontamento"),
-    el("div",{style:{fontSize:13,color:"#2D3E4E",marginBottom:14,lineHeight:1.7}},
+    el("div",{style:{fontWeight:800,fontSize:17,color:C.yellow,marginBottom:8}},"Conflito de Apontamento"),
+    el("div",{style:{fontSize:13,color:"#1E293B",marginBottom:14,lineHeight:1.7}},
       `${count} máquina(s) já ${count===1?"possui":"possuem"} apontamento para esta data/turno.`
     ),
     el("div",{style:{background:"#FFF8E7",borderRadius:8,padding:12,marginBottom:16,fontSize:12,color:"#92400e",border:"1px solid #FDE68A"}},
       "Escolha como deseja proceder:"
     ),
-    el("button",{onClick:onReplace,style:{...BTN("#0064A6"),width:"100%",marginBottom:10,padding:"11px",fontSize:14}},
-      "🔄 Substituir apontamentos existentes"
+    el("button",{onClick:onReplace,style:{...BTN("linear-gradient(135deg,#003366,#0066B3)"),width:"100%",marginBottom:10,padding:"11px",fontSize:14}},
+      "Substituir apontamentos existentes"
     ),
     el("div",{style:{marginBottom:10}},
-      el("div",{style:{fontSize:12,fontWeight:700,color:"#2D3E4E",marginBottom:5}},"JUSTIFICATIVA (obrigatória para novo apontamento)"),
+      el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5,textTransform:"uppercase"}},"JUSTIFICATIVA (obrigatória para novo apontamento)"),
       el("textarea",{value:obs,onChange:e=>setObs(e.target.value),placeholder:"Descreva o motivo do novo apontamento...",
         style:{...IS,width:"100%",height:70,resize:"vertical",fontFamily:"inherit",fontSize:13}})
     ),
-    el("button",{onClick:()=>onAppend(obs),disabled:!obs.trim(),style:{...BTN(C.green),width:"100%",marginBottom:10,padding:"11px",fontSize:14,opacity:obs.trim()?"1":"0.5"}},
-      "➕ Criar novo apontamento (manter o existente)"
+    el("button",{onClick:()=>onAppend(obs),disabled:!obs.trim(),style:{...BTN("linear-gradient(135deg,#16a34a,#22C55E)"),width:"100%",marginBottom:10,padding:"11px",fontSize:14,opacity:obs.trim()?"1":"0.5"}},
+      "Criar novo apontamento (manter o existente)"
     ),
     el("button",{onClick:onClose,style:{...BTN(C.gray),width:"100%",padding:"9px",fontSize:13}},
       "Cancelar"
@@ -548,68 +549,68 @@ function AdminPanel({user,onClose}){
     finally{ setCreating(false); }
   }
 
-  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
-    el("div",{style:{background:"#fff",borderRadius:6,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 40px rgba(0,48,87,0.25)"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"16px 20px",borderRadius:"6px 6px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-        el("span",{style:{fontWeight:700,fontSize:15,letterSpacing:0.3}},"⚙️ Painel do Administrador"),
-        el("button",{onClick:onClose,style:{background:"#ffffff22",border:"none",color:"#fff",borderRadius:4,padding:"4px 12px",cursor:"pointer",fontWeight:700}},"✕")
+  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
+    el("div",{style:{background:"#fff",borderRadius:14,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}},
+      el("div",{style:{background:C.navy,color:"#fff",padding:"16px 20px",borderRadius:"14px 14px 0 0",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        el("span",{style:{fontWeight:700,fontSize:15,letterSpacing:0.3}},"Painel do Administrador"),
+        el("button",{onClick:onClose,style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontWeight:700}},"✕")
       ),
       el("div",{style:{padding:22}},
         el(Alert,{type:msg.type,msg:msg.text}),
-        el("div",{style:{fontWeight:700,fontSize:15,color:C.navy,margin:"16px 0 10px"}},"👥 Usuários"),
-        loading?el("div",{style:{color:C.gray,textAlign:"center",padding:20}},"⏳ Carregando..."):
+        el("div",{style:{fontWeight:700,fontSize:15,color:C.navy,margin:"16px 0 10px"}},"Usuários"),
+        loading?el("div",{style:{color:"#94A3B8",textAlign:"center",padding:20}},"Carregando..."):
         el("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:13}},
-          el("thead",null,el("tr",{style:{background:"#F0F2F5"}},
-            el("th",{style:{padding:"8px 10px",textAlign:"left"}},"Nome"),
-            el("th",{style:{padding:"8px 10px",textAlign:"center"}},"Perfil"),
-            el("th",{style:{padding:"8px 10px",textAlign:"center"}},"Status"),
-            el("th",{style:{padding:"8px 10px",textAlign:"center"}},"Ação")
+          el("thead",null,el("tr",{style:{background:"#F8FAFC"}},
+            el("th",{style:{padding:"8px 10px",textAlign:"left",fontSize:12,fontWeight:600,color:"#475569"}},"Nome"),
+            el("th",{style:{padding:"8px 10px",textAlign:"center",fontSize:12,fontWeight:600,color:"#475569"}},"Perfil"),
+            el("th",{style:{padding:"8px 10px",textAlign:"center",fontSize:12,fontWeight:600,color:"#475569"}},"Status"),
+            el("th",{style:{padding:"8px 10px",textAlign:"center",fontSize:12,fontWeight:600,color:"#475569"}},"Ação")
           )),
           el("tbody",null,...users.map((u,i)=>
             el("tr",{key:u.nome,style:rowStyle(i)},
               el("td",{style:{padding:"8px 10px",fontWeight:600,color:C.navy}},u.nome),
               el("td",{style:{padding:"8px 10px",textAlign:"center"}},
-                el("span",{style:{background:u.role==="admin"?"#fef3c7":"#E0EFF8",color:u.role==="admin"?"#92400e":"#003057",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}},u.role==="admin"?"Admin":"Operador")
+                el("span",{style:{background:u.role==="admin"?"#fef3c7":"#eff6ff",color:u.role==="admin"?"#92400e":"#003366",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}},u.role==="admin"?"Admin":"Operador")
               ),
               el("td",{style:{padding:"8px 10px",textAlign:"center"}},
-                el("span",{style:{background:u.status==="ativo"?C.green+"22":C.red+"22",color:u.status==="ativo"?C.green:C.red,borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},u.status==="ativo"?"✔ Ativo":"✘ Bloqueado")
+                el("span",{style:{background:u.status==="ativo"?C.green+"1e":C.red+"1e",color:u.status==="ativo"?"#16a34a":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},u.status==="ativo"?"Ativo":"Bloqueado")
               ),
               el("td",{style:{padding:"8px 10px",textAlign:"center"}},
-                u.nome!=="Admin"&&el("button",{onClick:()=>toggle(u.nome),style:{background:u.status==="ativo"?C.red+"22":"#f0fdf4",color:u.status==="ativo"?C.red:C.green,border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},u.status==="ativo"?"Bloquear":"Ativar")
+                u.nome!=="Admin"&&el("button",{onClick:()=>toggle(u.nome),style:{background:u.status==="ativo"?C.red+"1e":"#f0fdf4",color:u.status==="ativo"?"#dc2626":"#16a34a",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},u.status==="ativo"?"Bloquear":"Ativar")
               )
             )
           ))
         ),
-        el("div",{style:{marginTop:22,padding:16,background:"#F5F8FA",borderRadius:10,border:"1px solid #D0DEE8"}},
-          el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"➕ Criar Novo Usuário"),
+        el("div",{style:{marginTop:22,padding:16,background:"#F8FAFC",borderRadius:12,border:"1px solid #E8ECF1"}},
+          el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"Criar Novo Usuário"),
           el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}},
             el("div",null,
-              el("div",{style:{fontSize:12,fontWeight:600,color:"#2D3E4E",marginBottom:4}},"NOME"),
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#1E293B",marginBottom:4}},"NOME"),
               el("input",{value:cNome,onChange:e=>setCNome(e.target.value),placeholder:"Nome do usuário",style:{...IS,width:"100%"}})
             ),
             el("div",null,
-              el("div",{style:{fontSize:12,fontWeight:600,color:"#2D3E4E",marginBottom:4}},"SENHA INICIAL"),
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#1E293B",marginBottom:4}},"SENHA INICIAL"),
               el("input",{type:"password",value:cSenha,onChange:e=>setCSenha(e.target.value),placeholder:"Mín. 4 caracteres",style:{...IS,width:"100%"}})
             )
           ),
-          el("button",{onClick:createUser,disabled:creating,style:{...BTN(C.green),opacity:creating?.7:1}},creating?"⏳ Criando...":"➕ Criar Usuário")
+          el("button",{onClick:createUser,disabled:creating,style:{...BTN("linear-gradient(135deg,#16a34a,#22C55E)"),opacity:creating?.7:1}},creating?"Criando...":"Criar Usuário")
         ),
-        el("div",{style:{marginTop:14,padding:16,background:"#F5F8FA",borderRadius:10,border:"1px solid #D0DEE8"}},
-          el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"🔑 Redefinir Senha"),
+        el("div",{style:{marginTop:14,padding:16,background:"#F8FAFC",borderRadius:12,border:"1px solid #E8ECF1"}},
+          el("div",{style:{fontWeight:700,color:C.navy,marginBottom:12}},"Redefinir Senha"),
           el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}},
             el("div",null,
-              el("div",{style:{fontSize:12,fontWeight:600,color:"#2D3E4E",marginBottom:4}},"USUÁRIO"),
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#1E293B",marginBottom:4}},"USUÁRIO"),
               el("select",{value:rTarget,onChange:e=>setRTarget(e.target.value),style:{...SS,width:"100%"}},
                 el("option",{value:""},"Selecione..."),
                 ...users.filter(u=>u.nome!==user.nome).map(u=>el("option",{key:u.nome},u.nome))
               )
             ),
             el("div",null,
-              el("div",{style:{fontSize:12,fontWeight:600,color:"#2D3E4E",marginBottom:4}},"NOVA SENHA"),
+              el("div",{style:{fontSize:12,fontWeight:600,color:"#1E293B",marginBottom:4}},"NOVA SENHA"),
               el("input",{value:newPw,onChange:e=>setNewPw(e.target.value),placeholder:"Mín. 4 caracteres",style:{...IS,width:"100%"}})
             )
           ),
-          el("button",{onClick:resetPw,disabled:resetting,style:{...BTN("#0064A6"),opacity:resetting?.7:1}},resetting?"⏳ Redefinindo...":"🔑 Redefinir")
+          el("button",{onClick:resetPw,disabled:resetting,style:{...BTN("linear-gradient(135deg,#003366,#0066B3)"),opacity:resetting?.7:1}},resetting?"Redefinindo...":"Redefinir")
         )
       )
     )
@@ -738,16 +739,15 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
   },[]);
 
   if(!data||data.length===0){
-    return el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
-      el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
+    return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
       el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
-      el("div",{style:{fontSize:13,color:"#8FA4B2",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
+      el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
     );
   }
-  return el("div",{style:{background:"#fff",borderRadius:8,padding:20,boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
     title&&el("div",{style:{marginBottom:12}},
       el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-      subtitle&&el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},subtitle)
+      subtitle&&el("div",{style:{fontSize:12,color:"#94A3B8",marginTop:2}},subtitle)
     ),
     el("div",{ref:chartRef,style:{width:"100%",height}})
   );
@@ -762,30 +762,31 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
   function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
 
+  const lbl={fontSize:11,color:"#6B7280",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"};
   return el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:8,padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:{fontSize:11,color:C.gray,marginBottom:3,fontWeight:600}},"TURNO"),
+    el("div",{style:{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
+      el("div",null,el("div",{style:lbl},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
+      el("div",null,el("div",{style:lbl},"TURNO"),
         el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"auto"}},
           ...TURNOS.map(t=>el("option",{key:t,value:t},t))
         )
       ),
       el("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-        el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?C.green:syncSt==="error"?C.red:"#0064A6",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
-          syncSt==="syncing"?"⏳ Salvando...":syncSt==="ok"?"✔ Salvo!":syncSt==="error"?"✘ Erro!":`💾 Salvar${pendingCount>0?` (${pendingCount})`:""}`)
-        ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`⚠ ${pendingCount} não salvo(s)`)
+        el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?"linear-gradient(135deg,#16a34a,#22C55E)":syncSt==="error"?"linear-gradient(135deg,#dc2626,#EF4444)":"linear-gradient(135deg,#003366,#0066B3)",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
+          syncSt==="syncing"?"Salvando...":syncSt==="ok"?"Salvo!":syncSt==="error"?"Erro!":("Salvar"+(pendingCount>0?` (${pendingCount})`:"")))
+        ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`${pendingCount} não salvo(s)`)
       )
     ),
-    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
+    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:660}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
-          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13}},"MÁQUINA"),
-          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:90}},"META"),
-          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:130}},"PRODUÇÃO"),
-          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:80}},"% META"),
-          el("th",{style:{padding:"11px 10px",textAlign:"left",  fontSize:13}},"OBSERVAÇÃO"),
-          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:13,width:75}},"STATUS")
+          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:12,fontWeight:600,letterSpacing:"0.3px"}},"MÁQUINA"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:12,fontWeight:600,width:90}},"META"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:12,fontWeight:600,width:130}},"PRODUÇÃO"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:12,fontWeight:600,width:80}},"% META"),
+          el("th",{style:{padding:"11px 10px",textAlign:"left",  fontSize:12,fontWeight:600}},"OBSERVAÇÃO"),
+          el("th",{style:{padding:"11px 10px",textAlign:"center",fontSize:12,fontWeight:600,width:75}},"STATUS")
         )),
         el("tbody",null,...machines.map((m,i)=>{
           const val=getVal(m.id);
@@ -795,22 +796,22 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
           const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
           return el("tr",{key:m.id,style:rowStyle(i)},
-            el("td",{style:{padding:"8px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")),
-            el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:13,color:"#2D3E4E"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#8FA4B2"}},"—")),
+            el("td",{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:"#94A3B8",fontWeight:400}},"sem meta")),
+            el("td",{style:{padding:"10px 10px",textAlign:"center",fontSize:13,color:"#475569"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#C8D8E4"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
-              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:hasPending?C.yellow:"#B8CDD8",borderWidth:hasPending?2:1}})
+              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:hasPending?C.yellow:"#D1D5DB",borderWidth:hasPending?2:1}})
             ),
-            el("td",{style:{padding:"8px 10px",textAlign:"center"}},
-              pct!==null?el("span",{style:{background:col+"22",color:col,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${pct}%`):
-              val!==""?el("span",{style:{background:"#E0EFF8",color:"#0064A6",borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700}},`${num(val).toLocaleString("pt-BR")} pç`):
-              el("span",{style:{color:"#B8CDD8"}},"—")
+            el("td",{style:{padding:"10px 10px",textAlign:"center"}},
+              pct!==null?el("span",{style:{background:col+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):
+              val!==""?el("span",{style:{background:"#eff6ff",color:"#0066B3",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${num(val).toLocaleString("pt-BR")} pç`):
+              el("span",{style:{color:"#C8D8E4"}},"—")
             ),
             el("td",{style:{padding:"6px 10px"}},
-              el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",minWidth:140,fontSize:12,borderColor:obsVal!==""?C.blue:"#B8CDD8",borderWidth:obsVal!==""?2:1}})
+              el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",minWidth:140,fontSize:12,borderColor:obsVal!==""?C.blue:"#D1D5DB",borderWidth:obsVal!==""?2:1}})
             ),
-            el("td",{style:{padding:"8px 10px",textAlign:"center",fontSize:12}},
-              hasPending?el("span",{style:{color:C.yellow,fontWeight:700}},"● pend."):
-              el("span",{style:{color:"#B8CDD8"}},"—")
+            el("td",{style:{padding:"10px 10px",textAlign:"center",fontSize:12}},
+              hasPending?el("span",{style:{color:"#d97706",fontWeight:700}},"● pend."):
+              el("span",{style:{color:"#C8D8E4"}},"—")
             )
           );
         }))
@@ -822,56 +823,56 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
 
 // ─── TAB DASHBOARD ────────────────────────────────────────────
 function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile}){
-  const kpis = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:16}},
+  const kpis = el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:16}},
     ...[
       {label:"PRODUÇÃO TOTAL",  value:totProd.toLocaleString("pt-BR"),                              sub:"peças",       color:C.blue},
-      {label:"META TOTAL",      value:totMeta.toLocaleString("pt-BR"),                              sub:"peças",       color:C.purple},
+      {label:"META TOTAL",      value:totMeta.toLocaleString("pt-BR"),                              sub:"peças",       color:C.navy},
       {label:"% ATINGIMENTO",   value:totMeta>0?`${Math.round(totProd/totMeta*100)}%`:"—",          sub:"geral",       color:totMeta>0?pctCol(Math.round(totProd/totMeta*100)):C.gray},
       {label:"REGISTROS",       value:dashData.length,                                              sub:"lançamentos", color:C.teal},
       {label:"MÁQUINAS ATIVAS", value:Object.keys(machAgg).length,                                  sub:`de ${machines.length}`, color:C.yellow},
-    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:8,padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",borderLeft:`4px solid ${k.color}`}},
-      el("div",{style:{fontSize:10,color:C.gray,fontWeight:700,letterSpacing:.6,textTransform:"uppercase"}},k.label),
-      el("div",{style:{fontSize:24,fontWeight:800,color:k.color,marginTop:4,lineHeight:1.1}},k.value),
-      el("div",{style:{fontSize:11,color:"#8FA4B2",marginTop:2}},k.sub)
+    ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:12,padding:"16px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",borderLeft:`4px solid ${k.color}`}},
+      el("div",{style:{fontSize:10.5,color:"#6B7280",fontWeight:700,letterSpacing:"0.6px",textTransform:"uppercase",marginBottom:6}},k.label),
+      el("div",{style:{fontSize:26,fontWeight:800,color:k.color,lineHeight:1.1,marginBottom:3}},k.value),
+      el("div",{style:{fontSize:11,color:"#94A3B8"}},k.sub)
     ))
   );
 
-  const viewButtons = el("div",{style:{display:"flex",gap:4,background:"#F0F2F5",borderRadius:6,padding:3}},
-    ...[["resumo","📋 Resumo"],["detalhado","🔍 Detalhado"],["comparativo","📊 Turnos"],["graficos","📈 Gráficos"]].map(([k,l])=>
-      el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:"none",borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:dView===k?700:500,background:dView===k?"#0064A6":"transparent",color:dView===k?"#fff":"#5E6E78",transition:"all .2s"}},l)
+  const viewButtons = el("div",{style:{display:"flex",gap:2,background:"#F0F2F5",borderRadius:6,padding:3,marginLeft:"auto"}},
+    ...[["resumo","Resumo"],["detalhado","Detalhado"],["comparativo","Turnos"],["graficos","Gráficos"]].map(([k,l])=>
+      el("button",{key:k,onClick:()=>setDView(k),style:{padding:"6px 14px",border:"none",borderRadius:4,cursor:"pointer",fontSize:13,fontWeight:dView===k?700:500,background:dView===k?C.navy:"transparent",color:dView===k?"#fff":"#475569",transition:"all .2s",boxShadow:dView===k?"0 1px 3px rgba(0,51,102,0.2)":"none"}},l)
     )
   );
 
-  const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"10px 16px",boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
-    el("span",{style:{fontSize:12,color:C.gray,fontWeight:600,marginRight:2}},"📥 EXPORTAR:"),
-    el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
-    el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.purple,{fontSize:12,padding:"5px 14px"}),opacity:dashData.length===0?.5:1}},"🖨️ PDF")
+  const exportBar = el("div",{style:{background:"#fff",borderRadius:8,padding:"10px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+    el("span",{style:{fontSize:12,color:"#6B7280",fontWeight:600,marginRight:4,textTransform:"uppercase",letterSpacing:"0.5px"}},"EXPORTAR:"),
+    el("button",{onClick:()=>exportCSV(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.teal,{fontSize:12,padding:"6px 16px"}),opacity:dashData.length===0?.5:1}},"CSV (Excel)"),
+    el("button",{onClick:()=>printReport(dashData,machines,dfIni,dfFim,{totProd,totMeta}),disabled:dashData.length===0,style:{...BTN(C.navy,{fontSize:12,padding:"6px 16px"}),opacity:dashData.length===0?.5:1}},"PDF")
   );
 
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,extra:viewButtons}),
     kpis,
     exportBar,
-    dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
+    dView==="resumo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:520}},
         el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
-          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13}},"MÁQUINA"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"DIAS"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"PRODUÇÃO"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"META"),
-          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13}},"%"),
-          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,minWidth:100}},"PROGRESSO")
+          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:12,fontWeight:600,letterSpacing:"0.3px"}},"MÁQUINA"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,fontWeight:600}},"DIAS"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,fontWeight:600}},"PRODUÇÃO"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,fontWeight:600}},"META"),
+          el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,fontWeight:600}},"%"),
+          el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:12,fontWeight:600,minWidth:100}},"PROGRESSO")
         )),
         el("tbody",null,...machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
           const a=machAgg[m.id];
           return el("tr",{key:m.id,style:rowStyle(i)},
-            el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name),
-            el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:13}},a?.diasCount??0),
-            el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:15,fontWeight:700,color:C.navy}},(a?.totalProd??0).toLocaleString("pt-BR")),
-            el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:13,color:C.gray}},m.hasMeta?(a?.totalMeta??0).toLocaleString("pt-BR"):"—"),
-            el("td",{style:{padding:"9px 14px",textAlign:"center"}},a?.pct!=null?el("span",{style:{background:pctCol(a.pct)+"22",color:pctCol(a.pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${a.pct}%`):el("span",{style:{color:"#B8CDD8"}},"—")),
-            el("td",{style:{padding:"9px 14px"}},a?.pct!=null?el(MiniBar,{pct:a.pct,color:pctCol(a.pct)}):el("span",{style:{color:"#B8CDD8",fontSize:11}},"sem meta"))
+            el("td",{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name),
+            el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:13}},a?.diasCount??0),
+            el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,fontWeight:700,color:C.navy}},(a?.totalProd??0).toLocaleString("pt-BR")),
+            el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#94A3B8"}},m.hasMeta?(a?.totalMeta??0).toLocaleString("pt-BR"):"—"),
+            el("td",{style:{padding:"10px 14px",textAlign:"center"}},a?.pct!=null?el("span",{style:{background:pctCol(a.pct)+"1e",color:a.pct>=100?"#16a34a":a.pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${a.pct}%`):el("span",{style:{color:"#C8D8E4"}},"—")),
+            el("td",{style:{padding:"10px 14px"}},a?.pct!=null?el(MiniBar,{pct:a.pct,color:pctCol(a.pct)}):el("span",{style:{color:"#C8D8E4",fontSize:11}},"sem meta"))
           );
         }))
       )
@@ -879,17 +880,17 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     ),
     dView==="detalhado"&&el("div",null,
       ...Object.values(machAgg).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>
-        el("div",{key:a.name,style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",marginBottom:12,overflow:"hidden"}},
-          el("div",{style:{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between"}},
-            el("span",{style:{fontWeight:700}},a.name),
-            el("span",{style:{fontSize:13,color:"#A8C6D8"}},`Total: ${a.totalProd.toLocaleString("pt-BR")} pç${a.pct!=null?` — ${a.pct}% meta`:""}`)
+        el("div",{key:a.name,style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:12,overflow:"hidden"}},
+          el("div",{style:{background:C.navy,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            el("span",{style:{fontWeight:700,fontSize:14}},a.name),
+            el("span",{style:{fontSize:13,color:"#8BACC8",fontWeight:500}},`Total: ${a.totalProd.toLocaleString("pt-BR")} pç${a.pct!=null?` — ${a.pct}% meta`:""}`)
           ),
           el("div",{style:{overflowX:"auto"}},
             el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:400}},
-              el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-                el("th",{style:{padding:"7px 14px",textAlign:"left",fontSize:12,color:"#003057"}},"DATA"),
-                ...TURNOS.map(t=>el("th",{key:t,style:{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#003057"}},t)),
-                el("th",{style:{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#003057"}},"TOTAL DIA")
+              el("thead",null,el("tr",{style:{background:"#F8FAFC"}},
+                el("th",{style:{padding:"7px 14px",textAlign:"left",fontSize:12,color:"#475569",fontWeight:600}},"DATA"),
+                ...TURNOS.map(t=>el("th",{key:t,style:{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},t)),
+                el("th",{style:{padding:"7px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"TOTAL DIA")
               )),
               el("tbody",null,...Object.keys(a.byDate).sort().reverse().map((date,i)=>{
                 const dt=TURNOS.reduce((s,t)=>s+(a.byDate[date][t]||0),0);
@@ -905,15 +906,15 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
       ),
       Object.keys(machAgg).length===0&&el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",color:"#8FA4B2"}},"Nenhum dado encontrado.")
     ),
-    dView==="comparativo"&&el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"11px 16px",fontWeight:700}},"Comparativo por Turno"),
+    dView==="comparativo"&&el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
+      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",fontWeight:700,fontSize:14,letterSpacing:"0.2px"}},"Comparativo por Turno"),
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:440}},
-        el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-          el("th",{style:{padding:"10px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
-          ...TURNOS.map(t=>el("th",{key:t,style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#003057"}},t)),
-          el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"TOTAL"),
-          el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"MELHOR")
+        el("thead",null,el("tr",{style:{background:"#F8FAFC"}},
+          el("th",{style:{padding:"10px 14px",textAlign:"left",  fontSize:12,color:"#475569",fontWeight:600}},"MÁQUINA"),
+          ...TURNOS.map(t=>el("th",{key:t,style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},t)),
+          el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"TOTAL"),
+          el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"MELHOR")
         )),
         el("tbody",null,...machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).map((m,i)=>{
           const a=machAgg[m.id];
@@ -934,16 +935,15 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
     ),
     dView==="graficos"&&(
       chartProdVsMeta.length===0&&chartTurnoData.length===0
-        ? el("div",{style:{background:"#fff",borderRadius:8,padding:40,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
-            el("div",{style:{fontSize:48,marginBottom:12}},"📊"),
-            el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível para gráficos"),
-            el("div",{style:{fontSize:13,color:"#8FA4B2",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
+        ? el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
+            el("div",{style:{fontSize:16,color:C.gray,fontWeight:600,marginBottom:4}},"Nenhum dado disponível para gráficos"),
+            el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
           )
         : el("div",{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
-            el(EChartsComponent,{title:"📊 Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350}),
-            el(EChartsComponent,{title:"🎯 Distribuição de Produção por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350}),
-            el(EChartsComponent,{title:"📈 Tendência de Produção ao Longo do Tempo",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350}),
-            el(EChartsComponent,{title:"🏆 Ranking de Performance",subtitle:"Máquinas ordenadas por % da meta",data:chartPerformers,type:"horizontalBar",height:350})
+            el(EChartsComponent,{title:"Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350}),
+            el(EChartsComponent,{title:"Distribuição de Produção por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350}),
+            el(EChartsComponent,{title:"Tendência de Produção ao Longo do Tempo",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350}),
+            el(EChartsComponent,{title:"Ranking de Performance",subtitle:"Máquinas ordenadas por % da meta",data:chartPerformers,type:"horizontalBar",height:350})
           )
     )
   );
@@ -953,22 +953,22 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}){
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
-    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"8px 8px 0 0"}},
-        el("span",{style:{fontSize:14,letterSpacing:0.2}},"📋 Apontamentos Salvos"),
-        el("span",{style:{fontSize:12,color:"#A8C6D8",fontWeight:500}},`${dashData.length} registros`)
+    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
+      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        el("span",{style:{fontSize:14,letterSpacing:"0.2px"}},"Apontamentos Salvos"),
+        el("span",{style:{fontSize:12,color:"#8BACC8",fontWeight:500}},`${dashData.length} registros`)
       ),
       el("div",{style:{overflowX:"auto"}},
         el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
-          el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#003057"}},"DATA"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#003057"}},"TURNO"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#003057"}},"MÁQUINA"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#003057"}},"META"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#003057"}},"PRODUÇÃO"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#003057"}},"%"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,color:"#003057"}},"APONTADO POR"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#003057"}},"AÇÕES")
+          el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
+            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600,letterSpacing:"0.3px"}},"DATA"),
+            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"TURNO"),
+            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"MÁQUINA"),
+            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"META"),
+            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"PRODUÇÃO"),
+            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"%"),
+            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"APONTADO POR"),
+            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"AÇÕES")
           )),
           el("tbody",null,
             sortedHistorico.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
@@ -985,18 +985,18 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,df
                 el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
                 el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
                 el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
-                el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
-                el("td",{style:{padding:"9px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#B8CDD8"}},"—")),
-                el("td",{style:{padding:"9px 12px",fontSize:12,color:C.gray}},
-                  el("div",{style:{fontWeight:600,color:"#2D3E4E"}},savedByName||"—"),
-                  r.editUser&&el("div",{style:{fontSize:11,color:C.yellow,marginTop:2}},`✏ ${r.editUser}${r.editTime?" · "+dispDH(r.editTime):""}`),
-                  r.obs&&el("div",{style:{fontSize:11,color:"#005A96",marginTop:3,background:"#E0EFF8",borderRadius:4,padding:"2px 6px",display:"inline-block"}},`💬 ${r.obs}`)
+                el("td",{style:{padding:"10px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
+                el("td",{style:{padding:"10px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#C8D8E4"}},"—")),
+                el("td",{style:{padding:"10px 12px",fontSize:12}},
+                  el("div",{style:{fontWeight:600,color:"#1E293B"}},savedByName||"—"),
+                  r.editUser&&el("div",{style:{fontSize:11,color:"#d97706",marginTop:2}},`Editado por ${r.editUser}${r.editTime?" · "+dispDH(r.editTime):""}`),
+                  r.obs&&el("div",{style:{fontSize:11,color:"#0066B3",marginTop:3,background:"#eff6ff",borderRadius:4,padding:"2px 6px",display:"inline-block"}},r.obs)
                 ),
-                el("td",{style:{padding:"9px 12px",textAlign:"center"}},
+                el("td",{style:{padding:"10px 12px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}},
-                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#E0EFF8",color:"#0064A6",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏"),
-                    el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),title:"Observação",style:{background:r.obs?"#E0EFF8":"#f0fdf4",color:r.obs?"#005A96":"#16a34a",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"💬"),
-                    el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑")
+                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#eff6ff",color:"#0066B3",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Editar"),
+                    el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),title:"Observação",style:{background:r.obs?"#eff6ff":"#f0fdf4",color:r.obs?"#0066B3":"#16a34a",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Obs"),
+                    el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"1e",color:"#dc2626",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Excluir")
                   )
                 )
               );
@@ -1011,58 +1011,58 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,df
 // ─── TAB METAS ────────────────────────────────────────────────
 function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
   return el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:8,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
-        el("span",{style:{fontWeight:700,fontSize:15}},"🎯 Metas por Máquina"+(metasLoading?" ⏳":"")),
+    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
+      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+        el("span",{style:{fontWeight:700,fontSize:14,letterSpacing:"0.2px"}},"Metas por Máquina"+(metasLoading?" ...":"")),
         el("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-          metaEdit&&el("button",{onClick:()=>setMetaEdit(false),disabled:metasSaving,style:{background:"#ffffff22",border:"1px solid #ffffff44",color:"#fff",borderRadius:4,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}},"✕ Cancelar"),
+          metaEdit&&el("button",{onClick:()=>setMetaEdit(false),disabled:metasSaving,style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",borderRadius:6,padding:"5px 14px",cursor:"pointer",fontSize:13,fontWeight:600}},"Cancelar"),
           el("button",{
             onClick:metaEdit?saveMetasToServer:()=>setMetaEdit(true),
             disabled:metasLoading||metasSaving,
-            style:{background:metaEdit?C.green+"cc":"#ffffff22",border:`1px solid ${metaEdit?C.green:"#ffffff44"}`,color:"#fff",borderRadius:4,padding:"5px 14px",cursor:(metasLoading||metasSaving)?"not-allowed":"pointer",fontSize:13,fontWeight:600}
-          },metasSaving?"⏳ Salvando...":metaEdit?"💾 Salvar Metas":"✏ Editar Metas")
+            style:{background:metaEdit?"rgba(34,197,94,0.25)":"rgba(255,255,255,0.08)",border:`1px solid ${metaEdit?"rgba(34,197,94,0.5)":"rgba(255,255,255,0.15)"}`,color:"#fff",borderRadius:6,padding:"5px 14px",cursor:(metasLoading||metasSaving)?"not-allowed":"pointer",fontSize:13,fontWeight:600}
+          },metasSaving?"Salvando...":metaEdit?"Salvar Metas":"Editar Metas")
         )
       ),
       metasLoading
-        ? el("div",{style:{padding:40,textAlign:"center",color:C.gray,fontSize:14}},"⏳ Carregando metas do servidor...")
+        ? el("div",{style:{padding:40,textAlign:"center",color:"#94A3B8",fontSize:14}},"Carregando metas do servidor...")
         : el("div",{style:{overflowX:"auto"}},
             el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:580}},
-              el("thead",null,el("tr",{style:{background:"#E0EFF8"}},
-                el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:13,color:"#003057"}},"MÁQUINA"),
-                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / TURNO"),
-                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / DIA"),
-                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"META / MÊS (22 dias)"),
-                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:13,color:"#003057"}},"VIGENTE DESDE")
+              el("thead",null,el("tr",{style:{background:"#F8FAFC"}},
+                el("th",{style:{padding:"11px 14px",textAlign:"left",  fontSize:12,color:"#475569",fontWeight:600}},"MÁQUINA"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"META / TURNO"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"META / DIA"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"META / MÊS (22 dias)"),
+                el("th",{style:{padding:"11px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"VIGENTE DESDE")
               )),
               el("tbody",null,...machines.map((m,i)=>{
                 const info = metasInfo?.[m.id];
                 const vigencia = info?.vigenciaInicio ? dispD(info.vigenciaInicio) : (info?.updatedAt ? dispD(info.updatedAt) : "—");
                 const updatedBy = info?.updatedBy || "";
                 return el("tr",{key:m.id,style:rowStyle(i)},
-                  el("td",{style:{padding:"9px 14px",fontSize:13,fontWeight:600,color:C.navy}},
-                    m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:C.gray,fontWeight:400}},"sem meta")
+                  el("td",{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.navy}},
+                    m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:"#94A3B8",fontWeight:400}},"sem meta")
                   ),
                   el("td",{style:{padding:"7px 14px",textAlign:"center"}},
                     metaEdit&&m.hasMeta
                       ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
-                      :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#8FA4B2"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
+                      :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#94A3B8"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
                   ),
-                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
-                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:14,color:"#2D3E4E"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—"),
-                  el("td",{style:{padding:"9px 14px",textAlign:"center",fontSize:12,color:C.gray}},
+                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:12}},
                     m.hasMeta
                       ? el("div",null,
-                          el("div",{style:{fontWeight:600,color:"#2D3E4E"}},vigencia),
-                          updatedBy&&el("div",{style:{fontSize:11,color:C.gray,marginTop:2}},`por ${updatedBy}`)
+                          el("div",{style:{fontWeight:600,color:"#1E293B"}},vigencia),
+                          updatedBy&&el("div",{style:{fontSize:11,color:"#94A3B8",marginTop:2}},`por ${updatedBy}`)
                         )
-                      : el("span",{style:{color:"#B8CDD8"}},"—")
+                      : el("span",{style:{color:"#C8D8E4"}},"—")
                   )
                 );
               }))
             )
           ),
-      el("div",{style:{padding:"12px 16px",background:"#F5F8FA",borderTop:"1px solid #D0DEE8",fontSize:12,color:C.gray}},
-        "🌐 Metas são ",el("b",null,"globais")," — todos os usuários verão as mesmas metas simultaneamente. Clique em ",el("b",null,"Editar Metas")," para alterar e em ",el("b",null,"Salvar Metas")," para aplicar a todos."
+      el("div",{style:{padding:"12px 18px",background:"#F8FAFC",borderTop:"1px solid #E8ECF1",fontSize:12,color:"#94A3B8"}},
+        "Metas são ",el("b",null,"globais")," — todos os usuários verão as mesmas metas simultaneamente. Clique em ",el("b",null,"Editar Metas")," para alterar e em ",el("b",null,"Salvar Metas")," para aplicar a todos."
       )
     )
   );
@@ -1071,7 +1071,7 @@ function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,
 // ─── TAB FEEDBACKS ────────────────────────────────────────────
 function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec}){
   const counter = el("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}},
-    el("div",{style:{background:C.blue+"11",border:`1px solid ${C.blue}33`,borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:C.blue}},
+    el("div",{style:{background:"rgba(0,102,179,0.08)",border:"1px solid rgba(0,102,179,0.2)",borderRadius:8,padding:"6px 14px",fontSize:13,fontWeight:700,color:C.blue}},
       `${feedbacksData.length} observaç${feedbacksData.length!==1?"ões":"ão"}`
     )
   );
@@ -1079,10 +1079,9 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
   return el("div",null,
     el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno:false,extra:counter}),
     feedbacksData.length===0
-      ? el("div",{style:{background:"#fff",borderRadius:8,padding:60,textAlign:"center",boxShadow:"0 1px 4px rgba(0,48,87,0.06)"}},
-          el("div",{style:{fontSize:52,marginBottom:14}},"💬"),
+      ? el("div",{style:{background:"#fff",borderRadius:12,padding:60,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
           el("div",{style:{fontSize:17,fontWeight:700,color:C.navy,marginBottom:6}},"Nenhuma observação no período"),
-          el("div",{style:{fontSize:13,color:C.gray}},"Adicione observações nos apontamentos pelo ",el("b",null,"Histórico")," (botão 💬 em cada linha)")
+          el("div",{style:{fontSize:13,color:"#94A3B8"}},"Adicione observações nos apontamentos pelo ",el("b",null,"Histórico")," (botão Obs em cada linha)")
         )
       : el("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:14}},
           ...feedbacksData.map(r=>{
@@ -1094,21 +1093,20 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
             const savedByName=r.savedBy||"";
             const regBy   = r.editUser||r.savedBy||"—";
             const regDate = r.editTime?dispDH(r.editTime):dispDH(r.savedAt);
-            return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:8,padding:16,boxShadow:"0 1px 4px rgba(0,48,87,0.06)",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
+            return el("div",{key:r.id||r.date+"_"+r.turno+"_"+r.machineId,style:{background:"#fff",borderRadius:12,padding:16,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",borderLeft:`4px solid ${C.blue}`,display:"flex",flexDirection:"column",gap:10}},
               el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}},
                 el("div",null,
                   el("div",{style:{fontWeight:700,fontSize:14,color:C.navy}},r.machineName||(mac?.name||"—")),
-                  el("div",{style:{fontSize:12,color:C.gray,marginTop:2}},`📅 Apontamento: ${dispD(r.date)} · ${r.turno}`)
+                  el("div",{style:{fontSize:12,color:"#94A3B8",marginTop:2}},`Apontamento: ${dispD(r.date)} · ${r.turno}`)
                 ),
-                pct!==null&&el("span",{style:{background:pctCol(pct)+"22",color:pctCol(pct),borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}},`${pct}%`)
+                pct!==null&&el("span",{style:{background:pctCol(pct)+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}},`${pct}%`)
               ),
-              el("div",{style:{background:"#EAF4FB",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#003057",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},r.obs),
-              el("div",{style:{borderTop:"1px solid #F0F2F5",paddingTop:8,display:"flex",flexDirection:"column",gap:6}},
-                el("div",{style:{fontSize:11,color:C.gray}},
-                  el("span",null,`👤 Registrado por ${regBy} em ${regDate}`)),
-                el("div",{style:{display:"flex",gap:6,justifyContent:"flex-end"}},
-                  el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#E0EFF8",color:"#005A96",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"✏ Editar"),
-                  el("button",{onClick:()=>setDeleteRec({...r,machineId:Number(r.machineId)}),style:{background:C.red+"22",color:C.red,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"🗑 Excluir")
+              el("div",{style:{background:"#eff6ff",borderRadius:8,padding:"10px 14px",fontSize:13,color:C.navy,lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}},r.obs),
+              el("div",{style:{borderTop:"1px solid #F0F2F5",paddingTop:8,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+                el("div",{style:{fontSize:11,color:"#94A3B8"}},`Registrado por ${regBy} em ${regDate}`),
+                el("div",{style:{display:"flex",gap:6}},
+                  el("button",{onClick:()=>setObsRec({...r,machineId:Number(r.machineId),producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#eff6ff",color:"#0066B3",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Editar"),
+                  el("button",{onClick:()=>setDeleteRec({...r,machineId:Number(r.machineId)}),style:{background:C.red+"1e",color:"#dc2626",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Excluir")
                 )
               )
             );
@@ -1475,34 +1473,34 @@ function App(){
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
   // ── header ──
-  const header=el("div",{style:{background:"#003057",padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0064A6"}},
-    el("div",{style:{display:"flex",alignItems:"center",gap:0}},
-      el("div",{style:{background:"#0064A6",padding:isMobile?"10px 14px":"14px 24px",display:"flex",alignItems:"center",justifyContent:"center",marginRight:16}},
-        el(WEGLogoSVG,{height:isMobile?22:28,color:"#fff"})
+  const header=el("div",{style:{background:"linear-gradient(135deg,#003366 0%,#004E8C 100%)",height:isMobile?"auto":60,padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0066B3"}},
+    el("div",{style:{display:"flex",alignItems:"center",gap:0,height:"100%"}},
+      el("div",{style:{background:"#0066B3",height:"100%",padding:isMobile?"10px 14px":"0 24px",display:"flex",alignItems:"center",justifyContent:"center"}},
+        el(WEGLogoSVG,{height:isMobile?22:26,color:"#fff"})
       ),
-      el("div",{style:{padding:isMobile?"8px 0":"14px 0"}},
-        el("div",{style:{color:"#fff",fontSize:isMobile?13:16,fontWeight:600,letterSpacing:0.2}},(isMobile?"Dashboard":"Dashboard de Produção")),
-        el("div",{style:{color:"#A8C6D8",fontSize:11,marginTop:2}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ⏳":"")
+      el("div",{style:{padding:isMobile?"8px 0":"0 16px"}},
+        el("div",{style:{color:"#fff",fontSize:isMobile?13:15,fontWeight:600,letterSpacing:"0.3px"}},(isMobile?"Dashboard":"Dashboard de Produção")),
+        el("div",{style:{color:"#8BACC8",fontSize:11,marginTop:1}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ...":"")
       )
     ),
-    el("div",{style:{display:"flex",gap:8,alignItems:"center",padding:isMobile?"0":"0 16px 0 0"}},
-      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:11,fontWeight:500}},"⏳ Sync..."),
-      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:11,fontWeight:500}},"✔ Salvo"),
-      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"✘ Erro"),
-      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"#E8772222",border:"1px solid #E8772244",color:"#F5C98A",borderRadius:4,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⚙":"⚙ Admin"),
-      el("button",{onClick:handleLogout,style:{background:"#C8102E22",border:"1px solid #C8102E44",color:"#fca5a5",borderRadius:4,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600}},isMobile?"⏏":"Sair")
+    el("div",{style:{display:"flex",gap:10,alignItems:"center",padding:isMobile?"0":"0 20px 0 0"}},
+      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:11,fontWeight:500}},"Sincronizando..."),
+      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:11,fontWeight:500}},"Salvo"),
+      syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"Erro"),
+      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#C8D8E8",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .15s"}},isMobile?"Admin":"Admin"),
+      el("button",{onClick:handleLogout,style:{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",color:"#fca5a5",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .15s"}},isMobile?"Sair":"Sair")
     )
   );
 
   // ── tabs ──
-  const tabLabels=[["entrada",isMobile?"📝":"📝 Apontamento"],["dashboard",isMobile?"📊":"📊 Dashboard"],["historico",isMobile?"📋":"📋 Histórico"],["metas",isMobile?"🎯":"🎯 Metas"],["feedbacks",isMobile?"💬":"💬 Feedbacks"]];
-  const tabs=el("div",{style:{background:"#002548",display:"flex",paddingLeft:0,overflowX:"auto",borderBottom:"none"}},
+  const tabLabels=[["entrada",isMobile?"Apontar":"Apontamento"],["dashboard",isMobile?"Dash":"Dashboard"],["historico",isMobile?"Hist.":"Histórico"],["metas",isMobile?"Metas":"Metas"],["feedbacks",isMobile?"Obs":"Feedbacks"]];
+  const tabs=el("div",{style:{background:"#002548",display:"flex",paddingLeft:0,overflowX:"auto"}},
     ...tabLabels.map(([k,l])=>
-      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"12px 22px",border:"none",borderBottom:tab===k?"3px solid #0064A6":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:500,background:tab===k?"#003057":"transparent",color:tab===k?"#fff":"#8FAABB",borderRadius:0,fontSize:isMobile?13:14,transition:"all .2s",letterSpacing:0.2}},l)
+      el("button",{key:k,onClick:()=>setTab(k),style:{padding:isMobile?"10px 14px":"13px 24px",border:"none",borderBottom:tab===k?"3px solid #0066B3":"3px solid transparent",cursor:"pointer",whiteSpace:"nowrap",fontWeight:tab===k?700:500,background:tab===k?"rgba(0,102,179,0.15)":"transparent",color:tab===k?"#fff":"#8BACC8",borderRadius:0,fontSize:isMobile?13:14,transition:"all .2s",letterSpacing:"0.2px",fontFamily:"inherit"}},l)
     )
   );
 
-  return el("div",{style:{fontFamily:"'Segoe UI',sans-serif",background:"#F0F2F5",minHeight:"100vh"}},
+  return el("div",{style:{fontFamily:"'Segoe UI','Inter',-apple-system,sans-serif",background:"#F5F6FA",minHeight:"100vh"}},
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
