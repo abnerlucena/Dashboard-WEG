@@ -1668,7 +1668,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   var TRANSITION_MS=600;
   var totalSlides=5; // 0:KPIs+Top, 1:ProdVsMeta chart, 2:Turnos pie, 3:Tendencia line, 4:Table
 
-  // Auto-advance slides
+  // Auto-advance slides — resets when slide changes (manual nav)
   useEffect(()=>{
     var t=setInterval(()=>{
       setFade(false);
@@ -1678,7 +1678,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
       },TRANSITION_MS);
     },SLIDE_DURATION);
     return()=>clearInterval(t);
-  },[totalSlides]);
+  },[slide,totalSlides]);
 
   // ESC to close
   useEffect(()=>{
@@ -1764,11 +1764,9 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
 
   // ── Slide 1: Prod vs Meta Bar Chart ──
   function renderSlide1(){
-    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center"}},
       el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Produção vs Meta por Máquina"),
-      el("div",{style:{flex:1}},
-        el(EChartsComponent,{data:chartProdVsMeta,type:"bar",height:500})
-      )
+      el(EChartsComponent,{data:chartProdVsMeta,type:"bar",height:500})
     );
   }
 
@@ -1797,11 +1795,9 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
 
   // ── Slide 3: Tendência Line Chart ──
   function renderSlide3(){
-    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center"}},
       el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Tendência de Produção"),
-      el("div",{style:{flex:1}},
-        el(EChartsComponent,{data:chartTendencia,type:"line",height:500})
-      )
+      el(EChartsComponent,{data:chartTendencia,type:"line",height:500})
     );
   }
 
