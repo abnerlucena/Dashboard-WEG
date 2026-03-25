@@ -1694,15 +1694,12 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   function capitalize(str){ return str.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
   var dateFormatted=capitalize(dateStr2);
 
-  var slideSubtitles=["Indicadores Gerais","Produção vs Meta por Máquina","Distribuição por Turno","Tendência de Produção","Resumo por Máquina"];
-
   // Header bar (persistent across all slides)
   var tvHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"24px 48px 20px",flexShrink:0}},
     // Left: Section name
     el("div",null,
       el("div",{style:{fontSize:13,color:"#94A3B8",fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}},"Seção"),
-      el("div",{style:{fontSize:24,fontWeight:800,color:C.navy,marginTop:4,letterSpacing:"0.3px"}},"Tomadas e Interruptores (Itajaí)"),
-      el("div",{style:{fontSize:14,color:"#0066B3",fontWeight:600,marginTop:4,letterSpacing:"0.3px"}},slideSubtitles[slide])
+      el("div",{style:{fontSize:24,fontWeight:800,color:C.navy,marginTop:4,letterSpacing:"0.3px"}},"Tomadas e Interruptores (Itajaí)")
     ),
     // Right: WEG logo + clock
     el("div",{style:{display:"flex",alignItems:"center",gap:24}},
@@ -1726,6 +1723,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
     return el("div",{style:{display:"flex",gap:30,height:"100%",alignItems:"stretch"}},
       // Left: KPIs grid
       el("div",{style:{flex:1.2,display:"flex",flexDirection:"column",gap:20}},
+        el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:8}},"Indicadores Gerais"),
         el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16,flex:1}},
           ...[
             {label:"Produção Total",value:totProd.toLocaleString("pt-BR"),unit:"Peças Produzidas",color:C.blue,big:true},
@@ -1767,6 +1765,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   // ── Slide 1: Prod vs Meta Bar Chart ──
   function renderSlide1(){
     return el("div",{style:{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center"}},
+      el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Produção vs Meta por Máquina"),
       el(EChartsComponent,{data:chartProdVsMeta,type:"bar",height:500})
     );
   }
@@ -1774,26 +1773,20 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   // ── Slide 2: Turnos Pie + Turno breakdown ──
   function renderSlide2(){
     var totalTurnoProd=Object.values(turnoTotals).reduce((s,v)=>s+v,0);
-    return el("div",{style:{display:"flex",gap:30,height:"100%",alignItems:"stretch"}},
-      // Left: Pie chart
-      el("div",{style:{flex:1.2,display:"flex",flexDirection:"column",justifyContent:"center"}},
-        el(EChartsComponent,{data:chartTurnoData,type:"pie",height:480})
+    return el("div",{style:{height:"100%",display:"flex",gap:30,alignItems:"center",justifyContent:"center"}},
+      el("div",{style:{flex:1,maxWidth:560}},
+        el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Distribuição por Turno"),
+        el(EChartsComponent,{data:chartTurnoData,type:"pie",height:420})
       ),
-      // Right: Turno cards (same proportion as Top Performance panel)
-      el("div",{style:{flex:0.8,background:"#fff",borderRadius:16,padding:"24px 28px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column",justifyContent:"center",gap:20}},
+      el("div",{style:{flex:0,width:320,display:"flex",flexDirection:"column",gap:16}},
         ...TURNOS.map((t,i)=>{
           var val=turnoTotals[t]||0;
           var pct2=totalTurnoProd>0?Math.round(val/totalTurnoProd*100):0;
           var colors=["#0066B3","#004E8C","#F59E0B"];
-          return el("div",{key:t,style:{borderLeft:"5px solid "+colors[i],paddingLeft:20}},
+          return el("div",{key:t,style:{background:"#fff",borderRadius:14,padding:"22px 26px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)",borderLeft:"5px solid "+colors[i]}},
             el("div",{style:{fontSize:12,fontWeight:700,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.8px"}},t),
-            el("div",{style:{fontSize:44,fontWeight:900,color:colors[i],marginTop:6,lineHeight:1}},val.toLocaleString("pt-BR")),
-            el("div",{style:{display:"flex",alignItems:"center",gap:10,marginTop:8}},
-              el("div",{style:{background:"#F0F2F5",borderRadius:6,height:10,flex:1,overflow:"hidden"}},
-                el("div",{style:{width:pct2+"%",height:"100%",background:colors[i],borderRadius:6,transition:"width 1s ease"}})
-              ),
-              el("div",{style:{fontSize:16,fontWeight:800,color:colors[i],minWidth:48,textAlign:"right"}},pct2+"%")
-            )
+            el("div",{style:{fontSize:36,fontWeight:900,color:colors[i],marginTop:6}},val.toLocaleString("pt-BR")),
+            el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4,fontWeight:500}},pct2+"% do Total")
           );
         })
       )
@@ -1803,6 +1796,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   // ── Slide 3: Tendência Line Chart ──
   function renderSlide3(){
     return el("div",{style:{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center"}},
+      el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Tendência de Produção"),
       el(EChartsComponent,{data:chartTendencia,type:"line",height:500})
     );
   }
@@ -1810,6 +1804,7 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   // ── Slide 4: Full machine table ──
   function renderSlide4(){
     return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+      el("div",{style:{fontSize:18,fontWeight:800,color:C.navy,letterSpacing:"0.5px",marginBottom:14}},"Resumo por Máquina"),
       el("div",{style:{flex:1,overflowY:"auto",borderRadius:12,background:"#fff",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}},
         el("table",{style:{width:"100%",borderCollapse:"collapse"}},
           el("thead",null,el("tr",{style:{background:C.navy,color:"#fff",position:"sticky",top:0}},
