@@ -1694,6 +1694,8 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   function capitalize(str){ return str.replace(/\b\w/g,function(c){return c.toUpperCase();}); }
   var dateFormatted=capitalize(dateStr2);
 
+  var slideSubtitles=["Indicadores Gerais","Produção vs Meta por Máquina","Distribuição por Turno","Tendência de Produção","Resumo por Máquina"];
+
   // Header bar (persistent across all slides)
   var tvHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"24px 48px 20px",flexShrink:0}},
     // Left: Section name
@@ -1834,7 +1836,6 @@ function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta
   }
 
   var slides=[renderSlide0,renderSlide1,renderSlide2,renderSlide3,renderSlide4];
-  var slideSubtitles=["Indicadores Gerais","Produção vs Meta por Máquina","Distribuição por Turno","Tendência de Produção","Resumo por Máquina"];
 
   return el("div",{ref:containerRef,style:{
     position:"fixed",inset:0,zIndex:9999,background:"#F5F6FA",
