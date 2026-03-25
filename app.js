@@ -799,14 +799,19 @@ function AdminPanel({user,onClose}){
 }
 
 // ─── ECHARTS: CONFIGURAÇÕES DE GRÁFICOS ───────────────────────
-function getChartOption(type, data) {
-  const tooltipBase = {
+function getChartOption(type, data, mobile) {
+  var m = !!mobile;
+  var fs = m ? 10 : 11;
+  var tooltipBase = {
     backgroundColor: '#fff', borderColor: '#D0DEE8', borderWidth: 1,
-    borderRadius: 8, padding: [8, 12], textStyle: {color: '#2D3E4E', fontSize: 12}
+    borderRadius: 8, padding: m ? [6, 10] : [8, 12],
+    textStyle: {color: '#2D3E4E', fontSize: m ? 11 : 12},
+    confine: true
   };
 
   if (type === 'bar') {
-    return {
+    var needZoom = m && data.length > 4;
+    var opt = {
       animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
         ...tooltipBase, trigger: 'axis',
@@ -816,15 +821,19 @@ function getChartOption(type, data) {
           return `<b>${d.name}</b><br/>Meta: ${d.meta.toLocaleString('pt-BR')}<br/>Produção: ${d.producao.toLocaleString('pt-BR')}`;
         }
       },
-      legend: {data: ['Meta', 'Produção'], top: 0, right: 0},
-      grid: {top: 40, right: 30, bottom: 70, left: 60},
-      xAxis: {type: 'category', data: data.map(d=>d.name), axisLabel: {rotate: 15, fontSize: 11, interval: 0}},
-      yAxis: {type: 'value', axisLabel: {formatter: v=>v.toLocaleString('pt-BR'), fontSize: 11}},
+      legend: {data: ['Meta', 'Produção'], top: 0, right: 0, textStyle: {fontSize: fs}},
+      grid: {top: 40, right: m ? 10 : 30, bottom: needZoom ? 80 : (m ? 50 : 70), left: m ? 40 : 60},
+      xAxis: {type: 'category', data: data.map(d=>d.name), axisLabel: {rotate: m ? 35 : 15, fontSize: fs, interval: 0, width: m ? 60 : undefined, overflow: m ? 'truncate' : 'none'}},
+      yAxis: {type: 'value', axisLabel: {formatter: v=> m ? (v>=1000?(v/1000).toFixed(0)+'k':v) : v.toLocaleString('pt-BR'), fontSize: fs}},
       series: [
-        {name:'Meta',     type:'bar', data:data.map(d=>d.meta),    itemStyle:{color:C.gray,  borderRadius:[4,4,0,0]}},
-        {name:'Produção', type:'bar', data:data.map(d=>d.producao), itemStyle:{color:C.blue, borderRadius:[4,4,0,0]}}
+        {name:'Meta',     type:'bar', data:data.map(d=>d.meta),    itemStyle:{color:C.gray,  borderRadius:[4,4,0,0]}, barMaxWidth: m ? 20 : 40},
+        {name:'Produção', type:'bar', data:data.map(d=>d.producao), itemStyle:{color:C.blue, borderRadius:[4,4,0,0]}, barMaxWidth: m ? 20 : 40}
       ]
     };
+    if (needZoom) {
+      opt.dataZoom = [{type:'slider',start:0,end:Math.min(100,Math.round(4/data.length*100)),bottom:10,height:22,borderColor:'#D1D5DB',fillerColor:'rgba(0,102,179,0.12)',handleStyle:{color:'#0066B3'}}];
+    }
+    return opt;
   }
 
   if (type === 'pie') {
@@ -834,19 +843,23 @@ function getChartOption(type, data) {
         ...tooltipBase, trigger: 'item',
         formatter: p=>`<b>${p.name}</b><br/>${p.value.toLocaleString('pt-BR')} peças<br/>${p.percent.toFixed(0)}%`
       },
-      legend: {orient: 'horizontal', bottom: 0},
+      legend: {orient: 'horizontal', bottom: 0, textStyle: {fontSize: fs}, itemWidth: m ? 12 : 25, itemHeight: m ? 10 : 14, itemGap: m ? 8 : 10},
       color: [C.blue, C.green, C.yellow, C.purple, C.teal],
       series: [{
-        type: 'pie', radius: ['35%', '65%'], center: ['50%', '45%'],
+        type: 'pie', radius: m ? ['30%', '58%'] : ['35%', '65%'], center: ['50%', m ? '42%' : '45%'],
         data: data.map(d=>({name:d.name, value:d.value})),
-        label: {formatter: '{b}: {d}%', fontSize: 12},
-        emphasis: {itemStyle: {shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)'}}
+        label: m ? {show: false} : {formatter: '{b}: {d}%', fontSize: 12},
+        emphasis: {
+          label: {show: true, fontSize: m ? 12 : 14, fontWeight: 'bold'},
+          itemStyle: {shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)'}
+        }
       }]
     };
   }
 
   if (type === 'line') {
-    return {
+    var needZoom2 = m && data.length > 7;
+    var opt2 = {
       animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
         ...tooltipBase, trigger: 'axis',
@@ -856,15 +869,15 @@ function getChartOption(type, data) {
           return `<b>${params[0]?.axisValue}</b><br/>${lines}`;
         }
       },
-      legend: {data: ['Produção Real', 'Meta'], top: 0, right: 0},
-      grid: {top: 40, right: 30, bottom: 60, left: 65},
-      xAxis: {type: 'category', data: data.map(d=>d.date), axisLabel: {rotate: 15, fontSize: 11}},
-      yAxis: {type: 'value', axisLabel: {formatter: v=>v.toLocaleString('pt-BR'), fontSize: 11}},
+      legend: {data: ['Produção Real', 'Meta'], top: 0, right: 0, textStyle: {fontSize: fs}},
+      grid: {top: 40, right: m ? 10 : 30, bottom: needZoom2 ? 80 : (m ? 50 : 60), left: m ? 40 : 65},
+      xAxis: {type: 'category', data: data.map(d=>d.date), axisLabel: {rotate: m ? 45 : 15, fontSize: fs, formatter: m ? function(v){return v.length>5?v.slice(5):v;} : undefined}},
+      yAxis: {type: 'value', axisLabel: {formatter: v=> m ? (v>=1000?(v/1000).toFixed(0)+'k':v) : v.toLocaleString('pt-BR'), fontSize: fs}},
       series: [
         {
           name: 'Produção Real', type: 'line', data: data.map(d=>d.producao),
-          smooth: true, symbol: 'circle', symbolSize: 6,
-          lineStyle: {color: C.blue, width: 3}, itemStyle: {color: C.blue},
+          smooth: true, symbol: m ? 'none' : 'circle', symbolSize: 6,
+          lineStyle: {color: C.blue, width: m ? 2 : 3}, itemStyle: {color: C.blue},
           areaStyle: {color: {type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:C.blue+'44'},{offset:1,color:C.blue+'00'}]}}
         },
         {
@@ -874,33 +887,44 @@ function getChartOption(type, data) {
         }
       ]
     };
+    if (needZoom2) {
+      opt2.dataZoom = [{type:'slider',start:0,end:Math.min(100,Math.round(7/data.length*100)),bottom:10,height:22,borderColor:'#D1D5DB',fillerColor:'rgba(0,102,179,0.12)',handleStyle:{color:'#0066B3'}}];
+    }
+    return opt2;
   }
 
   if (type === 'horizontalBar') {
     const colors = data.map(d=>d.pct>=100?C.green:d.pct>=80?C.yellow:C.red);
-    return {
+    var needZoomH = m && data.length > 5;
+    var opt3 = {
       animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
         ...tooltipBase, trigger: 'axis', axisPointer: {type: 'shadow'},
         formatter: params=>`<b>${params[0].name}</b><br/>% da Meta: ${params[0].value}%`
       },
-      grid: {top: 10, right: 60, bottom: 10, left: 10, containLabel: true},
-      xAxis: {type:'value', axisLabel:{formatter:'{value}%',fontSize:11}, max:v=>Math.max(v.max*1.1,110)},
-      yAxis: {type:'category', data:data.map(d=>d.name), axisLabel:{fontSize:11,width:130,overflow:'truncate'}},
+      grid: {top: 10, right: m ? 45 : 60, bottom: needZoomH ? 40 : 10, left: 10, containLabel: true},
+      xAxis: {type:'value', axisLabel:{formatter:'{value}%',fontSize:fs}, max:v=>Math.max(v.max*1.1,110)},
+      yAxis: {type:'category', data:data.map(d=>d.name), axisLabel:{fontSize:fs, width: m ? 70 : 130, overflow:'truncate'}},
       series: [{
-        type: 'bar',
+        type: 'bar', barMaxWidth: m ? 18 : 30,
         data: data.map((d,i)=>({value:d.pct, itemStyle:{color:colors[i],borderRadius:[0,4,4,0]}})),
-        label: {show:true, position:'right', formatter:'{c}%', fontSize:11, color:'#2D3E4E'}
+        label: {show:true, position:'right', formatter:'{c}%', fontSize:fs, color:'#2D3E4E'}
       }]
     };
+    if (needZoomH) {
+      opt3.dataZoom = [{type:'slider',yAxisIndex:0,start:0,end:Math.min(100,Math.round(5/data.length*100)),right:0,width:16,borderColor:'#D1D5DB',fillerColor:'rgba(0,102,179,0.12)',handleStyle:{color:'#0066B3'}}];
+    }
+    return opt3;
   }
   return {};
 }
 
 // ─── ECHARTS: COMPONENTE REUTILIZÁVEL ─────────────────────────
-function EChartsComponent({title, subtitle, data, type, height=350}){
+function EChartsComponent({title, subtitle, data, type, height=350, isMobile}){
   const chartRef  = useRef(null);
   const instanceRef = useRef(null);
+  var m = !!isMobile;
+  var effectiveHeight = m ? (type==='horizontalBar' ? Math.max(260, (data||[]).length*38) : type==='pie' ? 280 : 280) : height;
 
   useEffect(()=>{
     if(!chartRef.current || typeof echarts==='undefined') return;
@@ -910,8 +934,8 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
 
   useEffect(()=>{
     if(!instanceRef.current||!data||data.length===0) return;
-    instanceRef.current.setOption(getChartOption(type,data),true);
-  },[data,type]);
+    instanceRef.current.setOption(getChartOption(type,data,m),true);
+  },[data,type,m]);
 
   useEffect(()=>{
     const fn=()=>{ if(instanceRef.current) instanceRef.current.resize(); };
@@ -920,17 +944,17 @@ function EChartsComponent({title, subtitle, data, type, height=350}){
   },[]);
 
   if(!data||data.length===0){
-    return el("div",{style:{background:"#fff",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
-      el("div",{style:{fontSize:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
-      el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
+    return el("div",{style:{background:"#fff",borderRadius:12,padding:m?24:40,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
+      el("div",{style:{fontSize:m?14:16,color:C.gray,fontWeight:600}},"Nenhum dado disponível"),
+      el("div",{style:{fontSize:m?12:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
     );
   }
-  return el("div",{style:{background:"#fff",borderRadius:12,padding:20,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
-    title&&el("div",{style:{marginBottom:12}},
-      el("div",{style:{fontSize:16,fontWeight:700,color:C.navy}},title),
-      subtitle&&el("div",{style:{fontSize:12,color:"#94A3B8",marginTop:2}},subtitle)
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:m?12:20,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
+    title&&el("div",{style:{marginBottom:m?8:12}},
+      el("div",{style:{fontSize:m?14:16,fontWeight:700,color:C.navy}},title),
+      subtitle&&el("div",{style:{fontSize:m?11:12,color:"#94A3B8",marginTop:2}},subtitle)
     ),
-    el("div",{ref:chartRef,style:{width:"100%",height}})
+    el("div",{ref:chartRef,style:{width:"100%",height:effectiveHeight}})
   );
 }
 
@@ -1118,11 +1142,11 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
             el("div",{style:{fontSize:16,color:C.gray,fontWeight:600,marginBottom:4}},"Nenhum dado disponível para gráficos"),
             el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
           )
-        : el("div",{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fit, minmax(550px, 1fr))",gap:16}},
-            el(EChartsComponent,{title:"Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350}),
-            el(EChartsComponent,{title:"Distribuição de Produção por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350}),
-            el(EChartsComponent,{title:"Tendência de Produção ao Longo do Tempo",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350}),
-            el(EChartsComponent,{title:"Ranking de Performance",subtitle:"Máquinas ordenadas por % da meta",data:chartPerformers,type:"horizontalBar",height:350})
+        : el("div",{style:{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fit, minmax(550px, 1fr))",gap:isMobile?12:16}},
+            el(EChartsComponent,{title:"Produção vs Meta por Máquina",subtitle:"Comparativo entre produção real e meta estabelecida",data:chartProdVsMeta,type:"bar",height:350,isMobile}),
+            el(EChartsComponent,{title:"Distribuição por Turno",subtitle:"Percentual de produção em cada turno",data:chartTurnoData,type:"pie",height:350,isMobile}),
+            el(EChartsComponent,{title:"Tendência de Produção",subtitle:"Evolução diária da produção no período",data:chartTendencia,type:"line",height:350,isMobile}),
+            el(EChartsComponent,{title:"Ranking de Performance",subtitle:"Máquinas ordenadas por % da meta",data:chartPerformers,type:"horizontalBar",height:350,isMobile})
           )
     )
   );
