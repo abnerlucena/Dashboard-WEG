@@ -1612,6 +1612,268 @@ function TabFeedbacks({machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFi
   );
 }
 
+// ─── TV MODE (APRESENTAÇÃO) ──────────────────────────────────
+function TVMode({machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,metaTurnos,onClose}){
+  var [slide,setSlide] = useState(0);
+  var [fade,setFade] = useState(true);
+  var [clock,setClock] = useState(new Date());
+  var containerRef = useRef(null);
+
+  // Clock tick
+  useEffect(()=>{
+    var t=setInterval(()=>setClock(new Date()),1000);
+    return()=>clearInterval(t);
+  },[]);
+
+  // Request fullscreen on mount
+  useEffect(()=>{
+    var el=containerRef.current;
+    if(el){
+      try{
+        if(el.requestFullscreen) el.requestFullscreen();
+        else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if(el.msRequestFullscreen) el.msRequestFullscreen();
+      }catch(e){}
+    }
+    function onFsChange(){
+      if(!document.fullscreenElement&&!document.webkitFullscreenElement&&!document.msFullscreenElement){
+        onClose();
+      }
+    }
+    document.addEventListener("fullscreenchange",onFsChange);
+    document.addEventListener("webkitfullscreenchange",onFsChange);
+    return()=>{
+      document.removeEventListener("fullscreenchange",onFsChange);
+      document.removeEventListener("webkitfullscreenchange",onFsChange);
+    };
+  },[]);
+
+  // Build slides data
+  var pctGeral=totMeta>0?Math.round(totProd/totMeta*100):null;
+
+  // Machine table rows for summary slide
+  var machRows=machines.map(m=>{
+    var a=machAgg[m.id];
+    return {name:m.name,prod:a?a.totalProd:0,meta:a?a.totalMeta:0,pct:a?a.pct:null,dias:a?a.diasCount:0};
+  }).filter(r=>r.prod>0||r.meta>0).sort((a,b)=>b.prod-a.prod);
+
+  // Top performers
+  var topPerf=machRows.filter(r=>r.pct!==null).sort((a,b)=>b.pct-a.pct).slice(0,5);
+
+  // Turno totals
+  var turnoTotals={};
+  dashData.forEach(r=>{ turnoTotals[r.turno]=(turnoTotals[r.turno]||0)+num(r.producao); });
+
+  var SLIDE_DURATION=12000; // 12 seconds per slide
+  var TRANSITION_MS=600;
+  var totalSlides=5; // 0:KPIs+Top, 1:ProdVsMeta chart, 2:Turnos pie, 3:Tendencia line, 4:Table
+
+  // Auto-advance slides
+  useEffect(()=>{
+    var t=setInterval(()=>{
+      setFade(false);
+      setTimeout(()=>{
+        setSlide(s=>(s+1)%totalSlides);
+        setFade(true);
+      },TRANSITION_MS);
+    },SLIDE_DURATION);
+    return()=>clearInterval(t);
+  },[totalSlides]);
+
+  // ESC to close
+  useEffect(()=>{
+    function onKey(e){ if(e.key==="Escape") onClose(); }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[]);
+
+  var timeStr=clock.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  var dateStr2=clock.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+
+  // Header bar (persistent across all slides)
+  var tvHeader=el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 40px 16px",flexShrink:0}},
+    // Left: Section name
+    el("div",null,
+      el("div",{style:{fontSize:14,color:"#94A3B8",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},"Seção"),
+      el("div",{style:{fontSize:22,fontWeight:800,color:C.navy,marginTop:2}},"Tomadas e Interruptores (Itajaí)")
+    ),
+    // Right: WEG logo
+    el("div",{style:{display:"flex",alignItems:"center",gap:20}},
+      el("div",{style:{textAlign:"right"}},
+        el("div",{style:{fontSize:32,fontWeight:800,color:C.navy,fontFamily:"monospace",letterSpacing:"2px",lineHeight:1}},timeStr),
+        el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4,textTransform:"capitalize"}},dateStr2)
+      ),
+      el(WEGLogoSVG,{height:40,color:"#003366"})
+    )
+  );
+
+  // Slide progress dots
+  var dots=el("div",{style:{display:"flex",justifyContent:"center",gap:10,padding:"12px 0",flexShrink:0}},
+    ...Array.from({length:totalSlides}).map((_,i)=>
+      el("div",{key:i,style:{width:slide===i?32:10,height:10,borderRadius:5,background:slide===i?"#0066B3":"#D1D5DB",transition:"all .4s ease",cursor:"pointer"},onClick:()=>{setFade(false);setTimeout(()=>{setSlide(i);setFade(true);},300);}})
+    )
+  );
+
+  // ── Slide 0: KPIs + Top Performers ──
+  function renderSlide0(){
+    return el("div",{style:{display:"flex",gap:30,height:"100%",alignItems:"stretch"}},
+      // Left: KPIs grid
+      el("div",{style:{flex:1.2,display:"flex",flexDirection:"column",gap:20}},
+        el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}},"Indicadores Gerais"),
+        el("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16,flex:1}},
+          ...[
+            {label:"PRODUÇÃO TOTAL",value:totProd.toLocaleString("pt-BR"),unit:"peças",color:C.blue,big:true},
+            {label:"META TOTAL",value:totMeta>0?totMeta.toLocaleString("pt-BR"):"—",unit:"peças",color:C.navy,big:true},
+            {label:"% ATINGIMENTO",value:pctGeral!==null?pctGeral+"%":"—",unit:"geral",color:pctGeral!==null?pctCol(pctGeral):C.gray,big:true},
+            {label:"REGISTROS",value:String(dashData.length),unit:"apontamentos",color:C.teal,big:false},
+            {label:"MÁQUINAS ATIVAS",value:String(Object.keys(machAgg).length)+"/"+machines.length,unit:"máquinas",color:C.yellow,big:false},
+            {label:"TURNOS CALCULADOS",value:String(metaTurnos),unit:metaTurnos===1?"turno":"turnos",color:C.info,big:false},
+          ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:16,padding:"22px 24px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)",borderLeft:"5px solid "+k.color,display:"flex",flexDirection:"column",justifyContent:"center"}},
+            el("div",{style:{fontSize:11,color:"#6B7280",fontWeight:700,letterSpacing:"0.8px",textTransform:"uppercase",marginBottom:8}},k.label),
+            el("div",{style:{fontSize:k.big?42:34,fontWeight:900,color:k.color,lineHeight:1}},k.value),
+            el("div",{style:{fontSize:12,color:"#94A3B8",marginTop:4}},k.unit)
+          ))
+        )
+      ),
+      // Right: Top performers
+      el("div",{style:{flex:0.8,background:"#fff",borderRadius:16,padding:"24px 28px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)",display:"flex",flexDirection:"column"}},
+        el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:16}},"Top Performance"),
+        el("div",{style:{flex:1,display:"flex",flexDirection:"column",gap:12,justifyContent:"center"}},
+          ...topPerf.map((r,i)=>{
+            var col=pctCol(r.pct);
+            return el("div",{key:r.name,style:{display:"flex",alignItems:"center",gap:14}},
+              el("div",{style:{width:32,height:32,borderRadius:"50%",background:i===0?"#0066B3":i===1?"#004E8C":i===2?"#003366":"#E8ECF1",color:i<3?"#fff":"#475569",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}},i+1),
+              el("div",{style:{flex:1,minWidth:0}},
+                el("div",{style:{fontSize:14,fontWeight:700,color:C.navy,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},r.name),
+                el("div",{style:{background:"#F0F2F5",borderRadius:6,height:10,marginTop:4,overflow:"hidden"}},
+                  el("div",{style:{width:Math.min(r.pct,100)+"%",height:"100%",background:col,borderRadius:6,transition:"width 1s ease"}})
+                )
+              ),
+              el("div",{style:{fontSize:18,fontWeight:800,color:col,minWidth:56,textAlign:"right"}},r.pct!==null?r.pct+"%":"—")
+            );
+          }),
+          topPerf.length===0&&el("div",{style:{color:"#94A3B8",fontSize:14,textAlign:"center"}},"Sem dados de performance")
+        )
+      )
+    );
+  }
+
+  // ── Slide 1: Prod vs Meta Bar Chart ──
+  function renderSlide1(){
+    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+      el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}},"Produção vs Meta por Máquina"),
+      el("div",{style:{flex:1}},
+        el(EChartsComponent,{data:chartProdVsMeta,type:"bar",height:500})
+      )
+    );
+  }
+
+  // ── Slide 2: Turnos Pie + Turno breakdown ──
+  function renderSlide2(){
+    var totalTurnoProd=Object.values(turnoTotals).reduce((s,v)=>s+v,0);
+    return el("div",{style:{height:"100%",display:"flex",gap:30,alignItems:"stretch"}},
+      el("div",{style:{flex:1}},
+        el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}},"Distribuição por Turno"),
+        el(EChartsComponent,{data:chartTurnoData,type:"pie",height:400})
+      ),
+      el("div",{style:{flex:0.6,display:"flex",flexDirection:"column",gap:16,justifyContent:"center"}},
+        ...TURNOS.map((t,i)=>{
+          var val=turnoTotals[t]||0;
+          var pct2=totalTurnoProd>0?Math.round(val/totalTurnoProd*100):0;
+          var colors=["#0066B3","#004E8C","#F59E0B"];
+          return el("div",{key:t,style:{background:"#fff",borderRadius:14,padding:"20px 24px",boxShadow:"0 2px 12px rgba(0,0,0,0.06)",borderLeft:"5px solid "+colors[i]}},
+            el("div",{style:{fontSize:12,fontWeight:700,color:"#6B7280",textTransform:"uppercase",letterSpacing:"0.8px"}},t),
+            el("div",{style:{fontSize:34,fontWeight:900,color:colors[i],marginTop:4}},val.toLocaleString("pt-BR")),
+            el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:2}},pct2+"% do total")
+          );
+        })
+      )
+    );
+  }
+
+  // ── Slide 3: Tendência Line Chart ──
+  function renderSlide3(){
+    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+      el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}},"Tendência de Produção"),
+      el("div",{style:{flex:1}},
+        el(EChartsComponent,{data:chartTendencia,type:"line",height:500})
+      )
+    );
+  }
+
+  // ── Slide 4: Full machine table ──
+  function renderSlide4(){
+    return el("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
+      el("div",{style:{fontSize:16,fontWeight:700,color:C.navy,textTransform:"uppercase",letterSpacing:"1px",marginBottom:12}},"Resumo por Máquina"),
+      el("div",{style:{flex:1,overflowY:"auto",borderRadius:12,background:"#fff",boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}},
+        el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+          el("thead",null,el("tr",{style:{background:C.navy,color:"#fff",position:"sticky",top:0}},
+            el("th",{style:{padding:"14px 20px",textAlign:"left",fontSize:14,fontWeight:700}},"Máquina"),
+            el("th",{style:{padding:"14px 20px",textAlign:"center",fontSize:14,fontWeight:700}},"Dias"),
+            el("th",{style:{padding:"14px 20px",textAlign:"center",fontSize:14,fontWeight:700}},"Produção"),
+            el("th",{style:{padding:"14px 20px",textAlign:"center",fontSize:14,fontWeight:700}},"Meta"),
+            el("th",{style:{padding:"14px 20px",textAlign:"center",fontSize:14,fontWeight:700}},"% Atingimento"),
+            el("th",{style:{padding:"14px 20px",textAlign:"left",fontSize:14,fontWeight:700,minWidth:160}},"Progresso")
+          )),
+          el("tbody",null,...machRows.map((r,i)=>
+            el("tr",{key:r.name,style:{background:i%2===0?"#F8FAFC":"#fff",borderBottom:"1px solid #E5E7EB"}},
+              el("td",{style:{padding:"12px 20px",fontSize:15,fontWeight:700,color:C.navy}},r.name),
+              el("td",{style:{padding:"12px 20px",textAlign:"center",fontSize:15}},r.dias),
+              el("td",{style:{padding:"12px 20px",textAlign:"center",fontSize:16,fontWeight:800,color:C.blue}},r.prod.toLocaleString("pt-BR")),
+              el("td",{style:{padding:"12px 20px",textAlign:"center",fontSize:15,color:"#94A3B8"}},r.meta>0?r.meta.toLocaleString("pt-BR"):"—"),
+              el("td",{style:{padding:"12px 20px",textAlign:"center"}},r.pct!==null?el("span",{style:{background:pctCol(r.pct)+"1a",color:r.pct>=100?"#16a34a":r.pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"4px 14px",fontSize:15,fontWeight:800}},r.pct+"%"):el("span",{style:{color:"#C8D8E4"}},"—")),
+              el("td",{style:{padding:"12px 20px"}},r.pct!==null?el("div",{style:{background:"#E5E7EB",borderRadius:6,height:12,overflow:"hidden",minWidth:120}},el("div",{style:{width:Math.min(r.pct,100)+"%",height:"100%",background:pctCol(r.pct),borderRadius:6,transition:"width 1s ease"}})):null)
+            )
+          ))
+        )
+      )
+    );
+  }
+
+  var slides=[renderSlide0,renderSlide1,renderSlide2,renderSlide3,renderSlide4];
+  var slideLabels=["Indicadores","Produção vs Meta","Turnos","Tendência","Tabela Resumo"];
+
+  return el("div",{ref:containerRef,style:{
+    position:"fixed",inset:0,zIndex:9999,background:"#F5F6FA",
+    display:"flex",flexDirection:"column",fontFamily:"'Segoe UI','Inter',-apple-system,sans-serif",
+    overflow:"hidden"
+  }},
+    tvHeader,
+
+    // Slide label
+    el("div",{style:{padding:"0 40px",marginBottom:8}},
+      el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        el("div",{style:{fontSize:12,color:"#94A3B8",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},slideLabels[slide]+" — "+(slide+1)+"/"+totalSlides),
+        el("button",{onClick:()=>{
+          try{
+            if(document.exitFullscreen) document.exitFullscreen();
+            else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+          }catch(e){}
+          onClose();
+        },style:{background:"rgba(0,0,0,0.06)",border:"none",borderRadius:6,padding:"6px 16px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#475569",transition:"background .2s"}},"Sair (ESC)")
+      )
+    ),
+
+    // Main slide area
+    el("div",{style:{
+      flex:1,padding:"0 40px 16px",overflow:"hidden",
+      opacity:fade?1:0,
+      transform:fade?"translateY(0)":"translateY(20px)",
+      transition:"opacity "+TRANSITION_MS+"ms ease, transform "+TRANSITION_MS+"ms ease"
+    }},
+      slides[slide]()
+    ),
+
+    dots,
+
+    // Bottom bar
+    el("div",{style:{background:C.navy,padding:"8px 40px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}},
+      el("div",{style:{color:"#8BACC8",fontSize:12}},"Dashboard de Produção WEG — Atualização automática a cada 30s"),
+      el("div",{style:{color:"#8BACC8",fontSize:12}},"Tela cheia · Apresentação contínua")
+    )
+  );
+}
+
 // ─── APP PRINCIPAL ────────────────────────────────────────────
 function App(){
   const [user,setUser]               = useState(()=>loadSession());
@@ -1639,6 +1901,7 @@ function App(){
   const [obsSaving,setObsSaving]     = useState(false);
   const [showAdmin,setShowAdmin]     = useState(false);
   const [showExport,setShowExport]   = useState(false);
+  const [showTV,setShowTV]           = useState(false);
   const [dfIni,setDfIni]             = useState(()=>{ const d=new Date(); d.setDate(1); return fmt(d); });
   const [dfFim,setDfFim]             = useState(today());
   const [dfMac,setDfMac]             = useState("TODAS");
@@ -1988,6 +2251,7 @@ function App(){
       syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:11,fontWeight:500}},"Sincronizando..."),
       syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:11,fontWeight:500}},"Salvo"),
       syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"Erro"),
+      !isMobile&&el("button",{onClick:()=>setShowTV(true),style:{background:"rgba(0,102,179,0.15)",border:"1px solid rgba(0,102,179,0.3)",color:"#8BCAFF",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .15s"}},"TV"),
       user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#C8D8E8",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .15s"}},isMobile?"Admin":"Admin"),
       el("button",{onClick:handleLogout,style:{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",color:"#fca5a5",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .15s"}},isMobile?"Sair":"Sair")
     )
@@ -2008,6 +2272,7 @@ function App(){
     conflictInfo&&el(ConflictModal,{conflicts:conflictInfo.conflicts,onReplace:handleConflictReplace,onAppend:handleConflictAppend,onClose:()=>setConflictInfo(null)}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
     showExport&&el(ExportModal,{onClose:()=>setShowExport(false),onExport:(format,sections,opts)=>{setShowExport(false);doExport(format,sections,{data:dashData,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac},opts);}}),
+    showTV&&el(TVMode,{machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,metaTurnos,onClose:()=>setShowTV(false)}),
     header, tabs,
     el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
