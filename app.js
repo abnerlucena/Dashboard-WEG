@@ -100,8 +100,10 @@ function captureCharts() {
 }
 
 // Gera seções HTML para o relatório com base nas seleções do usuário
-function buildExportSections(sections, ctx) {
+function buildExportSections(sections, ctx, opts) {
   var {data,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac} = ctx;
+  var hideEmpty = opts && opts.hideEmpty;
+  if(hideEmpty) data = data.filter(function(r){ return num(r.producao)>0; });
   var pctGeral = totMeta>0 ? Math.round(totProd/totMeta*100) : null;
   var pctGeralCol = pctGeral===null?'#6B7280':pctGeral>=100?'#22C55E':pctGeral>=80?'#F59E0B':'#EF4444';
   var html = [];
@@ -119,6 +121,7 @@ function buildExportSections(sections, ctx) {
       html.push('</div>');
       html.push('<table><thead><tr><th>Máquina</th><th style="text-align:center">Dias</th><th style="text-align:center">Produção</th><th style="text-align:center">Meta</th><th style="text-align:center">%</th></tr></thead><tbody>');
       var macList = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
+      if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
       for(var mi=0;mi<macList.length;mi++){
         var m=macList[mi], a=machAgg[m.id];
         var bg = mi%2===0?'#F8FAFC':'#fff';
@@ -155,6 +158,7 @@ function buildExportSections(sections, ctx) {
       html.push('<h3 style="color:#003366;margin:24px 0 10px;font-size:15px">Comparativo por Turno</h3>');
       html.push('<table><thead><tr><th>Máquina</th><th style="text-align:center">TURNO 1</th><th style="text-align:center">TURNO 2</th><th style="text-align:center">TURNO 3</th><th style="text-align:center">Total</th><th style="text-align:center">Melhor</th></tr></thead><tbody>');
       var macList2 = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
+      if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
       for(var ti=0;ti<macList2.length;ti++){
         var m2=macList2[ti], a2=machAgg[m2.id];
         var bg2 = ti%2===0?'#F8FAFC':'#fff';
@@ -189,8 +193,10 @@ function buildExportSections(sections, ctx) {
   return html.join('\n');
 }
 
-function doExport(format, sections, ctx) {
+function doExport(format, sections, ctx, opts) {
   var {data,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac} = ctx;
+  var hideEmpty = opts && opts.hideEmpty;
+  if(hideEmpty) data = data.filter(function(r){ return num(r.producao)>0; });
 
   if(format==='csv'){
     // CSV: gera planilha com as seções selecionadas
@@ -210,6 +216,7 @@ function doExport(format, sections, ctx) {
         lines.push('"=== RESUMO POR MÁQUINA ==="');
         lines.push('"Máquina";"Dias";"Produção";"Meta";"% Meta"');
         var macList = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
+        if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
         for(var mi=0;mi<macList.length;mi++){
           var m=macList[mi], a=machAgg[m.id];
           lines.push([m.name, a?a.diasCount:0, a?a.totalProd:0, m.hasMeta?(a?a.totalMeta:0):'', a&&a.pct!=null?a.pct+'%':''].map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(';'));
@@ -233,6 +240,7 @@ function doExport(format, sections, ctx) {
         lines.push('"=== COMPARATIVO POR TURNO ==="');
         lines.push('"Máquina";"TURNO 1";"TURNO 2";"TURNO 3";"Total";"Melhor Turno"');
         var macList2 = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
+        if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
         for(var ti=0;ti<macList2.length;ti++){
           var m2=macList2[ti], a2=machAgg[m2.id], total2=a2?a2.totalProd:0;
           var bestT='—', bestV=0;
@@ -263,7 +271,7 @@ function doExport(format, sections, ctx) {
   }
 
   // PDF/HTML
-  var sectionsHtml = buildExportSections(sections, ctx);
+  var sectionsHtml = buildExportSections(sections, ctx, opts);
   var fullHtml = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — Dashboard WEG</title>\n'+
   '<style>*{box-sizing:border-box}body{font-family:"Segoe UI","Inter",sans-serif;font-size:12px;color:#1E293B;margin:0;padding:24px}\n'+
   'h2{color:#003366;margin:0 0 4px;font-size:18px}h3{page-break-before:auto}\n'+
@@ -299,6 +307,7 @@ function ExportModal({onExport,onClose}){
   var [format,setFormat] = useState('pdf');
   var [selected,setSelected] = useState({resumo:true,detalhado:true,turnos:false,graficos:false});
   var [order,setOrder] = useState(['resumo','detalhado','turnos','graficos']);
+  var [hideEmpty,setHideEmpty] = useState(false);
 
   var labels = {resumo:'Resumo por Máquina',detalhado:'Dados Detalhados',turnos:'Comparativo por Turno',graficos:'Gráficos'};
   var descriptions = {resumo:'KPIs e tabela agregada por máquina',detalhado:'Todos os apontamentos individuais',turnos:'Produção comparada entre turnos',graficos:'Imagens dos gráficos (apenas PDF)'};
@@ -318,7 +327,7 @@ function ExportModal({onExport,onClose}){
   function handleExport(){
     var sections = order.filter(function(k){ return selected[k]; });
     if(sections.length===0) return;
-    onExport(format, sections);
+    onExport(format, sections, {hideEmpty:hideEmpty});
     onClose();
   }
 
@@ -365,6 +374,17 @@ function ExportModal({onExport,onClose}){
           )
         );
       })
+    ),
+
+    // Hide empty toggle
+    el("div",{onClick:function(){setHideEmpty(!hideEmpty);},style:{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:"1px solid #E8ECF1",borderRadius:8,cursor:"pointer",background:hideEmpty?"#eff6ff":"#fff",marginBottom:18,transition:"all .15s",userSelect:"none"}},
+      el("div",{style:{width:20,height:20,borderRadius:4,border:hideEmpty?"2px solid #0066B3":"2px solid #D1D5DB",background:hideEmpty?"#0066B3":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}},
+        hideEmpty?el("svg",{width:12,height:12,viewBox:"0 0 12 12",style:{display:"block"}},el("path",{d:"M2 6l3 3 5-5",stroke:"#fff",strokeWidth:2,fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})):null
+      ),
+      el("div",null,
+        el("div",{style:{fontSize:13,fontWeight:600,color:"#1E293B"}},"Ocultar dados não preenchidos"),
+        el("div",{style:{fontSize:11,color:"#94A3B8",marginTop:1}},"Remove máquinas/registros sem produção do relatório")
+      )
     ),
 
     // Actions
@@ -1178,67 +1198,316 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 }
 
 // ─── TAB HISTÓRICO ────────────────────────────────────────────
-function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}){
-  return el("div",null,
-    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
-    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
-      el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
-        el("span",{style:{fontSize:14,letterSpacing:"0.2px"}},"Apontamentos Salvos"),
-        el("span",{style:{fontSize:12,color:"#8BACC8",fontWeight:500}},`${dashData.length} registros`)
+function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec,isMobile}){
+  var [hView,setHView] = useState("calendario");
+  var [calMonth,setCalMonth] = useState(()=>{ var d=new Date(); return {year:d.getFullYear(),month:d.getMonth()}; });
+  var [selectedDay,setSelectedDay] = useState(null); // {date,turno} or null
+  var [animDir,setAnimDir] = useState(0); // -1 left, 1 right, 0 none
+
+  // Build lookup: date -> {turno -> [records]}
+  var calData = useMemo(()=>{
+    var map = {};
+    dashData.forEach(r=>{
+      var nd = normDate(r.date);
+      if(!nd) return;
+      if(!map[nd]) map[nd] = {};
+      if(!map[nd][r.turno]) map[nd][r.turno] = [];
+      map[nd][r.turno].push(r);
+    });
+    return map;
+  },[dashData]);
+
+  // Calendar grid generation
+  var calGrid = useMemo(()=>{
+    var y=calMonth.year, m=calMonth.month;
+    var first = new Date(y,m,1);
+    var startDay = first.getDay(); // 0=Sun
+    var daysInMonth = new Date(y,m+1,0).getDate();
+    var cells = [];
+    // Empty cells before first day
+    for(var i=0;i<startDay;i++) cells.push(null);
+    for(var d=1;d<=daysInMonth;d++) cells.push(d);
+    return cells;
+  },[calMonth]);
+
+  var monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  var dayNames = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+  function navMonth(dir){
+    setAnimDir(dir);
+    setTimeout(()=>{ setAnimDir(0); },300);
+    setCalMonth(prev=>{
+      var nm = prev.month+dir;
+      var ny = prev.year;
+      if(nm<0){ nm=11; ny--; } else if(nm>11){ nm=0; ny++; }
+      return {year:ny,month:nm};
+    });
+    setSelectedDay(null);
+  }
+
+  function goToday(){
+    var d=new Date();
+    setCalMonth({year:d.getFullYear(),month:d.getMonth()});
+    setSelectedDay(null);
+  }
+
+  function dateStr(day){
+    return fmt(new Date(calMonth.year,calMonth.month,day));
+  }
+
+  function selectDay(day,turno){
+    var ds=dateStr(day);
+    if(selectedDay && selectedDay.date===ds && selectedDay.turno===turno){
+      setSelectedDay(null);
+    } else {
+      setSelectedDay({date:ds,turno:turno});
+    }
+  }
+
+  // Records for the selected day/turno
+  var selectedRecords = useMemo(()=>{
+    if(!selectedDay) return [];
+    var dayData = calData[selectedDay.date];
+    if(!dayData) return [];
+    var recs = dayData[selectedDay.turno] || [];
+    return recs.slice().sort((a,b)=>(a.machineName||"").localeCompare(b.machineName||""));
+  },[selectedDay,calData]);
+
+  // View toggle bar
+  var viewToggle = el("div",{style:{display:"flex",gap:6,marginBottom:16}},
+    ...[["calendario","Calendário"],["tabela","Tabela"]].map(([k,l])=>
+      el("button",{key:k,onClick:()=>setHView(k),style:{
+        padding:"9px 20px",border:hView===k?"2px solid #0066B3":"2px solid #E8ECF1",
+        borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:hView===k?700:500,
+        background:hView===k?"#eff6ff":"#fff",color:hView===k?"#003366":"#475569",
+        transition:"all .2s",fontFamily:"inherit"
+      }},l)
+    )
+  );
+
+  // ── Calendar View ──
+  var calendarView = el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
+    // Month header with nav
+    el("div",{style:{background:C.navy,color:"#fff",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      el("button",{onClick:()=>navMonth(-1),style:{background:"rgba(255,255,255,0.1)",border:"none",color:"#fff",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"},onMouseEnter:e=>{e.target.style.background="rgba(255,255,255,0.2)";},onMouseLeave:e=>{e.target.style.background="rgba(255,255,255,0.1)";}},"<"),
+      el("div",{style:{textAlign:"center"}},
+        el("div",{style:{fontSize:17,fontWeight:700,letterSpacing:"0.3px"}},monthNames[calMonth.month]+" "+calMonth.year),
+        el("button",{onClick:goToday,style:{background:"rgba(0,102,179,0.3)",border:"none",color:"#8BACC8",borderRadius:4,padding:"2px 10px",cursor:"pointer",fontSize:11,fontWeight:600,marginTop:4,transition:"all .2s"}},"Hoje")
       ),
-      el("div",{style:{overflowX:"auto"}},
-        el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
-          el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600,letterSpacing:"0.3px"}},"DATA"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"TURNO"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"MÁQUINA"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"META"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"PRODUÇÃO"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"%"),
-            el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"APONTADO POR"),
-            el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"AÇÕES")
-          )),
-          el("tbody",null,
-            sortedHistorico.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
-            ...sortedHistorico.map((r,i)=>{
-              const mId=Number(r.machineId);
-              const mac=machines.find(m=>m.id===mId);
-              const savedMeta=num(r.meta);
-              const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
-              const prod=num(r.producao);
-              const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
-              const savedByName=r.savedBy||"";
-              return el("tr",{key:r.id||r.date+"_"+r.turno+"_"+mId,style:rowStyle(i)},
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt||r.date)),
-                el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
-                el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
-                el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
-                el("td",{style:{padding:"10px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
-                el("td",{style:{padding:"10px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#C8D8E4"}},"—")),
-                el("td",{style:{padding:"10px 12px",fontSize:12}},
-                  el("div",{style:{fontWeight:600,color:"#1E293B"}},savedByName||"—"),
-                  r.editUser&&el("div",{style:{fontSize:11,color:"#d97706",marginTop:2}},`Editado por ${r.editUser}${r.editTime?" · "+dispDH(r.editTime):""}`),
-                  r.obs&&el("div",{style:{fontSize:11,color:"#0066B3",marginTop:3,background:"#eff6ff",borderRadius:4,padding:"2px 6px",display:"inline-block"}},r.obs)
+      el("button",{onClick:()=>navMonth(1),style:{background:"rgba(255,255,255,0.1)",border:"none",color:"#fff",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .2s"},onMouseEnter:e=>{e.target.style.background="rgba(255,255,255,0.2)";},onMouseLeave:e=>{e.target.style.background="rgba(255,255,255,0.1)";}},">" )
+    ),
+
+    // Day names header
+    el("div",{style:{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"#F8FAFC",borderBottom:"1px solid #E5E7EB"}},
+      ...dayNames.map(dn=>el("div",{key:dn,style:{padding:"8px 0",textAlign:"center",fontSize:11,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.5px"}},dn))
+    ),
+
+    // Calendar grid with animation
+    el("div",{style:{
+      display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:0,padding:0,
+      transition:"transform .3s ease, opacity .3s ease",
+      transform:animDir!==0?"translateX("+(animDir*30)+"px)":"translateX(0)",
+      opacity:animDir!==0?0.6:1
+    }},
+      ...calGrid.map((day,idx)=>{
+        if(day===null) return el("div",{key:"e"+idx,style:{minHeight:isMobile?70:90,borderRight:"1px solid #F0F2F5",borderBottom:"1px solid #F0F2F5"}});
+        var ds = dateStr(day);
+        var dayRecs = calData[ds];
+        var isToday = ds===today();
+        var hasTurno1 = dayRecs && dayRecs["TURNO 1"] && dayRecs["TURNO 1"].length>0;
+        var hasTurno2 = dayRecs && dayRecs["TURNO 2"] && dayRecs["TURNO 2"].length>0;
+        var isSelected = selectedDay && selectedDay.date===ds;
+        var totalProd = 0;
+        if(dayRecs){ Object.values(dayRecs).forEach(arr=>arr.forEach(r=>{ totalProd+=num(r.producao); })); }
+
+        return el("div",{key:day,style:{
+          minHeight:isMobile?70:90,borderRight:"1px solid #F0F2F5",borderBottom:"1px solid #F0F2F5",
+          padding:isMobile?"4px 3px":"6px 8px",
+          background:isToday?"#eff6ff":isSelected?"#f0f9ff":"#fff",
+          transition:"background .2s",cursor:dayRecs?"pointer":"default",
+          position:"relative"
+        }},
+          // Day number
+          el("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}},
+            el("span",{style:{
+              fontSize:isMobile?12:14,fontWeight:isToday?800:600,
+              color:isToday?"#0066B3":"#1E293B",
+              background:isToday?"#0066B3":"transparent",
+              color:isToday?"#fff":"#1E293B",
+              width:isToday?24:undefined,height:isToday?24:undefined,
+              borderRadius:isToday?"50%":undefined,
+              display:isToday?"flex":"inline",alignItems:"center",justifyContent:"center",
+              fontSize:isToday?(isMobile?11:12):(isMobile?12:14)
+            }},day),
+            totalProd>0&&el("span",{style:{fontSize:9,color:"#94A3B8",fontWeight:600}},totalProd>=1000?(totalProd/1000).toFixed(1)+"k":totalProd)
+          ),
+
+          // Turno pills
+          hasTurno1&&el("div",{onClick:e=>{e.stopPropagation();selectDay(day,"TURNO 1");},style:{
+            background:isSelected&&selectedDay.turno==="TURNO 1"?"#0066B3":"#dbeafe",
+            color:isSelected&&selectedDay.turno==="TURNO 1"?"#fff":"#1e40af",
+            borderRadius:6,padding:isMobile?"3px 5px":"4px 8px",fontSize:isMobile?9:11,fontWeight:600,
+            marginBottom:3,cursor:"pointer",transition:"all .2s",
+            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
+          }},isMobile?"T1 ("+dayRecs["TURNO 1"].length+")":"Turno 1 · "+dayRecs["TURNO 1"].length+" apt"),
+
+          hasTurno2&&el("div",{onClick:e=>{e.stopPropagation();selectDay(day,"TURNO 2");},style:{
+            background:isSelected&&selectedDay.turno==="TURNO 2"?"#0066B3":"#e0e7ff",
+            color:isSelected&&selectedDay.turno==="TURNO 2"?"#fff":"#3730a3",
+            borderRadius:6,padding:isMobile?"3px 5px":"4px 8px",fontSize:isMobile?9:11,fontWeight:600,
+            marginBottom:3,cursor:"pointer",transition:"all .2s",
+            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
+          }},isMobile?"T2 ("+dayRecs["TURNO 2"].length+")":"Turno 2 · "+dayRecs["TURNO 2"].length+" apt"),
+
+          // TURNO 3 if exists
+          dayRecs&&dayRecs["TURNO 3"]&&dayRecs["TURNO 3"].length>0&&el("div",{onClick:e=>{e.stopPropagation();selectDay(day,"TURNO 3");},style:{
+            background:isSelected&&selectedDay.turno==="TURNO 3"?"#0066B3":"#fef3c7",
+            color:isSelected&&selectedDay.turno==="TURNO 3"?"#fff":"#92400e",
+            borderRadius:6,padding:isMobile?"3px 5px":"4px 8px",fontSize:isMobile?9:11,fontWeight:600,
+            cursor:"pointer",transition:"all .2s",
+            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"
+          }},isMobile?"T3 ("+dayRecs["TURNO 3"].length+")":"Turno 3 · "+dayRecs["TURNO 3"].length+" apt")
+        );
+      })
+    )
+  );
+
+  // ── Selected day detail panel ──
+  var detailPanel = selectedDay ? el("div",{style:{
+    marginTop:16,background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",
+    overflow:"hidden",animation:"fadeSlideIn .3s ease"
+  }},
+    el("style",null,"@keyframes fadeSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}"),
+    el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
+      el("div",null,
+        el("span",{style:{fontWeight:700,fontSize:14}},dispD(selectedDay.date)+" · "+selectedDay.turno),
+        el("span",{style:{fontSize:12,color:"#8BACC8",marginLeft:10}},selectedRecords.length+" apontamento"+(selectedRecords.length!==1?"s":""))
+      ),
+      el("button",{onClick:()=>setSelectedDay(null),style:{background:"rgba(255,255,255,0.1)",border:"none",color:"#8BACC8",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"background .2s"}},"Fechar")
+    ),
+    selectedRecords.length===0
+      ? el("div",{style:{padding:32,textAlign:"center",color:"#94A3B8",fontSize:13}},"Nenhum apontamento neste turno.")
+      : el("div",{style:{overflowX:"auto"}},
+          el("table",{style:{width:"100%",borderCollapse:"collapse"}},
+            el("thead",null,el("tr",{style:{background:"#F8FAFC"}},
+              el("th",{style:{padding:"10px 14px",textAlign:"left",fontSize:12,color:"#475569",fontWeight:600}},"MÁQUINA"),
+              el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"META"),
+              el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"PRODUÇÃO"),
+              el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"%"),
+              el("th",{style:{padding:"10px 14px",textAlign:"left",fontSize:12,color:"#475569",fontWeight:600}},"POR"),
+              el("th",{style:{padding:"10px 14px",textAlign:"center",fontSize:12,color:"#475569",fontWeight:600}},"AÇÕES")
+            )),
+            el("tbody",null,...selectedRecords.map((r,i)=>{
+              var mId=Number(r.machineId);
+              var mac=machines.find(m=>m.id===mId);
+              var savedMeta=num(r.meta);
+              var metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac?.defaultMeta||0):0);
+              var prod=num(r.producao);
+              var pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
+              return el("tr",{key:r.id||r.machineId,style:{...rowStyle(i),animation:"fadeSlideIn .3s ease "+(i*0.05)+"s both"}},
+                el("td",{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
+                el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
+                el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
+                el("td",{style:{padding:"10px 14px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},pct+"%"):el("span",{style:{color:"#C8D8E4"}},"—")),
+                el("td",{style:{padding:"10px 14px",fontSize:12}},
+                  el("div",{style:{fontWeight:600,color:"#1E293B"}},r.savedBy||"—"),
+                  r.obs&&el("div",{style:{fontSize:11,color:"#0066B3",marginTop:2,background:"#eff6ff",borderRadius:4,padding:"2px 6px",display:"inline-block"}},r.obs)
                 ),
-                el("td",{style:{padding:"10px 12px",textAlign:"center"}},
+                el("td",{style:{padding:"10px 14px",textAlign:"center"}},
                   el("div",{style:{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}},
-                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#eff6ff",color:"#0066B3",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Editar"),
-                    el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),title:"Observação",style:{background:r.obs?"#eff6ff":"#f0fdf4",color:r.obs?"#0066B3":"#16a34a",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Obs"),
+                    el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:r.savedBy||""}),style:{background:"#eff6ff",color:"#0066B3",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Editar"),
+                    el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:r.savedBy||""}),style:{background:r.obs?"#eff6ff":"#f0fdf4",color:r.obs?"#0066B3":"#16a34a",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Obs"),
                     el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"1e",color:"#dc2626",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Excluir")
                   )
                 )
               );
-            })
+            }))
           )
+        )
+  ) : null;
+
+  // ── Table View (original) ──
+  var tableView = el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
+    el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      el("span",{style:{fontSize:14,letterSpacing:"0.2px"}},"Apontamentos Salvos"),
+      el("span",{style:{fontSize:12,color:"#8BACC8",fontWeight:500}},`${dashData.length} registros`)
+    ),
+    el("div",{style:{overflowX:"auto"}},
+      el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
+        el("thead",null,el("tr",{style:{background:C.navy,color:"#fff"}},
+          el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600,letterSpacing:"0.3px"}},"DATA"),
+          el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"TURNO"),
+          el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"MÁQUINA"),
+          el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"META"),
+          el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"PRODUÇÃO"),
+          el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"%"),
+          el("th",{style:{padding:"10px 12px",textAlign:"left",  fontSize:12,fontWeight:600}},"APONTADO POR"),
+          el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"AÇÕES")
+        )),
+        el("tbody",null,
+          sortedHistorico.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
+          ...sortedHistorico.map((r,i)=>{
+            const mId=Number(r.machineId);
+            const mac=machines.find(m=>m.id===mId);
+            const savedMeta=num(r.meta);
+            const metaVal=savedMeta>0?savedMeta:(mac?.hasMeta?(metas[mId]||mac.defaultMeta||0):0);
+            const prod=num(r.producao);
+            const pct=mac?.hasMeta&&metaVal>0?Math.round(prod/metaVal*100):null;
+            const savedByName=r.savedBy||"";
+            return el("tr",{key:r.id||r.date+"_"+r.turno+"_"+mId,style:rowStyle(i)},
+              el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600}},dispDH(r.savedAt||r.date)),
+              el("td",{style:{padding:"9px 12px",fontSize:13}},r.turno),
+              el("td",{style:{padding:"9px 12px",fontSize:13,fontWeight:600,color:C.navy}},r.machineName||(mac?.name||"—")),
+              el("td",{style:{padding:"9px 12px",textAlign:"center",fontSize:13,color:C.gray}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—"),
+              el("td",{style:{padding:"10px 12px",textAlign:"center",fontSize:14,fontWeight:700}},prod.toLocaleString("pt-BR")),
+              el("td",{style:{padding:"10px 12px",textAlign:"center"}},pct!==null?el("span",{style:{background:pctCol(pct)+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):el("span",{style:{color:"#C8D8E4"}},"—")),
+              el("td",{style:{padding:"10px 12px",fontSize:12}},
+                el("div",{style:{fontWeight:600,color:"#1E293B"}},savedByName||"—"),
+                r.editUser&&el("div",{style:{fontSize:11,color:"#d97706",marginTop:2}},`Editado por ${r.editUser}${r.editTime?" · "+dispDH(r.editTime):""}`),
+                r.obs&&el("div",{style:{fontSize:11,color:"#0066B3",marginTop:3,background:"#eff6ff",borderRadius:4,padding:"2px 6px",display:"inline-block"}},r.obs)
+              ),
+              el("td",{style:{padding:"10px 12px",textAlign:"center"}},
+                el("div",{style:{display:"flex",gap:4,justifyContent:"center",flexWrap:"wrap"}},
+                  el("button",{onClick:()=>setEditRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),style:{background:"#eff6ff",color:"#0066B3",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Editar"),
+                  el("button",{onClick:()=>setObsRec({...r,machineId:mId,producao:prod,meta:metaVal,savedBy:savedByName}),title:"Observação",style:{background:r.obs?"#eff6ff":"#f0fdf4",color:r.obs?"#0066B3":"#16a34a",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Obs"),
+                  el("button",{onClick:()=>setDeleteRec({...r,machineId:mId}),style:{background:C.red+"1e",color:"#dc2626",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",fontSize:12,fontWeight:600}},"Excluir")
+                )
+              )
+            );
+          })
         )
       )
     )
   );
+
+  return el("div",null,
+    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
+    viewToggle,
+    hView==="calendario" ? el(React.Fragment,null,calendarView,detailPanel) : tableView
+  );
 }
 
 // ─── TAB METAS ────────────────────────────────────────────────
-function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}){
+function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos}){
   return el("div",null,
+    // Shift selector card
+    el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",padding:"16px 18px",marginBottom:16}},
+      el("div",{style:{fontSize:12,fontWeight:700,color:"#475569",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}},"Tipo de Meta Aplicada no Dashboard"),
+      el("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+        ...[1,2,3].map(n=>
+          el("button",{key:n,onClick:()=>setMetaTurnos(n),style:{
+            flex:1,minWidth:100,padding:"12px 16px",border:metaTurnos===n?"2px solid #0066B3":"2px solid #E8ECF1",
+            borderRadius:10,cursor:"pointer",background:metaTurnos===n?"#eff6ff":"#fff",
+            transition:"all .2s",fontFamily:"inherit",textAlign:"center"
+          }},
+            el("div",{style:{fontSize:18,fontWeight:800,color:metaTurnos===n?"#003366":"#94A3B8"}},n),
+            el("div",{style:{fontSize:12,fontWeight:600,color:metaTurnos===n?"#0066B3":"#6B7280",marginTop:2}},n===1?"Turno":"Turnos")
+          )
+        )
+      ),
+      el("div",{style:{fontSize:12,color:"#94A3B8",marginTop:10}},"Meta/Dia = Meta/Turno x "+metaTurnos+" · Afeta o cálculo de % atingimento no Dashboard em tempo real")
+    ),
+
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
       el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}},
         el("span",{style:{fontWeight:700,fontSize:14,letterSpacing:"0.2px"}},"Metas por Máquina"+(metasLoading?" ...":"")),
@@ -1275,8 +1544,8 @@ function TabMetas({machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,
                       ?el("input",{type:"number",min:"0",value:metas[m.id]??0,onChange:e=>updateMeta(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontWeight:700,fontSize:15}})
                       :el("span",{style:{fontSize:15,fontWeight:700,color:m.hasMeta?C.navy:"#94A3B8"}},m.hasMeta?(metas[m.id]||0).toLocaleString("pt-BR"):"—")
                   ),
-                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*3).toLocaleString("pt-BR"):"—"),
-                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*3*22).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*metaTurnos).toLocaleString("pt-BR"):"—"),
+                  el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:14,color:"#475569"}},m.hasMeta?((metas[m.id]||0)*metaTurnos*22).toLocaleString("pt-BR"):"—"),
                   el("td",{style:{padding:"10px 14px",textAlign:"center",fontSize:12}},
                     m.hasMeta
                       ? el("div",null,
@@ -1377,12 +1646,14 @@ function App(){
   const [dView,setDView]             = useState("resumo");
   const [metaEdit,setMetaEdit]       = useState(false);
   const [metasInfo,setMetasInfo]     = useState({});
+  const [metaTurnos,setMetaTurnos]   = useState(()=>{ try{ return Number(localStorage.getItem('prod_meta_turnos'))||3; }catch{ return 3; } });
   const pollRef    = useRef(null);
   const metaEditRef= useRef(false);
   const userRef    = useRef(user);
   const isMobile   = useIsMobile();
 
   useEffect(()=>{ metaEditRef.current=metaEdit; },[metaEdit]);
+  useEffect(()=>{ try{ localStorage.setItem('prod_meta_turnos',String(metaTurnos)); }catch{} },[metaTurnos]);
   useEffect(()=>{ userRef.current=user; },[user]);
 
   function updateMeta(id,val){ setMetasState(m=>({...m,[id]:num(val)})); }
@@ -1641,11 +1912,11 @@ function App(){
     Object.entries(agg).forEach(([id,a])=>{
       const nId=Number(id);
       a.diasCount=a.dias.size;
-      a.totalMeta=a.hasMeta?(metas[nId]||0)*a.diasCount*(dfTur==="TODOS"?TURNOS.length:1):0;
+      a.totalMeta=a.hasMeta?(metas[nId]||0)*a.diasCount*(dfTur==="TODOS"?metaTurnos:1):0;
       a.pct=a.totalMeta>0?Math.round(a.totalProd/a.totalMeta*100):null;
     });
     return agg;
-  },[dashData,metas,dfTur,machines]);
+  },[dashData,metas,dfTur,metaTurnos,machines]);
 
   const totProd=useMemo(()=>dashData.reduce((s,r)=>s+num(r.producao),0),[dashData]);
   const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
@@ -1736,13 +2007,13 @@ function App(){
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
     conflictInfo&&el(ConflictModal,{conflicts:conflictInfo.conflicts,onReplace:handleConflictReplace,onAppend:handleConflictAppend,onClose:()=>setConflictInfo(null)}),
     showAdmin&&el(AdminPanel,{user,onClose:()=>setShowAdmin(false)}),
-    showExport&&el(ExportModal,{onClose:()=>setShowExport(false),onExport:(format,sections)=>{setShowExport(false);doExport(format,sections,{data:dashData,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac});}}),
+    showExport&&el(ExportModal,{onClose:()=>setShowExport(false),onExport:(format,sections,opts)=>{setShowExport(false);doExport(format,sections,{data:dashData,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac},opts);}}),
     header, tabs,
     el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile,onOpenExport:()=>setShowExport(true)}),
-      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec}),
-      tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer}),
+      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec,isMobile}),
+      tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos}),
       tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
     )
   );
