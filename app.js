@@ -810,7 +810,34 @@ function getChartOption(type, data, mobile) {
   };
 
   if (type === 'bar') {
-    var needZoom = m && data.length > 4;
+    if (m) {
+      // Mobile: horizontal bars — machine names readable on Y axis
+      var needZoomM = data.length > 5;
+      var optM = {
+        animation: true, animationDuration: 750, animationEasing: 'cubicOut',
+        tooltip: {
+          ...tooltipBase, trigger: 'axis', axisPointer: {type: 'shadow'},
+          formatter: params => {
+            var idx = params[0].dataIndex;
+            var d = data[data.length - 1 - idx];
+            return '<b>'+d.name+'</b><br/>Meta: '+d.meta.toLocaleString('pt-BR')+'<br/>Produção: '+d.producao.toLocaleString('pt-BR');
+          }
+        },
+        legend: {data: ['Meta', 'Produção'], top: 0, right: 0, textStyle: {fontSize: fs}},
+        grid: {top: 30, right: 10, bottom: needZoomM ? 40 : 8, left: 8, containLabel: true},
+        yAxis: {type: 'category', data: data.slice().reverse().map(d=>d.name), axisLabel: {fontSize: fs, width: 100, overflow: 'truncate', lineHeight: 14}},
+        xAxis: {type: 'value', axisLabel: {formatter: v=>v>=1000?(v/1000).toFixed(0)+'k':String(v), fontSize: fs}},
+        series: [
+          {name:'Meta',     type:'bar', data:data.slice().reverse().map(d=>d.meta),     itemStyle:{color:C.gray,  borderRadius:[0,4,4,0]}, barMaxWidth: 16},
+          {name:'Produção', type:'bar', data:data.slice().reverse().map(d=>d.producao),  itemStyle:{color:C.blue,  borderRadius:[0,4,4,0]}, barMaxWidth: 16}
+        ]
+      };
+      if (needZoomM) {
+        optM.dataZoom = [{type:'slider',yAxisIndex:0,start:0,end:Math.min(100,Math.round(5/data.length*100)),right:0,width:16,borderColor:'#D1D5DB',fillerColor:'rgba(0,102,179,0.12)',handleStyle:{color:'#0066B3'}}];
+      }
+      return optM;
+    }
+    // Desktop: vertical bars
     var opt = {
       animation: true, animationDuration: 750, animationEasing: 'cubicOut',
       tooltip: {
@@ -822,17 +849,14 @@ function getChartOption(type, data, mobile) {
         }
       },
       legend: {data: ['Meta', 'Produção'], top: 0, right: 0, textStyle: {fontSize: fs}},
-      grid: {top: 40, right: m ? 10 : 30, bottom: needZoom ? 80 : (m ? 50 : 70), left: m ? 40 : 60},
-      xAxis: {type: 'category', data: data.map(d=>d.name), axisLabel: {rotate: m ? 35 : 15, fontSize: fs, interval: 0, width: m ? 60 : undefined, overflow: m ? 'truncate' : 'none'}},
-      yAxis: {type: 'value', axisLabel: {formatter: v=> m ? (v>=1000?(v/1000).toFixed(0)+'k':v) : v.toLocaleString('pt-BR'), fontSize: fs}},
+      grid: {top: 40, right: 30, bottom: 70, left: 60},
+      xAxis: {type: 'category', data: data.map(d=>d.name), axisLabel: {rotate: 15, fontSize: fs, interval: 0}},
+      yAxis: {type: 'value', axisLabel: {formatter: v=>v.toLocaleString('pt-BR'), fontSize: fs}},
       series: [
-        {name:'Meta',     type:'bar', data:data.map(d=>d.meta),    itemStyle:{color:C.gray,  borderRadius:[4,4,0,0]}, barMaxWidth: m ? 20 : 40},
-        {name:'Produção', type:'bar', data:data.map(d=>d.producao), itemStyle:{color:C.blue, borderRadius:[4,4,0,0]}, barMaxWidth: m ? 20 : 40}
+        {name:'Meta',     type:'bar', data:data.map(d=>d.meta),    itemStyle:{color:C.gray,  borderRadius:[4,4,0,0]}, barMaxWidth: 40},
+        {name:'Produção', type:'bar', data:data.map(d=>d.producao), itemStyle:{color:C.blue, borderRadius:[4,4,0,0]}, barMaxWidth: 40}
       ]
     };
-    if (needZoom) {
-      opt.dataZoom = [{type:'slider',start:0,end:Math.min(100,Math.round(4/data.length*100)),bottom:10,height:22,borderColor:'#D1D5DB',fillerColor:'rgba(0,102,179,0.12)',handleStyle:{color:'#0066B3'}}];
-    }
     return opt;
   }
 
@@ -924,7 +948,8 @@ function EChartsComponent({title, subtitle, data, type, height=350, isMobile}){
   const chartRef  = useRef(null);
   const instanceRef = useRef(null);
   var m = !!isMobile;
-  var effectiveHeight = m ? (type==='horizontalBar' ? Math.max(260, (data||[]).length*38) : type==='pie' ? 280 : 280) : height;
+  var dLen = (data||[]).length;
+  var effectiveHeight = m ? (type==='horizontalBar' ? Math.max(260, dLen*38) : type==='bar' ? Math.max(280, dLen*48) : type==='pie' ? 280 : 280) : height;
 
   useEffect(()=>{
     if(!chartRef.current || typeof echarts==='undefined') return;
@@ -1626,8 +1651,9 @@ function App(){
   const totMeta=useMemo(()=>Object.values(machAgg).reduce((s,a)=>s+a.totalMeta,0),[machAgg]);
 
   const chartProdVsMeta=useMemo(()=>
-    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
-      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>15?m.name.substring(0,13)+"...":m.name,meta:a.totalMeta||0,producao:a.totalProd||0}; })
+    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name,meta:a.totalMeta||0,producao:a.totalProd||0}; })
+      .filter(m=>m.meta>0||m.producao>0)
       .sort((a,b)=>b.producao-a.producao).slice(0,10)
   ,[machAgg,dfMac,machines]);
 
@@ -1647,8 +1673,8 @@ function App(){
   },[dashData,machAgg]);
 
   const chartPerformers=useMemo(()=>
-    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac).filter(m=>m.hasMeta)
-      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name.length>22?m.name.substring(0,20)+"...":m.name,pct:a.pct||0,producao:a.totalProd||0}; })
+    machines.filter(m=>dfMac==="TODAS"||m.name===dfMac)
+      .map(m=>{ const a=machAgg[m.id]||{}; return {name:m.name,pct:a.pct||0,producao:a.totalProd||0}; })
       .filter(m=>m.producao>0).sort((a,b)=>b.pct-a.pct).slice(0,8)
   ,[machAgg,dfMac,machines]);
 
