@@ -154,6 +154,28 @@ function buildExportSections(sections, ctx, opts) {
       html.push('</tbody></table>');
     }
 
+    if(sec==='feedbacks'){
+      var fbData = data.filter(function(r){ return r.obs && r.obs.trim(); }).sort(function(a,b){ return b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno); });
+      html.push('<h3 style="color:#003366;margin:24px 0 10px;font-size:15px">Feedbacks / Observações <span style="font-weight:400;font-size:13px;color:#6B7280">('+fbData.length+')</span></h3>');
+      if(fbData.length===0){
+        html.push('<p style="color:#94A3B8;margin:16px 0">Nenhuma observação registrada no período.</p>');
+      } else {
+        html.push('<table><thead><tr><th>Data</th><th>Turno</th><th>Máquina</th><th style="text-align:center">Produção</th><th style="text-align:center">%</th><th>Registrado por</th><th style="min-width:200px">Observação</th></tr></thead><tbody>');
+        for(var fi=0;fi<fbData.length;fi++){
+          var fr=fbData[fi], fmac=machines.find(function(m){return m.id===Number(fr.machineId);}), fmeta=num(fr.meta), fprod=num(fr.producao);
+          var fpct=fmac&&fmac.hasMeta&&fmeta>0?Math.round(fprod/fmeta*100):null;
+          var fcol=fpct===null?'#6B7280':fpct>=100?'#22C55E':fpct>=80?'#F59E0B':'#EF4444';
+          var fbg=fi%2===0?'#F8FAFC':'#fff';
+          html.push('<tr style="background:'+fbg+'"><td>'+dispD(fr.date)+'</td><td>'+fr.turno+'</td><td style="font-weight:600;color:#003366">'+(fr.machineName||(fmac?fmac.name:''))+'</td>');
+          html.push('<td style="text-align:center;font-weight:700">'+fprod.toLocaleString('pt-BR')+'</td>');
+          html.push('<td style="text-align:center;font-weight:700;color:'+fcol+'">'+(fpct!==null?fpct+'%':'—')+'</td>');
+          html.push('<td style="font-size:12px">'+(fr.editUser||fr.savedBy||'')+'</td>');
+          html.push('<td style="background:#eff6ff;border-radius:4px;padding:8px 12px;font-size:12px;color:#003366;line-height:1.5">'+fr.obs+'</td></tr>');
+        }
+        html.push('</tbody></table>');
+      }
+    }
+
     if(sec==='turnos'){
       html.push('<h3 style="color:#003366;margin:24px 0 10px;font-size:15px">Comparativo por Turno</h3>');
       html.push('<table><thead><tr><th>Máquina</th><th style="text-align:center">TURNO 1</th><th style="text-align:center">TURNO 2</th><th style="text-align:center">TURNO 3</th><th style="text-align:center">Total</th><th style="text-align:center">Melhor</th></tr></thead><tbody>');
@@ -236,6 +258,18 @@ function doExport(format, sections, ctx, opts) {
         lines.push('');
       }
 
+      if(sec==='feedbacks'){
+        var fbData2 = data.filter(function(r){ return r.obs && r.obs.trim(); }).sort(function(a,b){ return b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno); });
+        lines.push('"=== FEEDBACKS / OBSERVAÇÕES ('+fbData2.length+') ==="');
+        lines.push('"Data";"Turno";"Máquina";"Produção";"% Meta";"Registrado por";"Observação"');
+        for(var fi2=0;fi2<fbData2.length;fi2++){
+          var fr2=fbData2[fi2], fmac2=machines.find(function(m){return m.id===Number(fr2.machineId);}), fmeta2=num(fr2.meta), fprod2=num(fr2.producao);
+          var fpct2=fmac2&&fmac2.hasMeta&&fmeta2>0?Math.round(fprod2/fmeta2*100)+'%':'';
+          lines.push([dispD(fr2.date),fr2.turno,fr2.machineName||(fmac2?fmac2.name:''),fprod2,fpct2,fr2.editUser||fr2.savedBy||'',fr2.obs||''].map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(';'));
+        }
+        lines.push('');
+      }
+
       if(sec==='turnos'){
         lines.push('"=== COMPARATIVO POR TURNO ==="');
         lines.push('"Máquina";"TURNO 1";"TURNO 2";"TURNO 3";"Total";"Melhor Turno"');
@@ -305,12 +339,12 @@ function doExport(format, sections, ctx, opts) {
 // ─── EXPORT MODAL ────────────────────────────────────────────
 function ExportModal({onExport,onClose}){
   var [format,setFormat] = useState('pdf');
-  var [selected,setSelected] = useState({resumo:true,detalhado:true,turnos:false,graficos:false});
-  var [order,setOrder] = useState(['resumo','detalhado','turnos','graficos']);
+  var [selected,setSelected] = useState({resumo:true,detalhado:true,feedbacks:true,turnos:false,graficos:false});
+  var [order,setOrder] = useState(['resumo','detalhado','feedbacks','turnos','graficos']);
   var [hideEmpty,setHideEmpty] = useState(false);
 
-  var labels = {resumo:'Resumo por Máquina',detalhado:'Dados Detalhados',turnos:'Comparativo por Turno',graficos:'Gráficos'};
-  var descriptions = {resumo:'KPIs e tabela agregada por máquina',detalhado:'Todos os apontamentos individuais',turnos:'Produção comparada entre turnos',graficos:'Imagens dos gráficos (apenas PDF)'};
+  var labels = {resumo:'Resumo por Máquina',detalhado:'Dados Detalhados',feedbacks:'Feedbacks / Observações',turnos:'Comparativo por Turno',graficos:'Gráficos'};
+  var descriptions = {resumo:'KPIs e tabela agregada por máquina',detalhado:'Todos os apontamentos individuais',feedbacks:'Registros com observações no período',turnos:'Produção comparada entre turnos',graficos:'Imagens dos gráficos (apenas PDF)'};
 
   function toggleSection(key){ setSelected(function(p){ var n={}; for(var k in p) n[k]=p[k]; n[key]=!n[key]; return n; }); }
 
@@ -1198,7 +1232,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 }
 
 // ─── TAB HISTÓRICO ────────────────────────────────────────────
-function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec,isMobile}){
+function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDeleteRec,setObsRec,isMobile}){
   var [hView,setHView] = useState("calendario");
   var [calMonth,setCalMonth] = useState(()=>{ var d=new Date(); return {year:d.getFullYear(),month:d.getMonth()}; });
   var [selectedDay,setSelectedDay] = useState(null); // {date,turno} or null
@@ -1480,8 +1514,7 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,dfIni,setDfIni,df
     )
   );
 
-  return el("div",null,
-    el(FilterBar,{dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines}),
+  return el("div",{style:{maxWidth:1100,margin:"0 auto"}},
     viewToggle,
     hView==="calendario" ? el(React.Fragment,null,calendarView,detailPanel) : tableView
   );
@@ -2261,7 +2294,7 @@ function App(){
     el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile,onOpenExport:()=>setShowExport(true)}),
-      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setEditRec,setDeleteRec,setObsRec,isMobile}),
+      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,setEditRec,setDeleteRec,setObsRec,isMobile}),
       tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos}),
       tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
     )
