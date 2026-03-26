@@ -103,7 +103,6 @@ function captureCharts() {
 function buildExportSections(sections, ctx, opts) {
   var {data,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac} = ctx;
   var hideEmpty = opts && opts.hideEmpty;
-  if(hideEmpty) data = data.filter(function(r){ return num(r.producao)>0; });
   var pctGeral = totMeta>0 ? Math.round(totProd/totMeta*100) : null;
   var pctGeralCol = pctGeral===null?'#6B7280':pctGeral>=100?'#22C55E':pctGeral>=80?'#F59E0B':'#EF4444';
   var html = [];
@@ -121,7 +120,7 @@ function buildExportSections(sections, ctx, opts) {
       html.push('</div>');
       html.push('<table><thead><tr><th>Máquina</th><th style="text-align:center">Dias</th><th style="text-align:center">Produção</th><th style="text-align:center">Meta</th><th style="text-align:center">%</th></tr></thead><tbody>');
       var macList = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
-      if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
+      if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return !!a; });
       for(var mi=0;mi<macList.length;mi++){
         var m=macList[mi], a=machAgg[m.id];
         var bg = mi%2===0?'#F8FAFC':'#fff';
@@ -180,7 +179,7 @@ function buildExportSections(sections, ctx, opts) {
       html.push('<h3 style="color:#003366;margin:24px 0 10px;font-size:15px">Comparativo por Turno</h3>');
       html.push('<table><thead><tr><th>Máquina</th><th style="text-align:center">TURNO 1</th><th style="text-align:center">TURNO 2</th><th style="text-align:center">TURNO 3</th><th style="text-align:center">Total</th><th style="text-align:center">Melhor</th></tr></thead><tbody>');
       var macList2 = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
-      if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
+      if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return !!a; });
       for(var ti=0;ti<macList2.length;ti++){
         var m2=macList2[ti], a2=machAgg[m2.id];
         var bg2 = ti%2===0?'#F8FAFC':'#fff';
@@ -218,7 +217,6 @@ function buildExportSections(sections, ctx, opts) {
 function doExport(format, sections, ctx, opts) {
   var {data,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac} = ctx;
   var hideEmpty = opts && opts.hideEmpty;
-  if(hideEmpty) data = data.filter(function(r){ return num(r.producao)>0; });
 
   if(format==='csv'){
     // CSV: gera planilha com as seções selecionadas
@@ -238,7 +236,7 @@ function doExport(format, sections, ctx, opts) {
         lines.push('"=== RESUMO POR MÁQUINA ==="');
         lines.push('"Máquina";"Dias";"Produção";"Meta";"% Meta"');
         var macList = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
-        if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
+        if(hideEmpty) macList = macList.filter(function(m){ var a=machAgg[m.id]; return !!a; });
         for(var mi=0;mi<macList.length;mi++){
           var m=macList[mi], a=machAgg[m.id];
           lines.push([m.name, a?a.diasCount:0, a?a.totalProd:0, m.hasMeta?(a?a.totalMeta:0):'', a&&a.pct!=null?a.pct+'%':''].map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(';'));
@@ -274,7 +272,7 @@ function doExport(format, sections, ctx, opts) {
         lines.push('"=== COMPARATIVO POR TURNO ==="');
         lines.push('"Máquina";"TURNO 1";"TURNO 2";"TURNO 3";"Total";"Melhor Turno"');
         var macList2 = machines.filter(function(m){ return dfMac==='TODAS'||m.name===dfMac; });
-        if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return a && a.totalProd>0; });
+        if(hideEmpty) macList2 = macList2.filter(function(m){ var a=machAgg[m.id]; return !!a; });
         for(var ti=0;ti<macList2.length;ti++){
           var m2=macList2[ti], a2=machAgg[m2.id], total2=a2?a2.totalProd:0;
           var bestT='—', bestV=0;
@@ -417,7 +415,7 @@ function ExportModal({onExport,onClose}){
       ),
       el("div",null,
         el("div",{style:{fontSize:13,fontWeight:600,color:"#1E293B"}},"Ocultar dados não preenchidos"),
-        el("div",{style:{fontSize:11,color:"#94A3B8",marginTop:1}},"Remove máquinas/registros sem produção do relatório")
+        el("div",{style:{fontSize:11,color:"#94A3B8",marginTop:1}},"Remove máquinas sem nenhum apontamento registrado")
       )
     ),
 
@@ -1232,7 +1230,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
 }
 
 // ─── TAB HISTÓRICO ────────────────────────────────────────────
-function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDeleteRec,setObsRec,isMobile}){
+function TabHistorico({machines,metas,records,setEditRec,setDeleteRec,setObsRec,isMobile}){
   var [hView,setHView] = useState("calendario");
   var [calMonth,setCalMonth] = useState(()=>{ var d=new Date(); return {year:d.getFullYear(),month:d.getMonth()}; });
   var [selectedDay,setSelectedDay] = useState(null); // {date,turno} or null
@@ -1241,7 +1239,8 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDel
   // Build lookup: date -> {turno -> [records]}
   var calData = useMemo(()=>{
     var map = {};
-    dashData.forEach(r=>{
+    records.forEach(r=>{
+      if(!r.date) return;
       var nd = normDate(r.date);
       if(!nd) return;
       if(!map[nd]) map[nd] = {};
@@ -1249,7 +1248,12 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDel
       map[nd][r.turno].push(r);
     });
     return map;
-  },[dashData]);
+  },[records]);
+
+  // Sorted records for table view
+  var sortedTable = useMemo(()=>
+    records.filter(r=>r.date&&normDate(r.date)).slice().sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
+  ,[records]);
 
   // Calendar grid generation
   var calGrid = useMemo(()=>{
@@ -1464,7 +1468,7 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDel
   var tableView = el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
     el("div",{style:{background:C.navy,color:"#fff",padding:"12px 18px",fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}},
       el("span",{style:{fontSize:14,letterSpacing:"0.2px"}},"Apontamentos Salvos"),
-      el("span",{style:{fontSize:12,color:"#8BACC8",fontWeight:500}},`${dashData.length} registros`)
+      el("span",{style:{fontSize:12,color:"#8BACC8",fontWeight:500}},`${sortedTable.length} registros`)
     ),
     el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:760}},
@@ -1479,8 +1483,8 @@ function TabHistorico({machines,metas,sortedHistorico,dashData,setEditRec,setDel
           el("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,fontWeight:600}},"AÇÕES")
         )),
         el("tbody",null,
-          sortedHistorico.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento no período.")),
-          ...sortedHistorico.map((r,i)=>{
+          sortedTable.length===0&&el("tr",null,el("td",{colSpan:8,style:{padding:32,textAlign:"center",color:"#8FA4B2"}},"Nenhum apontamento registrado.")),
+          ...sortedTable.map((r,i)=>{
             const mId=Number(r.machineId);
             const mac=machines.find(m=>m.id===mId);
             const savedMeta=num(r.meta);
@@ -2239,10 +2243,6 @@ function App(){
     }).sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
   ,[records,dfIni,dfFim,dfMac,machines]);
 
-  const sortedHistorico=useMemo(()=>
-    [...dashData].sort((a,b)=>b.date.localeCompare(a.date)||a.turno.localeCompare(b.turno))
-  ,[dashData]);
-
   // FIX: pendingCount conta mIds únicos (não double-conta input+obs da mesma máquina)
   const pendingCount=useMemo(()=>{
     const mIds=new Set();
@@ -2294,7 +2294,7 @@ function App(){
     el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
       tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
       tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile,onOpenExport:()=>setShowExport(true)}),
-      tab==="historico" &&el(TabHistorico, {machines,metas,sortedHistorico,dashData,setEditRec,setDeleteRec,setObsRec,isMobile}),
+      tab==="historico" &&el(TabHistorico, {machines,metas,records,setEditRec,setDeleteRec,setObsRec,isMobile}),
       tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos}),
       tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
     )
