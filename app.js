@@ -87,6 +87,25 @@ const IS = {border:"1px solid #D1D5DB",borderRadius:6,padding:"7px 10px",fontSiz
 const SS = {...IS,cursor:"pointer"};
 const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",transition:"filter .15s",...ex});
 
+// ─── PUSH BUTTON 3D (CSS) ────────────────────────────────────
+var LOADER_CSS=`.save-loader{position:relative;display:inline-block;width:50px;height:24px}.save-loader .sl-bar,.save-loader .sl-bar:before,.save-loader .sl-bar:after{background:#fff;animation:sl-bounce .8s infinite ease-in-out;width:6px;height:16px;border-radius:2px}.save-loader .sl-bar{display:inline-block;position:relative;animation-delay:.16s!important}.save-loader .sl-bar:before,.save-loader .sl-bar:after{position:absolute;top:0;content:""}.save-loader .sl-bar:before{left:-10px}.save-loader .sl-bar:after{left:10px;animation-delay:.32s!important}@keyframes sl-bounce{0%,80%,100%{opacity:.75;box-shadow:0 0 currentColor;height:16px}40%{opacity:1;box-shadow:0 -4px currentColor;height:20px}}.save-loader-header .sl-bar,.save-loader-header .sl-bar:before,.save-loader-header .sl-bar:after{background:#fde68a;width:4px;height:12px}.save-check{display:inline-flex;align-items:center;justify-content:center}.save-check svg{animation:sl-pop .35s cubic-bezier(.3,.7,.4,1.5)}@keyframes sl-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}`;
+var PUSH_CSS=`.push-btn{position:relative;border:none;background:transparent;padding:0;cursor:pointer;outline-offset:4px;transition:filter 250ms;user-select:none;touch-action:manipulation}.push-btn .pb-sh{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;will-change:transform;transform:translateY(2px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn .pb-edge{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px}.push-btn .pb-front{display:block;position:relative;padding:8px 20px;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:.4px;will-change:transform;transform:translateY(-4px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn:hover{filter:brightness(110%)}.push-btn:hover .pb-front{transform:translateY(-6px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-front{transform:translateY(-2px);transition:transform 34ms}.push-btn:hover .pb-sh{transform:translateY(4px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-sh{transform:translateY(1px);transition:transform 34ms}.push-btn:focus:not(:focus-visible){outline:none}.push-tv .pb-sh{background:hsl(0deg 0% 0%/.12)}.push-tv .pb-edge{background:linear-gradient(to left,hsl(210 18% 78%) 0%,hsl(210 14% 90%) 8%,hsl(210 14% 90%) 92%,hsl(210 18% 78%) 100%)}.push-tv .pb-front{background:#fff;color:#003366}.push-sair .pb-sh{background:hsl(0deg 0% 0%/.25)}.push-sair .pb-edge{background:linear-gradient(to left,hsl(345 100% 16%) 0%,hsl(345 100% 32%) 8%,hsl(345 100% 32%) 92%,hsl(345 100% 16%) 100%)}.push-sair .pb-front{background:hsl(345 100% 47%);color:#fff}`;
+
+function SaveLoader({header}){
+  return el("span",{className:"save-loader"+(header?" save-loader-header":"")},el("span",{className:"sl-bar"}));
+}
+function SaveCheck({size,color}){
+  return el("span",{className:"save-check"},el("svg",{width:size||20,height:size||20,viewBox:"0 0 24 24",fill:"none",stroke:color||"#22C55E",strokeWidth:3,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"4 12 10 18 20 6"})));
+}
+
+function PushButton({label,variant,onClick}){
+  return el("button",{className:"push-btn push-"+variant,onClick:onClick},
+    el("span",{className:"pb-sh"}),
+    el("span",{className:"pb-edge"}),
+    el("span",{className:"pb-front"},label)
+  );
+}
+
 // ─── EXPORTAÇÃO ───────────────────────────────────────────────
 function captureCharts() {
   const images = [];
@@ -1075,7 +1094,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
       ),
       el("div",{style:{display:"flex",flexDirection:"column",gap:4}},
         el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?"linear-gradient(135deg,#16a34a,#22C55E)":syncSt==="error"?"linear-gradient(135deg,#dc2626,#EF4444)":"linear-gradient(135deg,#003366,#0066B3)",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
-          syncSt==="syncing"?"Salvando...":syncSt==="ok"?"Salvo!":syncSt==="error"?"Erro!":("Salvar"+(pendingCount>0?` (${pendingCount})`:"")))
+          syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:22,color:"#fff"}):syncSt==="error"?"Erro!":("Salvar"+(pendingCount>0?` (${pendingCount})`:"")))
         ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`${pendingCount} não salvo(s)`)
       )
     ),
@@ -2317,12 +2336,12 @@ function App(){
       )
     ),
     el("div",{style:{display:"flex",gap:10,alignItems:"center",padding:isMobile?"0":"0 20px 0 0"}},
-      syncSt==="syncing"&&el("span",{style:{color:"#fde68a",fontSize:11,fontWeight:500}},"Sincronizando..."),
-      syncSt==="ok"    &&el("span",{style:{color:"#86efac",fontSize:11,fontWeight:500}},"Salvo"),
+      syncSt==="syncing"&&el(SaveLoader,{header:true}),
+      syncSt==="ok"    &&el(SaveCheck,{size:18,color:"#86efac"}),
       syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"Erro"),
-      !isMobile&&el("button",{onClick:()=>setShowTV(true),style:{background:"rgba(0,102,179,0.15)",border:"1px solid rgba(0,102,179,0.3)",color:"#8BCAFF",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,lineHeight:"1.25rem",boxShadow:"0 1px 2px 0 rgba(0,0,0,0.1)",transition:"all .15s"}},"TV"),
+      !isMobile&&el(PushButton,{label:"TV",variant:"tv",onClick:()=>setShowTV(true)}),
       user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#C8D8E8",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,lineHeight:"1.25rem",boxShadow:"0 1px 2px 0 rgba(0,0,0,0.1)",transition:"all .15s"}},"Admin"),
-      el("button",{onClick:handleLogout,style:{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",color:"#fca5a5",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,lineHeight:"1.25rem",boxShadow:"0 1px 2px 0 rgba(0,0,0,0.1)",transition:"all .15s"}},"Sair")
+      el(PushButton,{label:"Sair",variant:"sair",onClick:handleLogout})
     )
   );
 
@@ -2350,6 +2369,7 @@ function App(){
   );
 
   return el("div",{style:{fontFamily:"'Segoe UI','Inter',-apple-system,sans-serif",background:"#F5F6FA",minHeight:"100vh"}},
+    el("style",null,PUSH_CSS+LOADER_CSS),
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
