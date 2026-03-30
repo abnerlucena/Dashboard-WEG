@@ -6,7 +6,12 @@
       "WebSearch",
       "WebFetch(domain:www.brandcolorcode.com)",
       "Bash(node -c app.js)",
-      "Bash(node -e \"const fs=require\\(''fs''\\); const html=fs.readFileSync\\(''index.html'',''utf8''\\); console.log\\(''Lines:'',html.split\\(''\\\\n''\\).length\\); if\\(html.includes\\(''style.css''\\)\\) console.log\\(''WARN: style.css still referenced''\\); if\\(html.includes\\(\"\"''/sw.js''\"\"\\)\\) console.log\\(''WARN: absolute sw.js path''\\); console.log\\(''OK''\\);\")"
+      "Bash(node -e \"const fs=require\\(''fs''\\); const html=fs.readFileSync\\(''index.html'',''utf8''\\); console.log\\(''Lines:'',html.split\\(''\\\\n''\\).length\\); if\\(html.includes\\(''style.css''\\)\\) console.log\\(''WARN: style.css still referenced''\\); if\\(html.includes\\(\"\"''/sw.js''\"\"\\)\\) console.log\\(''WARN: absolute sw.js path''\\); console.log\\(''OK''\\);\")",
+      "Bash(node -c Main.gs)",
+      "Bash(node --input-type=module -e \"import fs from ''fs''; const code=fs.readFileSync\\(''Main.gs'',''utf8''\\); new Function\\(code\\);\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\); const code=fs.readFileSync\\(''Main.gs'',''utf8''\\); try{new Function\\(code\\);console.log\\(''Syntax OK''\\)}catch\\(e\\){console.error\\(e.message\\)}\")",
+      "Bash(node -e \"const fs=require\\(''fs''\\); const code=fs.readFileSync\\(''c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/Main.gs'',''utf8''\\); try{new Function\\(code\\);console.log\\(''Syntax OK''\\)}catch\\(e\\){console.error\\(''ERROR:'',e.message\\)}\")",
+      "Bash(node -c \"c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js\")"
     ]
   }
 }

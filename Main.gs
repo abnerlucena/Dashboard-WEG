@@ -9,6 +9,8 @@ const SESSION_SHEET = "Sessions";
 const AUDIT_SHEET = "AuditLogs";
 const INVITE_CODES_SHEET = "InviteCodes";
 const METAS_SHEET = "Metas";
+const MACHINES_SHEET = "Maquinas";
+const MACHINES_HEADERS = ["id", "name", "hasMeta", "defaultMeta", "status", "createdBy", "createdAt"];
 const ADMIN_USER = "Admin";
 
 // Configurações de Segurança
@@ -328,6 +330,26 @@ function getInviteCodesSheet() {
     sheet = ss.insertSheet(INVITE_CODES_SHEET);
     sheet.appendRow(INVITE_HEADERS);
     sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getMachinesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(MACHINES_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(MACHINES_SHEET);
+    sheet.appendRow(MACHINES_HEADERS);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, MACHINES_HEADERS.length)
+      .setBackground("#1e3a5f")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+    // Migrar MACHINE_DEFS para a planilha
+    const now = new Date().toISOString();
+    MACHINE_DEFS.forEach(m => {
+      sheet.appendRow([m.id, m.name, m.hasMeta ? "TRUE" : "FALSE", m.defaultMeta, "ativo", "SYSTEM", now]);
+    });
   }
   return sheet;
 }
@@ -664,6 +686,12 @@ function doGet(e) {
         return json(actionAppend(payload.token, payload.records || []));
       case "getMachines":
         return json(actionGetMachines(payload.token));
+      case "addMachine":
+        return json(actionAddMachine(payload.token, payload.name, payload.hasMeta, payload.defaultMeta));
+      case "updateMachine":
+        return json(actionUpdateMachine(payload.token, payload.machineId, payload.name, payload.hasMeta, payload.defaultMeta));
+      case "toggleMachine":
+        return json(actionToggleMachine(payload.token, payload.machineId));
       case "getMetas":
         return json(actionGetMetas(payload.token));
       case "saveMetas":
@@ -996,10 +1024,96 @@ function actionAdminCreateUser(token, nome, senha) {
 // METAS GLOBAIS (compartilhadas entre todos os usuários)
 // ══════════════════════════════════════════════════════════════
 
+function readMachinesFromSheet() {
+  const sheet = getMachinesSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+  const data = sheet.getRange(2, 1, lastRow - 1, MACHINES_HEADERS.length).getValues();
+  return data.map(row => ({
+    id: Number(row[0]),
+    name: String(row[1]),
+    hasMeta: String(row[2]).toUpperCase() === "TRUE",
+    defaultMeta: Number(row[3]),
+    status: String(row[4]) || "ativo",
+    createdBy: String(row[5]),
+    createdAt: String(row[6])
+  }));
+}
+
 function actionGetMachines(token) {
   const session = validateSession(token);
   if (!session) return { ok: false, error: "Sessão inválida ou expirada. Faça login novamente." };
-  return { ok: true, machines: MACHINE_DEFS };
+  const all = readMachinesFromSheet();
+  const active = all.filter(m => m.status === "ativo");
+  return { ok: true, machines: active, allMachines: all };
+}
+
+function actionAddMachine(token, name, hasMeta, defaultMeta) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
+  if (session.role !== "admin") return { ok: false, error: "Apenas administradores podem gerenciar máquinas." };
+  if (!name || !name.trim()) return { ok: false, error: "Nome da máquina é obrigatório." };
+
+  const all = readMachinesFromSheet();
+  const dup = all.find(m => m.name.toUpperCase() === name.trim().toUpperCase());
+  if (dup) return { ok: false, error: "Já existe uma máquina com esse nome." };
+
+  const maxId = all.reduce((mx, m) => Math.max(mx, m.id), 0);
+  const newId = maxId + 1;
+  const now = new Date().toISOString();
+  const sheet = getMachinesSheet();
+  sheet.appendRow([newId, name.trim(), hasMeta ? "TRUE" : "FALSE", Number(defaultMeta) || 0, "ativo", session.nome, now]);
+
+  auditLog(session.nome, "ADD_MACHINE", { id: newId, name: name.trim() });
+  return { ok: true, machine: { id: newId, name: name.trim(), hasMeta: !!hasMeta, defaultMeta: Number(defaultMeta) || 0, status: "ativo" } };
+}
+
+function actionUpdateMachine(token, machineId, name, hasMeta, defaultMeta) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
+  if (session.role !== "admin") return { ok: false, error: "Apenas administradores podem gerenciar máquinas." };
+  if (!name || !name.trim()) return { ok: false, error: "Nome da máquina é obrigatório." };
+
+  const sheet = getMachinesSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { ok: false, error: "Máquina não encontrada." };
+
+  const data = sheet.getRange(2, 1, lastRow - 1, MACHINES_HEADERS.length).getValues();
+  const rowIdx = data.findIndex(row => Number(row[0]) === Number(machineId));
+  if (rowIdx === -1) return { ok: false, error: "Máquina não encontrada." };
+
+  // Check duplicate name (excluding current)
+  const dup = data.find((row, i) => i !== rowIdx && String(row[1]).toUpperCase() === name.trim().toUpperCase());
+  if (dup) return { ok: false, error: "Já existe outra máquina com esse nome." };
+
+  const sheetRow = rowIdx + 2;
+  sheet.getRange(sheetRow, 2).setValue(name.trim());
+  sheet.getRange(sheetRow, 3).setValue(hasMeta ? "TRUE" : "FALSE");
+  sheet.getRange(sheetRow, 4).setValue(Number(defaultMeta) || 0);
+
+  auditLog(session.nome, "UPDATE_MACHINE", { id: Number(machineId), name: name.trim() });
+  return { ok: true };
+}
+
+function actionToggleMachine(token, machineId) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
+  if (session.role !== "admin") return { ok: false, error: "Apenas administradores podem gerenciar máquinas." };
+
+  const sheet = getMachinesSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return { ok: false, error: "Máquina não encontrada." };
+
+  const data = sheet.getRange(2, 1, lastRow - 1, MACHINES_HEADERS.length).getValues();
+  const rowIdx = data.findIndex(row => Number(row[0]) === Number(machineId));
+  if (rowIdx === -1) return { ok: false, error: "Máquina não encontrada." };
+
+  const current = String(data[rowIdx][4]);
+  const newStatus = current === "ativo" ? "inativo" : "ativo";
+  sheet.getRange(rowIdx + 2, 5).setValue(newStatus);
+
+  auditLog(session.nome, "TOGGLE_MACHINE", { id: Number(machineId), newStatus });
+  return { ok: true, newStatus };
 }
 
 function actionGetMetas(token) {
