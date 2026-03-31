@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard WEG — Preview Analytics + Gerenciamento de Máquinas</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F6FA;color:#0F172A}
+
+/* ── Header ── */
+.header{background:linear-gradient(135deg,#003366,#004E8C);height:60px;display:flex;align-items:stretch;justify-content:space-between;border-bottom:3px solid #0066B3}
+.logo-box{background:#0066B3;padding:0 24px;display:flex;align-items:center;justify-content:center}
+.logo-box span{color:#fff;font-size:20px;font-weight:900;letter-spacing:1px}
+.header-title{display:flex;align-items:center;padding:0 18px;gap:10px}
+.header-title h1{color:#fff;font-size:16px;font-weight:700;letter-spacing:.4px}
+.header-right{display:flex;align-items:center;gap:12px;padding:0 20px}
+.header-user{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+
+/* ── Push Buttons ── */
+.push-btn{position:relative;border:none;background:transparent;padding:0;cursor:pointer;outline-offset:4px;transition:filter 250ms;user-select:none}
+.push-btn .pb-sh{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;will-change:transform;transform:translateY(2px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}
+.push-btn .pb-edge{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px}
+.push-btn .pb-front{display:block;position:relative;padding:8px 20px;border-radius:10px;font-size:13px;font-weight:700;letter-spacing:.4px;will-change:transform;transform:translateY(-4px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}
+.push-btn:hover{filter:brightness(110%)}.push-btn:hover .pb-front{transform:translateY(-6px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}
+.push-btn:active .pb-front{transform:translateY(-2px);transition:transform 34ms}
+.push-btn:hover .pb-sh{transform:translateY(4px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}
+.push-tv .pb-sh{background:hsl(0 0% 0%/.12)}.push-tv .pb-edge{background:linear-gradient(to left,hsl(210 18% 78%),hsl(210 14% 90%) 8%,hsl(210 14% 90%) 92%,hsl(210 18% 78%))}.push-tv .pb-front{background:#fff;color:#003366}
+.push-sair .pb-sh{background:hsl(0 0% 0%/.25)}.push-sair .pb-edge{background:linear-gradient(to left,hsl(345 100% 16%),hsl(345 100% 32%) 8%,hsl(345 100% 32%) 92%,hsl(345 100% 16%))}.push-sair .pb-front{background:hsl(345 100% 47%);color:#fff}
+
+/* ── Tab Bar ── */
+.tab-bar{background:#fff;display:flex;gap:6px;padding:10px 24px;border-bottom:1px solid #E5E7EB}
+.tab-btn{background:#fff;border:1px solid #D1D5DB;border-radius:8;color:#111827;font-size:14px;font-weight:600;padding:10px 18px;cursor:pointer;transition:all .15s;font-family:inherit}
+.tab-btn:hover{background:#f9fafb}
+.tab-btn.active{background:#eff6ff;border:1px solid #0066B3;color:#003366;font-weight:700;box-shadow:0 0 0 1px rgba(0,102,179,0.1)}
+
+/* ── View Buttons ── */
+.view-bar{display:flex;gap:6px;flex-wrap:wrap}
+.view-btn{background:#fff;border:1px solid #D1D5DB;border-radius:8px;color:#111827;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;transition:all .15s;font-family:inherit}
+.view-btn:hover{background:#f9fafb}
+.view-btn.active{background:#eff6ff;border-color:#0066B3;color:#003366;font-weight:700}
+
+/* ── KPI Grid ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px}
+.kpi-card{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.kpi-label{font-size:10.5px;color:#6B7280;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px}
+.kpi-value{font-size:26px;font-weight:800;line-height:1.1;margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.kpi-sub{font-size:11px;color:#94A3B8}
+.arrow-up{color:#22C55E;font-size:14px}.arrow-down{color:#EF4444;font-size:14px}
+
+/* ── Ranking ── */
+.rank-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.rank-card{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.rank-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.rank-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9}
+.rank-item:last-child{border-bottom:none}
+.rank-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.rank-name{font-size:13px;font-weight:600;color:#003366}
+.rank-badge{border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+
+/* ── Charts Grid ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.chart-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.chart-title{font-size:16px;font-weight:700;color:#003366;margin-bottom:2px}
+.chart-subtitle{font-size:12px;color:#94A3B8;margin-bottom:12px}
+.chart-full{grid-column:1/-1}
+
+/* ── Derived Data Cards ── */
+.derived-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.derived-card{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.derived-title{font-size:12px;font-weight:700;color:#003366;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.derived-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f8fafc}
+.derived-row:last-child{border-bottom:none}
+
+/* ── Export Bar ── */
+.export-bar{background:#fff;border-radius:8px;padding:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;display:flex;gap:8px;align-items:center}
+.export-btn{background:linear-gradient(135deg,#003366,#0066B3);border:1px solid #003366;border-radius:8px;color:#fff;font-size:14px;font-weight:700;padding:10px 18px;cursor:pointer;font-family:inherit}
+
+/* ── Filter Bar ── */
+.filter-bar{background:#fff;border-radius:8px;padding:10px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.filter-lbl{font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.filter-input{border:1px solid #D1D5DB;border-radius:6px;padding:7px 10px;font-size:14px;background:#fff;outline:none}
+
+/* ── Admin Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.modal-header{background:#003366;color:#fff;padding:16px 20px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center}
+.modal-header span{font-weight:700;font-size:15px;letter-spacing:.3px}
+.modal-tabs{display:flex;gap:6px;padding:12px 22px 0;border-bottom:1px solid #E5E7EB}
+.modal-body{padding:22px}
+.mach-table{width:100%;border-collapse:collapse;font-size:13px}
+.mach-table th{padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:#475569;background:#F8FAFC}
+.mach-table td{padding:6px 10px}
+.mach-table tr:nth-child(even){background:#F8FAFC}
+.status-badge{border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700}
+.btn-sm{border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600}
+.add-form{margin-top:22px;padding:16px;background:#F8FAFC;border-radius:12px;border:1px solid #E8ECF1}
+.add-form-title{font-weight:700;color:#003366;margin-bottom:12px}
+.add-grid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px}
+.input-lbl{font-size:12px;font-weight:600;color:#1E293B;margin-bottom:4px}
+.add-input{border:1px solid #D1D5DB;border-radius:6px;padding:7px 10px;font-size:14px;width:100%;outline:none}
+.btn-add{background:linear-gradient(135deg,#16a34a,#22C55E);color:#fff;border:none;border-radius:8px;padding:9px 22px;font-weight:700;font-size:14px;cursor:pointer}
+
+.section-title{font-size:18px;font-weight:800;color:#003366;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid #E5E7EB;display:flex;align-items:center;gap:8px}
+.section-tag{font-size:11px;background:#eff6ff;color:#0066B3;padding:2px 10px;border-radius:20px;font-weight:700}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ════════════ HEADER ════════════ -->
+<div class="header">
+  <div style="display:flex;align-items:center;height:100%">
+    <div class="logo-box"><span>WEG</span></div>
+    <div class="header-title"><h1>Painel de Produção</h1></div>
+  </div>
+  <div class="header-right">
+    <span class="header-user">Admin</span>
+    <button class="push-btn push-tv" onclick="toggleModal()"><span class="pb-sh"></span><span class="pb-edge"></span><span class="pb-front">Admin</span></button>
+    <button class="push-btn push-tv"><span class="pb-sh"></span><span class="pb-edge"></span><span class="pb-front">TV</span></button>
+    <button class="push-btn push-sair"><span class="pb-sh"></span><span class="pb-edge"></span><span class="pb-front">Sair</span></button>
+  </div>
+</div>
+
+<!-- ════════════ TAB BAR ════════════ -->
+<div class="tab-bar">
+  <button class="tab-btn" data-tab="entrada">Apontamento</button>
+  <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+  <button class="tab-btn" data-tab="historico">Histórico</button>
+  <button class="tab-btn" data-tab="metas">Metas</button>
+  <button class="tab-btn" data-tab="feedbacks">Feedbacks</button>
+</div>
+
+<div style="max-width:1400px;margin:0 auto;padding:16px 20px">
+
+<!-- ════════════ SECTION 1: NOVOS KPIs ════════════ -->
+<div class="section-title">KPIs Inteligentes <span class="section-tag">NOVO</span></div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <div><div class="filter-lbl">DE</div><input type="date" value="2026-03-01" class="filter-input"></div>
+  <div><div class="filter-lbl">ATÉ</div><input type="date" value="2026-03-30" class="filter-input"></div>
+  <div><div class="filter-lbl">MÁQUINA</div><select class="filter-input"><option>TODAS</option></select></div>
+  <div><div class="filter-lbl">TURNO</div><select class="filter-input"><option>TODOS</option></select></div>
+  <div style="margin-left:auto">
+    <div class="view-bar">
+      <button class="view-btn" onclick="switchView('resumo',this)">Resumo</button>
+      <button class="view-btn" onclick="switchView('detalhado',this)">Detalhado</button>
+      <button class="view-btn" onclick="switchView('turnos',this)">Turnos</button>
+      <button class="view-btn" onclick="switchView('graficos',this)">Gráficos</button>
+      <button class="view-btn active" onclick="switchView('analytics',this)">Analytics</button>
+    </div>
+  </div>
+</div>
+
+<!-- 8 KPI Cards -->
+<div class="kpi-grid">
+  <div class="kpi-card" style="border-left:4px solid #0066B3">
+    <div class="kpi-label">Produção Total</div>
+    <div class="kpi-value" style="color:#0066B3">847.230</div>
+    <div class="kpi-sub">peças</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #003366">
+    <div class="kpi-label">Meta Total</div>
+    <div class="kpi-value" style="color:#003366">900.000</div>
+    <div class="kpi-sub">peças</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #22C55E">
+    <div class="kpi-label">OEE Global</div>
+    <div class="kpi-value" style="color:#22C55E">94%</div>
+    <div class="kpi-sub">eficiência ponderada</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #22C55E">
+    <div class="kpi-label">Tendência</div>
+    <div class="kpi-value" style="color:#22C55E">+7% <span class="arrow-up">▲</span></div>
+    <div class="kpi-sub">vs mês anterior</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #22C55E">
+    <div class="kpi-label">Tx. Apontamento</div>
+    <div class="kpi-value" style="color:#22C55E">92%</div>
+    <div class="kpi-sub">disciplina operac.</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #22C55E">
+    <div class="kpi-label">Dias Consecutivos</div>
+    <div class="kpi-value" style="color:#22C55E">12</div>
+    <div class="kpi-sub">acima de 90%</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #0095A8">
+    <div class="kpi-label">Registros</div>
+    <div class="kpi-value" style="color:#0095A8">1.247</div>
+    <div class="kpi-sub">lançamentos</div>
+  </div>
+  <div class="kpi-card" style="border-left:4px solid #F59E0B">
+    <div class="kpi-label">Máquinas Ativas</div>
+    <div class="kpi-value" style="color:#F59E0B">16</div>
+    <div class="kpi-sub">de 19</div>
+  </div>
+</div>
+
+<!-- ════════════ SECTION 2: RANKING ════════════ -->
+<div class="section-title">Ranking de Máquinas <span class="section-tag">NOVO</span></div>
+
+<div class="rank-grid">
+  <div class="rank-card">
+    <div class="rank-title" style="color:#22C55E">TOP 3 MELHORES</div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#22C55E22;color:#22C55E">1</span>
+        <span class="rank-name">HORIZONTAL 1</span>
+      </div>
+      <span class="rank-badge" style="background:#22C55E1e;color:#16a34a">112%</span>
+    </div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#22C55E22;color:#22C55E">2</span>
+        <span class="rank-name">A GRANEL</span>
+      </div>
+      <span class="rank-badge" style="background:#22C55E1e;color:#16a34a">108%</span>
+    </div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#22C55E22;color:#22C55E">3</span>
+        <span class="rank-name">MÁQ. TOMADAS AUTO.</span>
+      </div>
+      <span class="rank-badge" style="background:#22C55E1e;color:#16a34a">105%</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-title" style="color:#EF4444">3 QUE MAIS PRECISAM DE ATENÇÃO</div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#EF444422;color:#EF4444">1</span>
+        <span class="rank-name">MONTAGEM DIVERSOS</span>
+      </div>
+      <span class="rank-badge" style="background:#EF44441e;color:#dc2626">62%</span>
+    </div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#EF444422;color:#EF4444">2</span>
+        <span class="rank-name">KIT 2 PARAFUSO</span>
+      </div>
+      <span class="rank-badge" style="background:#EF44441e;color:#dc2626">71%</span>
+    </div>
+    <div class="rank-item">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="rank-num" style="background:#EF444422;color:#EF4444">3</span>
+        <span class="rank-name">MANUAL INTERRUPTOR</span>
+      </div>
+      <span class="rank-badge" style="background:#EF44441e;color:#dc2626">74%</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ SECTION 3: ANALYTICS CHARTS ════════════ -->
+<div class="section-title">View Analytics <span class="section-tag">NOVO</span></div>
+
+<!-- Trend 30d full width -->
+<div class="chart-card chart-full" style="margin-bottom:16px">
+  <div class="chart-title">Tendência 30 dias + Média Móvel 7d</div>
+  <div class="chart-subtitle">Produção diária vs meta global de 60.000 peças</div>
+  <div id="chartTrend" style="width:100%;height:380px"></div>
+</div>
+
+<!-- Heatmap + Pareto -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-title">Heatmap Semanal</div>
+    <div class="chart-subtitle">% meta por máquina x dia (últimos 7 dias)</div>
+    <div id="chartHeatmap" style="width:100%;height:400px"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Pareto de Perdas</div>
+    <div class="chart-subtitle">Máquinas ordenadas por gap absoluto (meta - produção)</div>
+    <div id="chartPareto" style="width:100%;height:400px"></div>
+  </div>
+</div>
+
+<!-- Boxplot + Stacked -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-title">Box-Plot por Turno</div>
+    <div class="chart-subtitle">Dispersão da produção — revela instabilidade por turno</div>
+    <div id="chartBoxplot" style="width:100%;height:350px"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Contribuição por Turno</div>
+    <div class="chart-subtitle">Produção empilhada T1+T2+T3 por dia (últimos 14 dias)</div>
+    <div id="chartStacked" style="width:100%;height:350px"></div>
+  </div>
+</div>
+
+<!-- Scatter full width -->
+<div class="chart-card chart-full" style="margin-bottom:16px">
+  <div class="chart-title">Produção vs Meta por Máquina</div>
+  <div class="chart-subtitle">Acima da diagonal = acima da meta. Tamanho = frequência de registros</div>
+  <div id="chartScatter" style="width:100%;height:380px"></div>
+</div>
+
+<!-- ════════════ SECTION 4: DERIVED DATA ════════════ -->
+<div class="section-title">Dados Derivados <span class="section-tag">NOVO</span></div>
+
+<div class="derived-grid">
+  <div class="derived-card">
+    <div class="derived-title">Variabilidade (30 dias)</div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">MONTAGEM DIVERSOS</span><span style="color:#003366;font-weight:700">σ 142 (avg 128)</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">KIT 2 PARAFUSO</span><span style="color:#003366;font-weight:700">σ 98 (avg 156)</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">MANUAL INTERRUPTOR</span><span style="color:#003366;font-weight:700">σ 87 (avg 148)</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">VERTICAL MÓDULOS 2</span><span style="color:#003366;font-weight:700">σ 65 (avg 332)</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">HORIZONTAL 1</span><span style="color:#003366;font-weight:700">σ 32 (avg 548)</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">A GRANEL</span><span style="color:#003366;font-weight:700">σ 28 (avg 635)</span></div>
+  </div>
+  <div class="derived-card">
+    <div class="derived-title">Desempenho por Dia da Semana</div>
+    <div class="derived-row" style="font-size:13px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <span style="color:#22C55E;font-weight:700">Melhor: Ter</span>
+      <span style="color:#475569">63.420 pç/dia</span>
+    </div>
+    <div class="derived-row" style="font-size:13px;padding:8px 0">
+      <span style="color:#EF4444;font-weight:700">Pior: Sex</span>
+      <span style="color:#475569">51.890 pç/dia</span>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:#94A3B8">Baseado em todos os registros disponíveis</div>
+  </div>
+  <div class="derived-card">
+    <div class="derived-title">Frequência de Feedbacks</div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">MONTAGEM DIVERSOS</span><span style="color:#F59E0B;font-weight:700">18 obs</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">KIT 2 PARAFUSO</span><span style="color:#F59E0B;font-weight:700">12 obs</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">MANUAL INTERRUPTOR</span><span style="color:#F59E0B;font-weight:700">9 obs</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">VERTICAL MÓDULOS 1</span><span style="color:#F59E0B;font-weight:700">7 obs</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">TESTE INTERRUPTORES</span><span style="color:#F59E0B;font-weight:700">5 obs</span></div>
+    <div class="derived-row"><span style="color:#475569;font-weight:600">HORIZONTAL 2</span><span style="color:#F59E0B;font-weight:700">3 obs</span></div>
+  </div>
+</div>
+
+<!-- ════════════ SECTION 5: ADMIN MODAL (Gerenciamento Máquinas) ════════════ -->
+<div class="section-title" style="margin-top:32px">Gerenciamento de Máquinas (Admin) <span class="section-tag">NOVO</span></div>
+<p style="font-size:13px;color:#475569;margin-bottom:12px">O painel admin agora tem duas abas: <b>Usuarios</b> e <b>Maquinas</b>. Clique no botão "Admin" no header para ver.</p>
+
+<div id="adminModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Painel do Administrador</span>
+      <button onclick="toggleModal()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;font-weight:700">X</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="tab-btn" onclick="switchAdminTab('users',this)">Usuarios</button>
+      <button class="tab-btn active" onclick="switchAdminTab('machines',this)">Maquinas</button>
+    </div>
+    <div class="modal-body">
+      <!-- Alert -->
+      <div id="adminAlert" style="background:#f0fdf4;color:#16a34a;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">&#10003;</span> Máquina "HORIZONTAL 3" adicionada!
+      </div>
+
+      <!-- Machines Tab -->
+      <div id="tabMachines">
+        <div style="font-weight:700;font-size:15px;color:#003366;margin:12px 0 10px;display:flex;justify-content:space-between;align-items:center">
+          <span>Maquinas</span>
+          <span style="font-size:12px;font-weight:600;color:#475569">17 ativas / 20 total</span>
+        </div>
+        <table class="mach-table">
+          <thead><tr><th style="width:36px">ID</th><th>Nome</th><th style="text-align:center;width:70px">Meta</th><th style="text-align:center;width:70px">Status</th><th style="text-align:center;width:120px">Acoes</th></tr></thead>
+          <tbody id="machBody"></tbody>
+        </table>
+        <div class="add-form">
+          <div class="add-form-title">Adicionar Nova Maquina</div>
+          <div class="add-grid">
+            <div><div class="input-lbl">NOME DA MAQUINA</div><input class="add-input" placeholder="Ex: HORIZONTAL 3" value="INJETORA NOVA"></div>
+            <div><div class="input-lbl">META PADRAO</div><input class="add-input" type="number" placeholder="0" value="450"></div>
+          </div>
+          <button class="btn-add">Adicionar Maquina</button>
+        </div>
+      </div>
+
+      <!-- Users Tab (hidden) -->
+      <div id="tabUsers" class="hidden">
+        <div style="font-weight:700;font-size:15px;color:#003366;margin:12px 0 10px">Usuarios</div>
+        <table class="mach-table">
+          <thead><tr><th>Nome</th><th style="text-align:center">Perfil</th><th style="text-align:center">Status</th><th style="text-align:center">Acao</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:600;color:#003366">Admin</td><td style="text-align:center"><span style="background:#fef3c7;color:#92400e;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">Admin</span></td><td style="text-align:center"><span class="status-badge" style="background:#22C55E1e;color:#16a34a">Ativo</span></td><td></td></tr>
+            <tr style="background:#F8FAFC"><td style="font-weight:600;color:#003366">Operador1</td><td style="text-align:center"><span style="background:#eff6ff;color:#003366;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">Operador</span></td><td style="text-align:center"><span class="status-badge" style="background:#22C55E1e;color:#16a34a">Ativo</span></td><td style="text-align:center"><button class="btn-sm" style="background:#EF44441e;color:#dc2626">Bloquear</button></td></tr>
+            <tr><td style="font-weight:600;color:#003366">Operador2</td><td style="text-align:center"><span style="background:#eff6ff;color:#003366;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600">Operador</span></td><td style="text-align:center"><span class="status-badge" style="background:#EF44441e;color:#dc2626">Bloqueado</span></td><td style="text-align:center"><button class="btn-sm" style="background:#f0fdf4;color:#16a34a">Ativar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ── Mock Data ──
+var machines = [
+  {id:1,name:"HORIZONTAL 1",meta:500,status:"ativo"},{id:2,name:"HORIZONTAL 2",meta:500,status:"ativo"},
+  {id:3,name:"VERTICAL PLACAS / SUP. 1",meta:400,status:"ativo"},{id:4,name:"VERTICAL PLACAS / SUP. 2",meta:400,status:"ativo"},
+  {id:5,name:"VERTICAL MÓDULOS 1",meta:350,status:"ativo"},{id:6,name:"VERTICAL MÓDULOS 2",meta:350,status:"ativo"},
+  {id:7,name:"A GRANEL",meta:600,status:"ativo"},{id:8,name:"MÁQUINA INTERRUPTOR",meta:300,status:"ativo"},
+  {id:9,name:"TESTE INTERRUPTORES",meta:250,status:"ativo"},{id:10,name:"MANUAL INTERRUPTOR",meta:200,status:"inativo"},
+  {id:11,name:"MONTAGEM DIVERSOS",meta:150,status:"ativo"},{id:12,name:"MONTAGEM PLACA REFINATTO",meta:180,status:"ativo"},
+  {id:13,name:"KIT 1 PARAFUSO",meta:220,status:"ativo"},{id:14,name:"KIT 2 PARAFUSO",meta:220,status:"ativo"},
+  {id:15,name:"MONTAGEM TOMADAS MANUAL",meta:160,status:"ativo"},{id:16,name:"MÁQ. TOMADAS AUTO.",meta:500,status:"ativo"},
+  {id:17,name:"INSERÇÃO CONTATOS INT.",meta:0,status:"inativo"},{id:18,name:"FECHAMENTO TECLA INT.",meta:0,status:"inativo"},
+  {id:19,name:"RETRABALHO GERAL",meta:0,status:"ativo"},{id:20,name:"HORIZONTAL 3",meta:500,status:"ativo"}
+];
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Render machine table ──
+function renderMachines(){
+  var html='';
+  machines.forEach(function(m,i){
+    var bg=i%2===0?'#fff':'#F8FAFC';
+    var op=m.status==='inativo'?'opacity:0.55':'';
+    var stBg=m.status==='ativo'?'background:#22C55E1e;color:#16a34a':'background:#EF44441e;color:#dc2626';
+    var stTxt=m.status==='ativo'?'Ativa':'Inativa';
+    var togBg=m.status==='ativo'?'background:#EF44441e;color:#dc2626':'background:#f0fdf4;color:#16a34a';
+    var togTxt=m.status==='ativo'?'Desativar':'Ativar';
+    html+='<tr style="background:'+bg+';'+op+'">';
+    html+='<td style="font-weight:600;color:#94A3B8;font-size:12px">'+m.id+'</td>';
+    html+='<td style="font-weight:600;color:#003366">'+esc(m.name)+'</td>';
+    html+='<td style="text-align:center"><span style="font-size:12px;color:#475569">'+(m.meta||'—')+'</span></td>';
+    html+='<td style="text-align:center"><span class="status-badge" style="'+stBg+'">'+stTxt+'</span></td>';
+    html+='<td style="text-align:center;display:flex;gap:4px;justify-content:center">';
+    html+='<button class="btn-sm" style="background:#eff6ff;color:#0066B3" onclick="editMach('+m.id+')">Editar</button>';
+    html+='<button class="btn-sm" style="'+togBg+'" onclick="toggleMach('+m.id+')">'+togTxt+'</button>';
+    html+='</td></tr>';
+  });
+  document.getElementById('machBody').innerHTML=html;
+}
+
+function toggleMach(id){
+  machines.forEach(function(m){if(m.id===id)m.status=m.status==='ativo'?'inativo':'ativo';});
+  renderMachines();
+  var a=document.getElementById('adminAlert');
+  var m=machines.find(function(x){return x.id===id;});
+  a.innerHTML='<span style="font-size:16px">&#10003;</span> Máquina "'+esc(m.name)+'" '+(m.status==='ativo'?'ativada':'desativada')+'!';
+  a.style.background=m.status==='ativo'?'#f0fdf4':'#fef2f2';
+  a.style.color=m.status==='ativo'?'#16a34a':'#dc2626';
+  a.style.display='flex';
+}
+
+function editMach(id){alert('Edição inline abre campos de nome e meta na linha da tabela');}
+
+function toggleModal(){document.getElementById('adminModal').classList.toggle('hidden');}
+
+function switchAdminTab(tab,btn){
+  document.querySelectorAll('.modal-tabs .tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('tabMachines').classList.toggle('hidden',tab!=='machines');
+  document.getElementById('tabUsers').classList.toggle('hidden',tab!=='users');
+}
+
+function switchView(view,btn){
+  document.querySelectorAll('.view-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+}
+
+renderMachines();
+
+// ══════════ ECHARTS ══════════
+var C={green:'#22C55E',yellow:'#F59E0B',red:'#EF4444',blue:'#0066B3',gray:'#6B7280',navy:'#003366',teal:'#0095A8'};
+
+// ── Trend 30d + MA7 ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartTrend'));
+  var days=[],prod=[],ma7=[],meta=[];
+  for(var i=29;i>=0;i--){
+    var d=new Date();d.setDate(d.getDate()-i);
+    days.push(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'));
+    var p=50000+Math.round(Math.random()*18000);
+    prod.push(p);meta.push(60000);
+    var start=Math.max(0,prod.length-7);var sum=0;
+    for(var j=start;j<prod.length;j++)sum+=prod[j];
+    ma7.push(Math.round(sum/(prod.length-start)));
+  }
+  ch.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#fff',borderColor:'#D0DEE8'},
+    legend:{data:['Produção Diária','Média Móvel 7d','Meta 60k'],top:0},
+    grid:{top:40,right:30,bottom:60,left:65},
+    xAxis:{type:'category',data:days,axisLabel:{rotate:15,fontSize:11}},
+    yAxis:{type:'value',axisLabel:{formatter:function(v){return(v/1000).toFixed(0)+'k';}}},
+    series:[
+      {name:'Produção Diária',type:'bar',data:prod,itemStyle:{color:C.blue+'88',borderRadius:[4,4,0,0]},barMaxWidth:24},
+      {name:'Média Móvel 7d',type:'line',data:ma7,smooth:true,symbol:'none',lineStyle:{color:C.navy,width:3},z:10},
+      {name:'Meta 60k',type:'line',data:meta,symbol:'none',lineStyle:{color:C.red,width:2,type:'dashed'}}
+    ]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+
+// ── Heatmap ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartHeatmap'));
+  var dayNames=['24/03','25/03','26/03','27/03','28/03','29/03','30/03'];
+  var machNames=['HORIZ.1','HORIZ.2','VERT.PL.1','VERT.PL.2','VERT.MÓD.1','VERT.MÓD.2','A GRANEL','MÁQ.INT.','TESTE INT.','KIT 1 PAR.'];
+  var values=[];
+  for(var mi=0;mi<machNames.length;mi++){
+    for(var di=0;di<dayNames.length;di++){
+      values.push([di,mi,50+Math.round(Math.random()*70)]);
+    }
+  }
+  ch.setOption({
+    tooltip:{position:'top',formatter:function(p){return '<b>'+esc(machNames[p.value[1]])+'</b><br/>'+esc(dayNames[p.value[0]])+'<br/>'+p.value[2]+'% da meta';}},
+    grid:{top:10,right:30,bottom:70,left:20,containLabel:true},
+    xAxis:{type:'category',data:dayNames,splitArea:{show:true},axisLabel:{fontSize:11}},
+    yAxis:{type:'category',data:machNames,splitArea:{show:true},axisLabel:{fontSize:11,width:100,overflow:'truncate'}},
+    visualMap:{min:0,max:150,calculable:true,orient:'horizontal',left:'center',bottom:0,
+      inRange:{color:['#dc2626','#f97316','#facc15','#86efac','#22c55e']},formatter:function(v){return Math.round(v)+'%';}},
+    series:[{type:'heatmap',data:values,label:{show:true,fontSize:10,formatter:function(p){return p.value[2]+'%';}}}]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+
+// ── Pareto ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartPareto'));
+  var items=[
+    {name:'MONT.DIVERSOS',gap:1800},{name:'KIT 2 PARAF.',gap:1200},{name:'MANUAL INT.',gap:980},
+    {name:'VERT.MÓD.2',gap:650},{name:'TESTE INT.',gap:420},{name:'KIT 1 PARAF.',gap:310},
+    {name:'VERT.PL.2',gap:180},{name:'MONT.PLACA',gap:120}
+  ];
+  var total=items.reduce(function(s,i){return s+i.gap;},0);
+  var accum=0;
+  items.forEach(function(i){accum+=i.gap;i.accumPct=Math.round(accum/total*100);});
+  ch.setOption({
+    tooltip:{trigger:'axis',formatter:function(params){var d=items[params[0].dataIndex];return '<b>'+esc(d.name)+'</b><br/>Gap: '+d.gap+' pç<br/>Acum: '+d.accumPct+'%';}},
+    legend:{data:['Gap (pç)','% Acumulado'],top:0},
+    grid:{top:40,right:60,bottom:80,left:60},
+    xAxis:{type:'category',data:items.map(function(i){return i.name;}),axisLabel:{rotate:25,fontSize:11,interval:0}},
+    yAxis:[{type:'value',name:'Gap (pç)',axisLabel:{formatter:function(v){return v>=1000?(v/1000).toFixed(0)+'k':v;}}},{type:'value',name:'%',max:100,axisLabel:{formatter:'{value}%'}}],
+    series:[
+      {name:'Gap (pç)',type:'bar',data:items.map(function(i){return{value:i.gap,itemStyle:{color:i.accumPct<=80?C.red:C.yellow,borderRadius:[4,4,0,0]}};}),barMaxWidth:40},
+      {name:'% Acumulado',type:'line',yAxisIndex:1,data:items.map(function(i){return i.accumPct;}),smooth:true,symbol:'circle',symbolSize:6,lineStyle:{color:C.navy,width:2},itemStyle:{color:C.navy},
+        markLine:{silent:true,data:[{yAxis:80,label:{formatter:'80%'},lineStyle:{color:C.red,type:'dashed',width:1.5}}]}}
+    ]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+
+// ── Boxplot ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartBoxplot'));
+  ch.setOption({
+    tooltip:{trigger:'item',formatter:function(p){
+      if(p.seriesType==='boxplot')return '<b>'+esc(p.name)+'</b><br/>Máx:'+Math.round(p.value[5])+'<br/>Q3:'+Math.round(p.value[4])+'<br/>Med:'+Math.round(p.value[3])+'<br/>Q1:'+Math.round(p.value[2])+'<br/>Mín:'+Math.round(p.value[1]);
+      return esc(p.name)+': '+p.value[1];
+    }},
+    grid:{top:20,right:30,bottom:40,left:60},
+    xAxis:{type:'category',data:['TURNO 1','TURNO 2','TURNO 3']},
+    yAxis:{type:'value',name:'Produção',axisLabel:{formatter:function(v){return(v/1000).toFixed(0)+'k';}}},
+    series:[
+      {name:'Produção',type:'boxplot',data:[[120,250,320,410,480],[80,200,280,360,450],[100,180,240,310,390]],
+        itemStyle:{color:'#eff6ff',borderColor:C.blue,borderWidth:2}},
+      {name:'Outliers',type:'scatter',data:[[0,550],[1,520],[2,50]],itemStyle:{color:C.red}}
+    ]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+
+// ── Stacked Bar ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartStacked'));
+  var dates=[];for(var i=13;i>=0;i--){var d=new Date();d.setDate(d.getDate()-i);dates.push(String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'));}
+  var t1=[],t2=[],t3=[];
+  dates.forEach(function(){t1.push(16000+Math.round(Math.random()*6000));t2.push(17000+Math.round(Math.random()*6000));t3.push(15000+Math.round(Math.random()*5000));});
+  ch.setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:function(params){
+      var total=0;var lines=params.map(function(p){total+=p.value;return '<span style="color:'+esc(p.color)+'">&#9679;</span> '+esc(p.seriesName)+': '+p.value.toLocaleString('pt-BR');});
+      return '<b>'+esc(params[0].axisValue)+'</b><br/>'+lines.join('<br/>')+'<br/><b>Total: '+total.toLocaleString('pt-BR')+'</b>';
+    }},
+    legend:{data:['TURNO 1','TURNO 2','TURNO 3'],top:0},
+    grid:{top:40,right:30,bottom:60,left:65},
+    xAxis:{type:'category',data:dates,axisLabel:{rotate:15,fontSize:11}},
+    yAxis:{type:'value',axisLabel:{formatter:function(v){return(v/1000).toFixed(0)+'k';}}},
+    series:[
+      {name:'TURNO 1',type:'bar',stack:'total',data:t1,itemStyle:{color:C.blue},barMaxWidth:36},
+      {name:'TURNO 2',type:'bar',stack:'total',data:t2,itemStyle:{color:C.green}},
+      {name:'TURNO 3',type:'bar',stack:'total',data:t3,itemStyle:{color:C.yellow,borderRadius:[4,4,0,0]}}
+    ]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+
+// ── Scatter ──
+(function(){
+  var ch=echarts.init(document.getElementById('chartScatter'));
+  var points=[
+    [15000,16800,30,'HORIZONTAL 1'],[15000,14200,28,'HORIZONTAL 2'],
+    [12000,12900,26,'VERT. PLACAS 1'],[12000,10800,24,'VERT. PLACAS 2'],
+    [10500,11200,22,'VERT. MÓDULOS 1'],[10500,9400,20,'VERT. MÓDULOS 2'],
+    [18000,19400,30,'A GRANEL'],[9000,7800,25,'MÁQ. INTERRUPTOR'],
+    [7500,7100,22,'TESTE INT.'],[6000,4400,18,'MANUAL INT.'],
+    [4500,2800,20,'MONT. DIVERSOS'],[5400,5100,16,'MONT. PLACA'],
+    [6600,6200,24,'KIT 1 PARAF.'],[6600,4700,22,'KIT 2 PARAF.'],
+    [4800,4600,18,'MONT. TOMADAS'],[15000,15800,28,'MÁQ. TOMADAS AUTO.']
+  ];
+  var maxVal=22000;
+  ch.setOption({
+    tooltip:{trigger:'item',formatter:function(p){return '<b>'+esc(p.data[3])+'</b><br/>Meta: '+Number(p.data[0]).toLocaleString('pt-BR')+'<br/>Prod: '+Number(p.data[1]).toLocaleString('pt-BR')+'<br/>Reg: '+p.data[2];}},
+    grid:{top:20,right:30,bottom:50,left:65},
+    xAxis:{type:'value',name:'Meta',axisLabel:{formatter:function(v){return(v/1000).toFixed(0)+'k';}}},
+    yAxis:{type:'value',name:'Produção',axisLabel:{formatter:function(v){return(v/1000).toFixed(0)+'k';}}},
+    series:[
+      {type:'scatter',data:points,symbolSize:function(d){return Math.max(8,Math.min(40,d[2]*1.5));},itemStyle:{color:C.blue+'cc'},emphasis:{itemStyle:{color:C.blue,shadowBlur:10}}},
+      {type:'line',data:[[0,0],[maxVal,maxVal]],symbol:'none',lineStyle:{color:C.gray,type:'dashed',width:1.5},tooltip:{show:false}}
+    ]
+  });
+  window.addEventListener('resize',function(){ch.resize();});
+})();
+</script>
+</body>
+</html>
