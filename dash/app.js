@@ -1309,10 +1309,262 @@ function getChartOption(type, data, mobile) {
   return {};
 }
 
+// ─── CHART VIEWER: VISUALIZADOR FULLSCREEN ESTILO DESMOS ─────
+function ChartViewer({title, subtitle, data, type, onClose}){
+  var viewerChartRef = useRef(null);
+  var viewerInstanceRef = useRef(null);
+  var [zoomLevel, setZoomLevel] = useState(100);
+  var [isPanning, setIsPanning] = useState(false);
+  var [showGrid, setShowGrid] = useState(true);
+  var [darkMode, setDarkMode] = useState(false);
+  var [isClosing, setIsClosing] = useState(false);
+  var [isReady, setIsReady] = useState(false);
+
+  function getViewerOption(){
+    var base = getChartOption(type, data, false);
+    if(!base || !base.series) return base;
+    var opt = JSON.parse(JSON.stringify(base));
+
+    opt.grid = { top: 60, right: 60, bottom: 80, left: 80, containLabel: false };
+
+    if(opt.xAxis){
+      var xa = Array.isArray(opt.xAxis) ? opt.xAxis : [opt.xAxis];
+      xa.forEach(function(ax){ if(ax.axisLabel) { ax.axisLabel.fontSize = 13; ax.axisLabel.rotate = ax.axisLabel.rotate ? Math.min(ax.axisLabel.rotate, 25) : 0; } });
+      opt.xAxis = xa.length === 1 ? xa[0] : xa;
+    }
+    if(opt.yAxis){
+      var ya = Array.isArray(opt.yAxis) ? opt.yAxis : [opt.yAxis];
+      ya.forEach(function(ax){ if(ax.axisLabel) ax.axisLabel.fontSize = 13; });
+      opt.yAxis = ya.length === 1 ? ya[0] : ya;
+    }
+    if(opt.legend) { opt.legend.textStyle = { fontSize: 13 }; opt.legend.itemWidth = 25; opt.legend.itemHeight = 14; opt.legend.top = 10; }
+    if(opt.tooltip) { opt.tooltip.textStyle = { color: '#2D3E4E', fontSize: 13 }; opt.tooltip.padding = [10, 14]; }
+
+    if(showGrid){
+      if(opt.xAxis && !Array.isArray(opt.xAxis)) opt.xAxis.splitLine = { show: true, lineStyle: { color: darkMode ? '#333' : '#f0f0f0', type: 'dashed' } };
+      if(opt.yAxis && !Array.isArray(opt.yAxis)) opt.yAxis.splitLine = { show: true, lineStyle: { color: darkMode ? '#333' : '#f0f0f0', type: 'dashed' } };
+    }
+
+    if(type !== 'pie'){
+      opt.dataZoom = [
+        { type: 'inside', xAxisIndex: opt.xAxis ? 0 : undefined, yAxisIndex: opt.yAxis && !opt.xAxis ? 0 : undefined, zoomOnMouseWheel: true, moveOnMouseMove: isPanning, moveOnMouseWheel: false, preventDefaultMouseMove: isPanning },
+        { type: 'slider', xAxisIndex: opt.xAxis && (Array.isArray(opt.xAxis) ? opt.xAxis[0] : opt.xAxis).type === 'category' ? 0 : undefined, bottom: 12, height: 24, borderColor: '#D1D5DB', fillerColor: 'rgba(0,102,179,0.12)', handleStyle: { color: '#0066B3', borderColor: '#003366' }, textStyle: { fontSize: 12 }, dataBackground: { lineStyle: { color: '#0066B3', opacity: 0.3 }, areaStyle: { color: '#0066B3', opacity: 0.08 } } }
+      ];
+      if(type !== 'heatmap' && type !== 'horizontalBar'){
+        opt.dataZoom.push(
+          { type: 'inside', yAxisIndex: 0, zoomOnMouseWheel: false, moveOnMouseMove: false },
+          { type: 'slider', yAxisIndex: 0, right: 8, width: 24, borderColor: '#D1D5DB', fillerColor: 'rgba(0,102,179,0.12)', handleStyle: { color: '#0066B3', borderColor: '#003366' }, textStyle: { fontSize: 12 } }
+        );
+        opt.grid.right = 90;
+        opt.grid.bottom = 60;
+      }
+    }
+
+    (opt.series || []).forEach(function(s){
+      if(s.type === 'bar') { s.barMaxWidth = 60; if(s.itemStyle && s.itemStyle.borderRadius) s.itemStyle.borderRadius = s.itemStyle.borderRadius.map(function(r){ return r > 0 ? 6 : 0; }); }
+      if(s.type === 'line') { if(s.lineStyle) s.lineStyle.width = (s.lineStyle.width || 2) + 1; if(s.symbolSize) s.symbolSize = 8; s.symbol = s.symbol === 'none' ? 'none' : 'circle'; }
+    });
+
+    opt.animationDuration = 600;
+    opt.animationEasing = 'cubicOut';
+
+    if(darkMode){
+      opt.backgroundColor = '#1a1a2e';
+      if(opt.tooltip) { opt.tooltip.backgroundColor = '#2a2a3e'; opt.tooltip.borderColor = '#444'; opt.tooltip.textStyle = { color: '#e0e0e0', fontSize: 13 }; }
+      if(opt.legend) opt.legend.textStyle = { color: '#ccc', fontSize: 13 };
+      if(opt.xAxis && !Array.isArray(opt.xAxis)) { opt.xAxis.axisLabel = Object.assign({}, opt.xAxis.axisLabel||{}, {color:'#aaa'}); opt.xAxis.axisLine = { lineStyle: { color: '#444' } }; }
+      if(opt.yAxis && !Array.isArray(opt.yAxis)) { opt.yAxis.axisLabel = Object.assign({}, opt.yAxis.axisLabel||{}, {color:'#aaa'}); opt.yAxis.axisLine = { lineStyle: { color: '#444' } }; }
+      if(Array.isArray(opt.yAxis)) opt.yAxis.forEach(function(ax){ ax.axisLabel = Object.assign({}, ax.axisLabel||{}, {color:'#aaa'}); ax.axisLine = { lineStyle: { color: '#444' } }; ax.nameTextStyle = {color:'#aaa'}; });
+      if(opt.visualMap) opt.visualMap.textStyle = { color: '#ccc' };
+    }
+
+    opt.toolbox = {
+      show: true, right: 20, top: 10, iconStyle: { borderColor: darkMode ? '#aaa' : '#666' },
+      emphasis: { iconStyle: { borderColor: '#0066B3' } },
+      feature: {
+        dataZoom: { show: type !== 'pie', title: { zoom: 'Zoom Area', back: 'Restaurar' } },
+        restore: { show: true, title: 'Restaurar' },
+        saveAsImage: { show: true, title: 'Salvar PNG', pixelRatio: 3, backgroundColor: darkMode ? '#1a1a2e' : '#fff' }
+      }
+    };
+
+    return opt;
+  }
+
+  useEffect(function(){
+    if(!viewerChartRef.current || typeof echarts === 'undefined') return;
+    viewerInstanceRef.current = echarts.init(viewerChartRef.current, darkMode ? 'dark' : null);
+    var opt = getViewerOption();
+    if(opt) viewerInstanceRef.current.setOption(opt, true);
+    setTimeout(function(){ setIsReady(true); }, 50);
+    return function(){ if(viewerInstanceRef.current){ viewerInstanceRef.current.dispose(); viewerInstanceRef.current = null; } };
+  }, []);
+
+  useEffect(function(){
+    if(!viewerInstanceRef.current) return;
+    var dom = viewerChartRef.current;
+    if(!dom) return;
+    viewerInstanceRef.current.dispose();
+    viewerInstanceRef.current = echarts.init(dom, darkMode ? 'dark' : null);
+    var opt = getViewerOption();
+    if(opt) viewerInstanceRef.current.setOption(opt, true);
+  }, [data, type, showGrid, darkMode, isPanning]);
+
+  useEffect(function(){
+    var fn = function(){ if(viewerInstanceRef.current) viewerInstanceRef.current.resize(); };
+    window.addEventListener('resize', fn);
+    var t = setTimeout(fn, 350);
+    return function(){ window.removeEventListener('resize', fn); clearTimeout(t); };
+  }, []);
+
+  useEffect(function(){
+    function onKey(e){
+      if(e.key === 'Escape') handleClose();
+      if(e.key === 'r' || e.key === 'R') handleReset();
+      if(e.key === 'g' || e.key === 'G') setShowGrid(function(v){ return !v; });
+      if(e.key === 'd' || e.key === 'D') setDarkMode(function(v){ return !v; });
+      if(e.key === 'p' || e.key === 'P') setIsPanning(function(v){ return !v; });
+    }
+    window.addEventListener('keydown', onKey);
+    return function(){ window.removeEventListener('keydown', onKey); };
+  }, []);
+
+  useEffect(function(){
+    var prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return function(){ document.body.style.overflow = prev; };
+  }, []);
+
+  function handleClose(){
+    setIsClosing(true);
+    setTimeout(function(){ onClose(); }, 250);
+  }
+
+  function handleReset(){
+    if(!viewerInstanceRef.current) return;
+    viewerInstanceRef.current.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+    viewerInstanceRef.current.dispatchAction({ type: 'restore' });
+    setZoomLevel(100);
+  }
+
+  function handleZoomIn(){
+    if(!viewerInstanceRef.current) return;
+    var z = Math.min(zoomLevel + 25, 400);
+    setZoomLevel(z);
+    var range = Math.max(10, 100 * 100 / z);
+    var s = Math.max(0, 50 - range / 2);
+    var e = Math.min(100, 50 + range / 2);
+    viewerInstanceRef.current.dispatchAction({ type: 'dataZoom', start: s, end: e });
+  }
+
+  function handleZoomOut(){
+    if(!viewerInstanceRef.current) return;
+    var z = Math.max(25, zoomLevel - 25);
+    setZoomLevel(z);
+    var range = Math.min(100, 100 * 100 / z);
+    var s = Math.max(0, 50 - range / 2);
+    var e = Math.min(100, 50 + range / 2);
+    viewerInstanceRef.current.dispatchAction({ type: 'dataZoom', start: s, end: e });
+  }
+
+  useEffect(function(){
+    if(document.getElementById('chart-viewer-keyframes')) return;
+    var style = document.createElement('style');
+    style.id = 'chart-viewer-keyframes';
+    style.textContent = [
+      '@keyframes cvFadeIn { from { opacity:0; } to { opacity:1; } }',
+      '@keyframes cvFadeOut { from { opacity:1; } to { opacity:0; } }',
+      '@keyframes cvSlideUp { from { opacity:0; transform:translateY(40px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }',
+      '@keyframes cvSlideDown { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(40px) scale(0.96); } }',
+      '.cv-toolbar-btn { display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:1px solid transparent;background:transparent;color:#d1d5db;cursor:pointer;transition:all .15s;font-size:16px;font-family:inherit;padding:0; }',
+      '.cv-toolbar-btn:hover { background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.15); }',
+      '.cv-toolbar-btn.active { background:rgba(0,102,179,0.3);color:#60a5fa;border-color:rgba(0,102,179,0.5); }',
+      '.cv-toolbar-sep { width:1px;height:24px;background:rgba(255,255,255,0.12);margin:0 4px; }',
+      '.cv-zoom-display { font-size:12px;color:#94a3b8;font-weight:600;min-width:42px;text-align:center;font-variant-numeric:tabular-nums; }',
+      '.cv-shortcut { display:inline-block;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:1px 5px;font-size:10px;color:#94a3b8;margin-left:6px;font-weight:500;line-height:1.4; }'
+    ].join('\n');
+    document.head.appendChild(style);
+  }, []);
+
+  var overlayAnim = isClosing ? 'cvFadeOut 0.25s ease forwards' : 'cvFadeIn 0.3s ease forwards';
+  var panelAnim = isClosing ? 'cvSlideDown 0.25s ease forwards' : 'cvSlideUp 0.35s cubic-bezier(0.16,1,0.3,1) forwards';
+
+  function IconZoomIn(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("circle",{cx:11,cy:11,r:8}),el("line",{x1:21,y1:21,x2:16.65,y2:16.65}),el("line",{x1:11,y1:8,x2:11,y2:14}),el("line",{x1:8,y1:11,x2:14,y2:11})); }
+  function IconZoomOut(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("circle",{cx:11,cy:11,r:8}),el("line",{x1:21,y1:21,x2:16.65,y2:16.65}),el("line",{x1:8,y1:11,x2:14,y2:11})); }
+  function IconReset(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"1 4 1 10 7 10"}),el("path",{d:"M3.51 15a9 9 0 1 0 2.13-9.36L1 10"})); }
+  function IconGridSvg(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("rect",{x:3,y:3,width:18,height:18,rx:2,ry:2}),el("line",{x1:3,y1:9,x2:21,y2:9}),el("line",{x1:3,y1:15,x2:21,y2:15}),el("line",{x1:9,y1:3,x2:9,y2:21}),el("line",{x1:15,y1:3,x2:15,y2:21})); }
+  function IconPan(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"5 9 2 12 5 15"}),el("polyline",{points:"9 5 12 2 15 5"}),el("polyline",{points:"15 19 12 22 9 19"}),el("polyline",{points:"19 9 22 12 19 15"}),el("line",{x1:2,y1:12,x2:22,y2:12}),el("line",{x1:12,y1:2,x2:12,y2:22})); }
+  function IconDark(){ return el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("path",{d:"M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"})); }
+  function IconClose(){ return el("svg",{width:20,height:20,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},el("line",{x1:18,y1:6,x2:6,y2:18}),el("line",{x1:6,y1:6,x2:18,y2:18})); }
+
+  return ReactDOM.createPortal(
+    el("div",{style:{
+      position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:99999,
+      background:'rgba(0,0,0,0.7)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+      display:'flex',flexDirection:'column',animation:overlayAnim
+    }},
+      el("div",{style:{
+        flex:1,display:'flex',flexDirection:'column',margin:0,
+        animation:panelAnim,overflow:'hidden'
+      }},
+        // Toolbar
+        el("div",{style:{
+          background:'linear-gradient(135deg,#0f172a,#1e293b)',
+          borderBottom:'1px solid rgba(255,255,255,0.08)',
+          padding:'0 20px',height:56,display:'flex',alignItems:'center',gap:8,flexShrink:0
+        }},
+          el("div",{style:{flex:1,display:'flex',alignItems:'center',gap:12,minWidth:0}},
+            el("div",{style:{width:4,height:28,borderRadius:2,background:'linear-gradient(180deg,#0066B3,#003366)',flexShrink:0}}),
+            el("div",{style:{minWidth:0}},
+              el("div",{style:{fontSize:15,fontWeight:700,color:'#f1f5f9',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3}}, title||'Grafico'),
+              subtitle && el("div",{style:{fontSize:11,color:'#64748b',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3}}, subtitle)
+            )
+          ),
+          el("button",{className:'cv-toolbar-btn',onClick:handleZoomOut,title:'Diminuir zoom'}, el(IconZoomOut)),
+          el("div",{className:'cv-zoom-display'}, zoomLevel+'%'),
+          el("button",{className:'cv-toolbar-btn',onClick:handleZoomIn,title:'Aumentar zoom'}, el(IconZoomIn)),
+          el("div",{className:'cv-toolbar-sep'}),
+          el("button",{className:'cv-toolbar-btn'+(isPanning?' active':''),onClick:function(){setIsPanning(!isPanning);},title:'Modo arrastar (P)'}, el(IconPan)),
+          el("button",{className:'cv-toolbar-btn'+(showGrid?' active':''),onClick:function(){setShowGrid(!showGrid);},title:'Grade (G)'}, el(IconGridSvg)),
+          el("button",{className:'cv-toolbar-btn'+(darkMode?' active':''),onClick:function(){setDarkMode(!darkMode);},title:'Modo escuro (D)'}, el(IconDark)),
+          el("div",{className:'cv-toolbar-sep'}),
+          el("button",{className:'cv-toolbar-btn',onClick:handleReset,title:'Restaurar vista (R)'}, el(IconReset)),
+          el("div",{className:'cv-toolbar-sep'}),
+          el("button",{className:'cv-toolbar-btn',onClick:handleClose,title:'Fechar (Esc)',style:{color:'#f87171'}}, el(IconClose))
+        ),
+        // Chart area
+        el("div",{style:{
+          flex:1,position:'relative',background:darkMode?'#1a1a2e':'#fafbfc',
+          transition:'background 0.3s ease'
+        }},
+          el("div",{ref:viewerChartRef,style:{
+            position:'absolute',top:0,left:0,right:0,bottom:0,
+            cursor:isPanning?'grab':'crosshair'
+          }}),
+          // Help hint
+          el("div",{style:{
+            position:'absolute',bottom:50,left:'50%',transform:'translateX(-50%)',
+            background:'rgba(15,23,42,0.85)',borderRadius:10,padding:'10px 18px',
+            display:'flex',gap:16,alignItems:'center',
+            opacity:isReady?0:0.9,transition:'opacity 1.5s ease 1s',pointerEvents:'none'
+          }},
+            el("span",{style:{fontSize:12,color:'#cbd5e1'}},'Scroll para zoom',el("span",{className:'cv-shortcut'},'Scroll')),
+            el("span",{style:{fontSize:12,color:'#cbd5e1'}},'Arrastar',el("span",{className:'cv-shortcut'},'P')),
+            el("span",{style:{fontSize:12,color:'#cbd5e1'}},'Restaurar',el("span",{className:'cv-shortcut'},'R')),
+            el("span",{style:{fontSize:12,color:'#cbd5e1'}},'Fechar',el("span",{className:'cv-shortcut'},'Esc'))
+          )
+        )
+      )
+    ),
+    document.body
+  );
+}
+
 // ─── ECHARTS: COMPONENTE REUTILIZÁVEL ─────────────────────────
 function EChartsComponent({title, subtitle, data, type, height=350, isMobile}){
   const chartRef  = useRef(null);
   const instanceRef = useRef(null);
+  var [viewerOpen, setViewerOpen] = useState(false);
   var m = !!isMobile;
   var dLen = (data||[]).length;
   var effectiveHeight = m ? (type==='horizontalBar' ? Math.max(260, dLen*38) : type==='bar' ? Math.max(280, dLen*48) : type==='pie' ? 280 : 280) : height;
@@ -1340,12 +1592,31 @@ function EChartsComponent({title, subtitle, data, type, height=350, isMobile}){
       el("div",{style:{fontSize:m?12:13,color:"#94A3B8",marginTop:4}},"Ajuste os filtros ou adicione apontamentos")
     );
   }
-  return el("div",{style:{background:"#fff",borderRadius:12,padding:m?12:20,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}},
-    title&&el("div",{style:{marginBottom:m?8:12}},
-      el("div",{style:{fontSize:m?14:16,fontWeight:700,color:C.navy}},title),
-      subtitle&&el("div",{style:{fontSize:m?11:12,color:"#94A3B8",marginTop:2}},subtitle)
+
+  function ExpandIcon(){ return el("svg",{width:15,height:15,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"15 3 21 3 21 9"}),el("polyline",{points:"9 21 3 21 3 15"}),el("line",{x1:21,y1:3,x2:14,y2:10}),el("line",{x1:3,y1:21,x2:10,y2:14})); }
+
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:m?12:20,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",position:'relative'}},
+    title&&el("div",{style:{marginBottom:m?8:12,display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
+      el("div",{style:{flex:1,minWidth:0}},
+        el("div",{style:{fontSize:m?14:16,fontWeight:700,color:C.navy}},title),
+        subtitle&&el("div",{style:{fontSize:m?11:12,color:"#94A3B8",marginTop:2}},subtitle)
+      ),
+      el("button",{
+        onClick:function(){ setViewerOpen(true); },
+        title:'Visualizar em tela cheia',
+        onMouseEnter:function(e){ e.currentTarget.style.background='#eff6ff'; e.currentTarget.style.borderColor='#0066B3'; e.currentTarget.style.color='#0066B3'; },
+        onMouseLeave:function(e){ e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.color='#94a3b8'; },
+        style:{
+          display:'flex',alignItems:'center',justifyContent:'center',gap:5,
+          background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,
+          padding:'6px 10px',cursor:'pointer',color:'#94a3b8',
+          fontSize:11,fontWeight:600,fontFamily:'inherit',
+          transition:'all .2s ease',flexShrink:0,marginLeft:8
+        }
+      }, el(ExpandIcon), !m && "Expandir")
     ),
-    el("div",{ref:chartRef,style:{width:"100%",height:effectiveHeight}})
+    el("div",{ref:chartRef,style:{width:"100%",height:effectiveHeight}}),
+    viewerOpen && el(ChartViewer,{title:title,subtitle:subtitle,data:data,type:type,onClose:function(){setViewerOpen(false);}})
   );
 }
 
