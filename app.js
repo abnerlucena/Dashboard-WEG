@@ -89,6 +89,7 @@ const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8
 const esc= s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 // ─── PUSH BUTTON 3D (CSS) ────────────────────────────────────
+var TOAST_CSS=`@keyframes toast-in{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.95)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}`;
 var LOADER_CSS=`.save-loader{position:relative;display:inline-block;width:50px;height:24px}.save-loader .sl-bar,.save-loader .sl-bar:before,.save-loader .sl-bar:after{background:#fff;animation:sl-bounce .8s infinite ease-in-out;width:6px;height:16px;border-radius:2px}.save-loader .sl-bar{display:inline-block;position:relative;animation-delay:.16s!important}.save-loader .sl-bar:before,.save-loader .sl-bar:after{position:absolute;top:0;content:""}.save-loader .sl-bar:before{left:-10px}.save-loader .sl-bar:after{left:10px;animation-delay:.32s!important}@keyframes sl-bounce{0%,80%,100%{opacity:.75;box-shadow:0 0 currentColor;height:16px}40%{opacity:1;box-shadow:0 -4px currentColor;height:20px}}.save-loader-header .sl-bar,.save-loader-header .sl-bar:before,.save-loader-header .sl-bar:after{background:#fde68a;width:4px;height:12px}.save-check{display:inline-flex;align-items:center;justify-content:center}.save-check svg{animation:sl-pop .35s cubic-bezier(.3,.7,.4,1.5)}@keyframes sl-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}`;
 var PUSH_CSS=`.push-btn{position:relative;border:none;background:transparent;padding:0;cursor:pointer;outline-offset:4px;transition:filter 250ms;user-select:none;touch-action:manipulation}.push-btn .pb-sh{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;will-change:transform;transform:translateY(2px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn .pb-edge{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px}.push-btn .pb-front{display:block;position:relative;padding:8px 20px;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:.4px;will-change:transform;transform:translateY(-4px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn:hover{filter:brightness(110%)}.push-btn:hover .pb-front{transform:translateY(-6px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-front{transform:translateY(-2px);transition:transform 34ms}.push-btn:hover .pb-sh{transform:translateY(4px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-sh{transform:translateY(1px);transition:transform 34ms}.push-btn:focus:not(:focus-visible){outline:none}.push-tv .pb-sh{background:hsl(0deg 0% 0%/.12)}.push-tv .pb-edge{background:linear-gradient(to left,hsl(210 18% 78%) 0%,hsl(210 14% 90%) 8%,hsl(210 14% 90%) 92%,hsl(210 18% 78%) 100%)}.push-tv .pb-front{background:#fff;color:#003366}.push-sair .pb-sh{background:hsl(0deg 0% 0%/.25)}.push-sair .pb-edge{background:linear-gradient(to left,hsl(345 100% 16%) 0%,hsl(345 100% 32%) 8%,hsl(345 100% 32%) 92%,hsl(345 100% 16%) 100%)}.push-sair .pb-front{background:hsl(345 100% 47%);color:#fff}`;
 
@@ -99,11 +100,13 @@ function SaveCheck({size,color}){
   return el("span",{className:"save-check"},el("svg",{width:size||20,height:size||20,viewBox:"0 0 24 24",fill:"none",stroke:color||"#22C55E",strokeWidth:3,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"4 12 10 18 20 6"})));
 }
 
-function PushButton({label,variant,onClick}){
-  return el("button",{className:"push-btn push-"+variant,onClick:onClick},
+function PushButton({label,variant,onClick,icon}){
+  return el("button",{className:"push-btn push-"+variant,onClick:onClick,title:label||variant},
     el("span",{className:"pb-sh"}),
     el("span",{className:"pb-edge"}),
-    el("span",{className:"pb-front"},label)
+    el("span",{className:"pb-front",style:{minWidth:icon&&!label?44:undefined,minHeight:icon&&!label?44:undefined,display:"flex",alignItems:"center",justifyContent:"center",padding:icon&&!label?"10px":undefined}},
+      icon&&!label?el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round",...icon.svgProps},icon.path):label
+    )
   );
 }
 
@@ -561,40 +564,61 @@ function Alert({type,msg}){
 }
 
 function Modal({children}){
-  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16}},
-    el("div",{style:{background:"#fff",borderRadius:14,padding:28,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,0.3)",maxHeight:"90vh",overflowY:"auto"}},
+  const mob=window.innerWidth<640;
+  return el("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:mob?"flex-end":"center",justifyContent:"center",zIndex:1000,padding:mob?0:16}},
+    el("div",{style:{background:"#fff",borderRadius:mob?"20px 20px 0 0":"14px",padding:mob?"28px 20px calc(env(safe-area-inset-bottom,0px) + 28px)":"28px",width:"100%",maxWidth:mob?"100%":"440px",boxShadow:mob?"0 -4px 32px rgba(0,0,0,0.2)":"0 8px 32px rgba(0,0,0,0.3)",maxHeight:"92vh",overflowY:"auto"}},
+      mob&&el("div",{style:{width:44,height:5,background:"#CBD5E1",borderRadius:3,margin:"0 auto 18px",flexShrink:0}}),
       ...children
     )
   );
 }
 
+// ─── TOAST ────────────────────────────────────────────────────
+function Toast({msg,type}){
+  if(!msg) return null;
+  const bg=type==="ok"?"#16a34a":type==="error"?"#dc2626":"#003366";
+  return el("div",{style:{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:9999,background:bg,color:"#fff",borderRadius:30,padding:"12px 28px",fontSize:14,fontWeight:700,letterSpacing:"0.3px",boxShadow:"0 4px 20px rgba(0,0,0,0.25)",whiteSpace:"nowrap",pointerEvents:"none",animation:"toast-in 0.25s cubic-bezier(.3,.7,.4,1.5)"}},
+    type==="ok"?"✓ Salvo com sucesso!":type==="error"?"✕ Erro ao salvar. Tente novamente.":msg
+  );
+}
+
 // ─── FILTRO REUTILIZÁVEL ──────────────────────────────────────
 function FilterBar({dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,machines,showTurno=true,extra=null}){
+  const mob=useIsMobile();
+  const [open,setOpen]=useState(!mob);
   const lbl={fontSize:11,color:"#6B7280",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"};
-  return el("div",{style:{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
+  const inner=el("div",{style:{display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end",marginTop:mob?12:0}},
     el("div",null,
       el("div",{style:lbl},"DE"),
-      el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto"}})
+      el("input",{type:"date",value:dfIni,onChange:e=>setDfIni(e.target.value),style:{...IS,width:"auto",minHeight:44}})
     ),
     el("div",null,
       el("div",{style:lbl},"ATÉ"),
-      el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto"}})
+      el("input",{type:"date",value:dfFim,onChange:e=>setDfFim(e.target.value),style:{...IS,width:"auto",minHeight:44}})
     ),
     el("div",null,
       el("div",{style:lbl},"MÁQUINA"),
-      el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto"}},
+      el("select",{value:dfMac,onChange:e=>setDfMac(e.target.value),style:{...SS,maxWidth:200,width:"auto",minHeight:44}},
         el("option",{value:"TODAS"},"TODAS"),
         ...machines.map(m=>el("option",{key:m.id,value:m.name},m.name))
       )
     ),
     showTurno&&el("div",null,
       el("div",{style:lbl},"TURNO"),
-      el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto"}},
+      el("select",{value:dfTur,onChange:e=>setDfTur(e.target.value),style:{...SS,width:"auto",minHeight:44}},
         el("option",{value:"TODOS"},"TODOS"),
         ...TURNOS.map(t=>el("option",{key:t,value:t},t))
       )
     ),
     extra
+  );
+  return el("div",{style:{background:"#fff",borderRadius:12,padding:"12px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16}},
+    mob&&el("button",{onClick:()=>setOpen(!open),style:{display:"flex",alignItems:"center",gap:8,background:"none",border:"none",cursor:"pointer",width:"100%",padding:0}},
+      el("span",{style:{fontSize:13,fontWeight:700,color:"#1E293B",flex:1,textAlign:"left"}},"Filtros"),
+      el("span",{style:{fontSize:11,color:"#94A3B8"}},[dfIni&&dfIni!==dfFim?`${dispD(dfIni)} – ${dispD(dfFim)}`:dispD(dfIni)," · ",dfMac==="TODAS"?"Todas":dfMac," · ",dfTur==="TODOS"?"Todos os turnos":dfTur].join("")),
+      el("span",{style:{color:"#94A3B8",fontSize:16,marginLeft:6}},open?"▲":"▼")
+    ),
+    (!mob||open)&&inner
   );
 }
 
@@ -1624,26 +1648,91 @@ function EChartsComponent({title, subtitle, data, type, height=350, isMobile}){
 // FIX: TabEntrada refatorada — inputs chaveados por mId (persistem entre filtros),
 // sem exibição de "já apontado" (tabela é apenas para inserção de dados)
 function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}){
+  const mob=useIsMobile();
   function getVal(mId){ return inputs[mId]!==undefined?inputs[mId]:""; }
   function getObsVal(mId){ return obsInputs[mId]!==undefined?obsInputs[mId]:""; }
   function setVal(mId,val){ setInputs(p=>({...p,[mId]:val})); }
   function setObsVal(mId,val){ setObsInputs(p=>({...p,[mId]:val})); }
 
   const lbl={fontSize:11,color:"#6B7280",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"};
-  return el("div",null,
-    el("div",{style:{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16,display:"flex",gap:14,flexWrap:"wrap",alignItems:"flex-end"}},
-      el("div",null,el("div",{style:lbl},"DATA"),el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"auto"}})),
-      el("div",null,el("div",{style:lbl},"TURNO"),
-        el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"auto"}},
-          ...TURNOS.map(t=>el("option",{key:t,value:t},t))
-        )
-      ),
-      el("div",{style:{display:"flex",flexDirection:"column",gap:4}},
-        el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(syncSt==="ok"?"linear-gradient(135deg,#16a34a,#22C55E)":syncSt==="error"?"linear-gradient(135deg,#dc2626,#EF4444)":"linear-gradient(135deg,#003366,#0066B3)",{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
-          syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:22,color:"#fff"}):syncSt==="error"?"Erro!":("Salvar"+(pendingCount>0?` (${pendingCount})`:"")))
-        ,pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`${pendingCount} não salvo(s)`)
+  const btnSaveColor=syncSt==="ok"?"linear-gradient(135deg,#16a34a,#22C55E)":syncSt==="error"?"linear-gradient(135deg,#dc2626,#EF4444)":"linear-gradient(135deg,#003366,#0066B3)";
+
+  // ── controles de data/turno (sticky no mobile) ──
+  const controls=el("div",{style:{background:"#fff",borderRadius:mob?0:12,padding:mob?"12px 14px":"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:mob?0:16,display:"flex",gap:mob?10:14,flexWrap:"wrap",alignItems:"flex-end",position:mob?"sticky":"relative",top:mob?0:"auto",zIndex:mob?20:"auto",borderBottom:mob?"1px solid #E5E7EB":"none"}},
+    el("div",{style:{flex:1}},
+      el("div",{style:lbl},"DATA"),
+      el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"100%",minHeight:mob?44:36,fontSize:mob?16:14}})
+    ),
+    el("div",{style:{flex:1}},
+      el("div",{style:lbl},"TURNO"),
+      el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"100%",minHeight:mob?44:36,fontSize:mob?16:14}},
+        ...TURNOS.map(t=>el("option",{key:t,value:t},t))
       )
     ),
+    !mob&&el("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+      el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:BTN(btnSaveColor,{fontSize:15,padding:"9px 28px",opacity:pendingCount===0?.5:1})},
+        syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:22,color:"#fff"}):syncSt==="error"?"Erro!":("Salvar"+(pendingCount>0?` (${pendingCount})`:""))),
+      pendingCount>0&&el("div",{style:{fontSize:11,color:C.yellow,fontWeight:600,textAlign:"center"}},`${pendingCount} não salvo(s)`)
+    )
+  );
+
+  // ── layout MOBILE: cards por máquina ──
+  if(mob){
+    return el("div",{style:{paddingBottom:88}},
+      controls,
+      el("div",{style:{display:"flex",flexDirection:"column",gap:10,padding:"12px 0"}},
+        ...machines.map((m,i)=>{
+          const val=getVal(m.id);
+          const obsVal=getObsVal(m.id);
+          const hasPending=val!==""||obsVal!=="";
+          const metaVal=metas[m.id]||0;
+          const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
+          const col=pctCol(pct);
+          const barColor=pct===null?C.gray:pct>=100?C.green:pct>=80?C.yellow:C.red;
+          return el("div",{key:m.id,style:{background:"#fff",borderRadius:14,padding:"16px",boxShadow:hasPending?"0 0 0 2px #F59E0B,0 2px 8px rgba(0,0,0,0.08)":"0 1px 4px rgba(0,0,0,0.06)",border:"1px solid "+(hasPending?"#F59E0B":"#E8ECF1"),transition:"box-shadow .2s"}},
+            // Machine name row
+            el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+              el("div",{style:{fontSize:14,fontWeight:700,color:C.navy,lineHeight:1.2,flex:1}},m.name,
+                !m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:"#94A3B8",fontWeight:400}},"sem meta")
+              ),
+              hasPending&&el("span",{style:{background:"#FEF3C7",color:"#d97706",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}},"Pendente")
+            ),
+            // Big numeric input + meta
+            el("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:10}},
+              el("div",{style:{flex:1}},
+                el("input",{type:"number",inputMode:"numeric",pattern:"[0-9]*",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:"100%",fontSize:22,fontWeight:800,textAlign:"center",padding:"10px 12px",minHeight:52,borderColor:hasPending?"#F59E0B":"#D1D5DB",borderWidth:hasPending?2:1,borderRadius:10,background:hasPending?"#FFFBEB":"#fff",color:C.navy}})
+              ),
+              m.hasMeta&&el("div",{style:{textAlign:"center",minWidth:60,flexShrink:0}},
+                el("div",{style:{fontSize:11,color:"#94A3B8",fontWeight:600,letterSpacing:"0.3px",marginBottom:2}},"META"),
+                el("div",{style:{fontSize:16,fontWeight:700,color:"#475569"}},metaVal.toLocaleString("pt-BR")),
+                pct!==null&&el("div",{style:{fontSize:13,fontWeight:800,color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626"}},pct+"%")
+              )
+            ),
+            // Progress bar
+            m.hasMeta&&metaVal>0&&el("div",{style:{marginBottom:10}},
+              el("div",{style:{background:"#F1F5F9",borderRadius:6,height:8,overflow:"hidden"}},
+                el("div",{style:{width:`${Math.min(pct??0,100)}%`,height:"100%",background:barColor,borderRadius:6,transition:"width .5s ease"}})
+              )
+            ),
+            // Obs field (collapsed by default unless has value)
+            el("input",{type:"text",placeholder:"Observação (opcional)...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),style:{...IS,width:"100%",fontSize:14,borderColor:obsVal!==""?C.blue:"#E2E8F0",borderWidth:obsVal!==""?2:1,background:obsVal!==""?"#EFF6FF":"#F8FAFC",minHeight:44}})
+          );
+        })
+      ),
+      // FAB Save Button (floats above bottom nav)
+      el("div",{style:{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 76px)",right:20,zIndex:100,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}},
+        pendingCount>0&&el("div",{style:{background:"#1E293B",color:"#fff",fontSize:11,fontWeight:700,borderRadius:20,padding:"4px 12px",letterSpacing:"0.3px"}},`${pendingCount} não salvo${pendingCount>1?"s":""}`),
+        el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,style:{width:60,height:60,borderRadius:30,background:btnSaveColor,border:"none",boxShadow:"0 4px 20px rgba(0,51,102,0.35)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:pendingCount===0?.4:1,transition:"all .2s",flexShrink:0}},
+          syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:28,color:"#fff"}):
+          el("svg",{width:26,height:26,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"20 6 9 17 4 12"}))
+        )
+      )
+    );
+  }
+
+  // ── layout DESKTOP: tabela ──
+  return el("div",null,
+    controls,
     el("div",{style:{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.08)",overflow:"hidden"}},
       el("div",{style:{overflowX:"auto"}},
       el("table",{style:{width:"100%",borderCollapse:"collapse",minWidth:660}},
@@ -1666,7 +1755,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
             el("td",{style:{padding:"10px 14px",fontSize:13,fontWeight:600,color:C.navy}},m.name,!m.hasMeta&&el("span",{style:{marginLeft:6,fontSize:11,color:"#94A3B8",fontWeight:400}},"sem meta")),
             el("td",{style:{padding:"10px 10px",textAlign:"center",fontSize:13,color:"#475569"}},m.hasMeta?metaVal.toLocaleString("pt-BR"):el("span",{style:{color:"#C8D8E4"}},"—")),
             el("td",{style:{padding:"6px 10px",textAlign:"center"}},
-              el("input",{type:"number",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:hasPending?C.yellow:"#D1D5DB",borderWidth:hasPending?2:1}})
+              el("input",{type:"number",inputMode:"numeric",pattern:"[0-9]*",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:100,textAlign:"center",fontSize:15,fontWeight:700,borderColor:hasPending?C.yellow:"#D1D5DB",borderWidth:hasPending?2:1}})
             ),
             el("td",{style:{padding:"10px 10px",textAlign:"center"}},
               pct!==null?el("span",{style:{background:col+"1e",color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626",borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:700}},`${pct}%`):
@@ -3150,29 +3239,34 @@ function App(){
   if(!user) return el(AuthScreen,{onLogin:u=>{ saveSession(u); setUser(u); }});
 
   // ── header ──
-  const header=el("div",{style:{background:"linear-gradient(135deg,#003366 0%,#004E8C 100%)",height:isMobile?"auto":60,padding:isMobile?"8px 12px":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0066B3"}},
+  const header=el("div",{style:{background:"linear-gradient(135deg,#003366 0%,#004E8C 100%)",height:isMobile?"auto":60,padding:isMobile?"0":"0",display:"flex",alignItems:"stretch",justifyContent:"space-between",flexWrap:"wrap",gap:0,borderBottom:"3px solid #0066B3",minHeight:isMobile?52:60}},
     el("div",{style:{display:"flex",alignItems:"center",gap:0,height:"100%"}},
-      el("div",{style:{background:"#0066B3",height:"100%",padding:isMobile?"10px 14px":"0 24px",display:"flex",alignItems:"center",justifyContent:"center"}},
-        el(WEGLogoSVG,{height:isMobile?22:26,color:"#fff"})
+      el("div",{style:{background:"#0066B3",height:"100%",padding:isMobile?"0 12px":"0 24px",display:"flex",alignItems:"center",justifyContent:"center",minWidth:isMobile?48:"auto"}},
+        el(WEGLogoSVG,{height:isMobile?20:26,color:"#fff"})
       ),
-      el("div",{style:{padding:isMobile?"8px 0":"0 16px"}},
-        el("div",{style:{color:"#fff",fontSize:isMobile?13:15,fontWeight:600,letterSpacing:"0.3px"}},(isMobile?"Dashboard":"Dashboard de Produção")),
-        el("div",{style:{color:"#8BACC8",fontSize:11,marginTop:1}},`${user.nome}`+(isMobile?"":" · "+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando...")),loading?" ...":"")
+      el("div",{style:{padding:isMobile?"0 10px":"0 16px"}},
+        el("div",{style:{color:"#fff",fontSize:isMobile?13:15,fontWeight:600,letterSpacing:"0.3px"}},(isMobile?"Dashboard Produção":"Dashboard de Produção")),
+        !isMobile&&el("div",{style:{color:"#8BACC8",fontSize:11,marginTop:1}},`${user.nome} · `+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando..."),loading?" ...":"")
       )
     ),
-    el("div",{style:{display:"flex",gap:10,alignItems:"center",padding:isMobile?"0":"0 20px 0 0"}},
+    el("div",{style:{display:"flex",gap:isMobile?6:10,alignItems:"center",padding:isMobile?"0 10px":"0 20px 0 0"}},
       syncSt==="syncing"&&el(SaveLoader,{header:true}),
       syncSt==="ok"    &&el(SaveCheck,{size:18,color:"#86efac"}),
       syncSt==="error" &&el("span",{style:{color:"#fca5a5",fontSize:11,fontWeight:500}},"Erro"),
-      !isMobile&&el(PushButton,{label:"TV",variant:"tv",onClick:()=>setShowTV(true)}),
-      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#C8D8E8",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,lineHeight:"1.25rem",boxShadow:"0 1px 2px 0 rgba(0,0,0,0.1)",transition:"all .15s"}},"Admin"),
-      el(PushButton,{label:"Sair",variant:"sair",onClick:handleLogout})
+      // TV: ícone no mobile, texto no desktop
+      el("button",{onClick:()=>setShowTV(true),title:"Modo TV",style:{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:8,padding:isMobile?"10px":"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",minWidth:isMobile?44:0,minHeight:isMobile?44:0,transition:"all .15s"}},
+        isMobile?el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("rect",{x:2,y:3,width:20,height:14,rx:2}),el("polyline",{points:"8 21 12 17 16 21"})):"TV"
+      ),
+      user.role==="admin"&&el("button",{onClick:()=>setShowAdmin(true),style:{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#C8D8E8",borderRadius:8,padding:isMobile?"10px":"8px 14px",cursor:"pointer",fontSize:12,fontWeight:600,lineHeight:"1.25rem",boxShadow:"0 1px 2px 0 rgba(0,0,0,0.1)",transition:"all .15s",minWidth:isMobile?44:0,minHeight:isMobile?44:0,display:"flex",alignItems:"center",justifyContent:"center"}},
+        isMobile?el("svg",{width:18,height:18,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"},el("path",{d:"M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"})):"Admin"
+      ),
+      el(PushButton,{label:isMobile?null:"Sair",variant:"sair",onClick:handleLogout,icon:isMobile?{svgProps:{},path:el("path",{d:"M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"})}:null})
     )
   );
 
-  // ── tabs ──
-  const tabLabels=[["entrada",isMobile?"Apontar":"Apontamento"],["dashboard",isMobile?"Dash":"Dashboard"],["historico",isMobile?"Hist.":"Histórico"],["metas",isMobile?"Metas":"Metas"],["feedbacks",isMobile?"Obs":"Feedbacks"]];
-  const tabs=el("div",{style:{background:"#fff",display:"flex",gap:isMobile?4:6,padding:isMobile?"8px 10px":"10px 24px",overflowX:"auto",borderBottom:"1px solid #E5E7EB"}},
+  // ── tabs (desktop top bar) ──
+  const tabLabels=[["entrada","Apontamento"],["dashboard","Dashboard"],["historico","Histórico"],["metas","Metas"],["feedbacks","Feedbacks"]];
+  const tabs=!isMobile&&el("div",{style:{background:"#fff",display:"flex",gap:6,padding:"10px 24px",overflowX:"auto",borderBottom:"1px solid #E5E7EB"}},
     ...tabLabels.map(([k,l])=>{
       var isActive=tab===k;
       return el("button",{key:k,onClick:()=>setTab(k),
@@ -3183,8 +3277,8 @@ function App(){
           border:isActive?"1px solid #0066B3":"1px solid #D1D5DB",
           borderRadius:8,
           color:isActive?"#003366":"#111827",
-          fontSize:isMobile?13:14,fontWeight:isActive?700:600,lineHeight:"1.25rem",
-          padding:isMobile?"8px 12px":"10px 18px",
+          fontSize:14,fontWeight:isActive?700:600,lineHeight:"1.25rem",
+          padding:"10px 18px",
           textAlign:"center",whiteSpace:"nowrap",
           boxShadow:isActive?"0 0 0 1px rgba(0,102,179,0.1)":"0 1px 2px 0 rgba(0,0,0,0.05)",
           cursor:"pointer",userSelect:"none",
@@ -3193,8 +3287,33 @@ function App(){
     })
   );
 
+  // ── bottom nav (mobile only) ──
+  const mobileNavItems=[
+    {k:"entrada",  label:"Apontar",   svgD:["M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7","M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"]},
+    {k:"dashboard",label:"Dashboard", svgD:["M18 20V10","M12 20V4","M6 20v-6"]},
+    {k:"historico",label:"Histórico", svgD:["M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2","M13 5H11a2 2 0 00-2 2v0a2 2 0 002 2h2a2 2 0 002-2v0a2 2 0 00-2-2z","M9 12h6","M9 16h4"]},
+    {k:"metas",    label:"Metas",     svgD:["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 8v4l3 3"]},
+    {k:"feedbacks",label:"Obs",       svgD:["M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"]}
+  ];
+  const bottomNav=isMobile&&el("div",{style:{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"#fff",borderTop:"1px solid #E5E7EB",display:"flex",boxShadow:"0 -2px 12px rgba(0,0,0,0.07)",paddingBottom:"env(safe-area-inset-bottom,0px)"}},
+    ...mobileNavItems.map(({k,label,svgD})=>{
+      var isActive=tab===k;
+      var hasBadge=k==="entrada"&&pendingCount>0;
+      return el("button",{key:k,onClick:()=>setTab(k),style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"8px 2px 10px",background:"none",border:"none",cursor:"pointer",color:isActive?"#0066B3":"#94A3B8",position:"relative",minHeight:56,transition:"color .15s"}},
+        el("div",{style:{position:"relative"}},
+          el("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:isActive?2.5:2,strokeLinecap:"round",strokeLinejoin:"round"},
+            ...svgD.map((d,i)=>el("path",{key:i,d}))
+          ),
+          hasBadge&&el("div",{style:{position:"absolute",top:-4,right:-6,background:"#EF4444",color:"#fff",borderRadius:10,minWidth:16,height:16,fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}},pendingCount)
+        ),
+        el("div",{style:{fontSize:10,fontWeight:isActive?700:500,marginTop:3,letterSpacing:"0.2px"}},label)
+      );
+    })
+  );
+
   return el("div",{style:{fontFamily:"'Segoe UI','Inter',-apple-system,sans-serif",background:"#F5F6FA",minHeight:"100vh"}},
-    el("style",null,PUSH_CSS+LOADER_CSS),
+    el("style",null,PUSH_CSS+LOADER_CSS+TOAST_CSS),
+    isMobile&&(syncSt==="ok"||syncSt==="error")&&el(Toast,{msg:"",type:syncSt}),
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
     obsRec   &&el(ObsModal,   {rec:obsRec,   machines,     onSave:handleSaveObs,  onClose:()=>setObsRec(null),  saving:obsSaving}),
@@ -3203,13 +3322,14 @@ function App(){
     showExport&&el(ExportModal,{onClose:()=>setShowExport(false),onExport:(format,sections,opts)=>{setShowExport(false);doExport(format,sections,{data:dashData,machines,metas,machAgg,totProd,totMeta,dfIni,dfFim,dfTur,dfMac},opts);}}),
     showTV&&el(TVMode,{machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,metaTurnos,onClose:()=>setShowTV(false)}),
     header, tabs,
-    el("div",{style:{padding:isMobile?"12px 10px":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
-      tab==="entrada"   &&el(TabEntrada,   {machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
-      tab==="dashboard" &&el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,analytics,chartHeatmap,chartPareto,chartBoxplot,chartTrendMA,chartStacked,chartScatter,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile,onOpenExport:()=>setShowExport(true)}),
-      tab==="historico" &&el(TabHistorico, {machines,metas,records,setEditRec,setDeleteRec,setObsRec,isMobile}),
-      tab==="metas"     &&el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos}),
-      tab==="feedbacks" &&el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec})
-    )
+    el("div",{style:{padding:isMobile?"0 0 calc(env(safe-area-inset-bottom,0px) + 70px)":"16px 24px",maxWidth:1400,margin:"0 auto",width:"100%",boxSizing:"border-box"}},
+      tab==="entrada"   &&el(TabEntrada,{machines,metas,inputs,obsInputs,entryDate,setEntryDate,entryTurno,setEntryTurno,syncSt,pendingCount,handleSave,setInputs,setObsInputs}),
+      tab==="dashboard" &&el("div",{style:{padding:isMobile?"12px 10px":"0"}},el(TabDashboard, {machines,metas,dashData,machAgg,totProd,totMeta,chartProdVsMeta,chartTurnoData,chartTendencia,chartPerformers,analytics,chartHeatmap,chartPareto,chartBoxplot,chartTrendMA,chartStacked,chartScatter,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,dView,setDView,isMobile,onOpenExport:()=>setShowExport(true)})),
+      tab==="historico" &&el("div",{style:{padding:isMobile?"12px 10px":"0"}},el(TabHistorico, {machines,metas,records,setEditRec,setDeleteRec,setObsRec,isMobile})),
+      tab==="metas"     &&el("div",{style:{padding:isMobile?"12px 10px":"0"}},el(TabMetas,     {machines,metas,metasInfo,updateMeta,metasLoading,metasSaving,metaEdit,setMetaEdit,saveMetasToServer,metaTurnos,setMetaTurnos})),
+      tab==="feedbacks" &&el("div",{style:{padding:isMobile?"12px 10px":"0"}},el(TabFeedbacks, {machines,metas,feedbacksData,dfIni,setDfIni,dfFim,setDfFim,dfMac,setDfMac,dfTur,setDfTur,setObsRec,setDeleteRec}))
+    ),
+    bottomNav
   );
 }
 

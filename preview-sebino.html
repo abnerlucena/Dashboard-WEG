@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Preview — Sebino Family | Dashboard WEG</title>
+  <style>
+    /* ── SEBINO FONT FAMILY — full weight spectrum ── */
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/Sebino-Font/Sebino-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/sebino-medium_freefontdownload_org/sebino-medium/sebino-medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/Sebino-Font-bold/sebino-bold/sebino-bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/sebino-heavy_freefontdownload_org/sebino-heavy/sebino-heavy.ttf') format('truetype');
+      font-weight: 800;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/sebino-black_freefontdownload_org/sebino-black/sebino-black.ttf') format('truetype');
+      font-weight: 900;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Sebino';
+      src: url('sebino font/sebino-black-italic_freefontdownload_org/sebino-black-italic/sebino-black-italic.ttf') format('truetype');
+      font-weight: 900;
+      font-style: italic;
+      font-display: swap;
+    }
+
+    /* ── RESET ── */
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Sebino', 'Segoe UI', system-ui, sans-serif;
+    }
+    body {
+      background: #F5F6FA;
+      color: #0F172A;
+      font-size: 14px;
+      font-weight: 400;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, #001D3D 0%, #003366 40%, #004E8C 100%);
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      box-shadow: 0 2px 20px rgba(0, 30, 60, 0.25);
+      position: relative;
+      z-index: 10;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo-box {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .logo-box:hover { background: rgba(255,255,255,0.18); }
+    .header-title {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+    .header-sub {
+      color: rgba(255,255,255,0.5);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.3px;
+      margin-top: 2px;
+    }
+    .header-right { display: flex; gap: 10px; align-items: center; }
+    .btn-header {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.4px;
+      transition: all 0.2s;
+    }
+    .btn-tv {
+      background: rgba(255,255,255,0.95);
+      color: #003366;
+    }
+    .btn-tv:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-sair {
+      background: rgba(220, 38, 38, 0.9);
+      color: #fff;
+    }
+    .btn-sair:hover { background: #DC2626; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+
+    /* ── TAB BAR ── */
+    .tab-bar {
+      background: #fff;
+      border-bottom: 1px solid #E5E7EB;
+      display: flex;
+      gap: 0;
+      padding: 0 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .tab {
+      padding: 15px 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #64748B;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      letter-spacing: 0.2px;
+      position: relative;
+    }
+    .tab:hover { color: #334155; background: #F8FAFC; }
+    .tab.active {
+      color: #0066B3;
+      font-weight: 700;
+      border-bottom-color: #0066B3;
+    }
+
+    /* ── FILTERS BAR ── */
+    .filters {
+      background: #fff;
+      border: 1px solid #E8ECF1;
+      border-radius: 14px;
+      margin: 24px 32px 0;
+      padding: 18px 28px;
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .filter-group label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #94A3B8;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .filter-group input,
+    .filter-group select {
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #F8FAFC;
+      color: #0F172A;
+      outline: none;
+      font-family: 'Sebino', 'Segoe UI', sans-serif;
+      transition: all 0.2s;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus {
+      border-color: #0066B3;
+      box-shadow: 0 0 0 3px rgba(0,102,179,0.1);
+      background: #fff;
+    }
+    .filter-group input { width: 150px; }
+    .filter-group select { min-width: 140px; cursor: pointer; }
+
+    .sub-tabs { display: flex; gap: 0; margin-left: auto; }
+    .sub-tab {
+      padding: 10px 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748B;
+      cursor: pointer;
+      border: 1px solid #E2E8F0;
+      background: #fff;
+      letter-spacing: 0.2px;
+      transition: all 0.15s;
+    }
+    .sub-tab:first-child { border-radius: 8px 0 0 8px; }
+    .sub-tab:last-child { border-radius: 0 8px 8px 0; }
+    .sub-tab + .sub-tab { border-left: none; }
+    .sub-tab:hover { background: #F8FAFC; color: #334155; }
+    .sub-tab.active {
+      background: #003366;
+      color: #fff;
+      border-color: #003366;
+      font-weight: 700;
+    }
+
+    /* ── KPI CARDS ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+      gap: 16px;
+      margin: 24px 32px 0;
+    }
+    .kpi {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px 22px;
+      border: 1px solid #E8ECF1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .kpi:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .kpi::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      border-radius: 14px 0 0 14px;
+    }
+    .kpi.navy::before   { background: linear-gradient(180deg, #003366, #004E8C); }
+    .kpi.blue::before   { background: linear-gradient(180deg, #0066B3, #3B8ED6); }
+    .kpi.teal::before   { background: linear-gradient(180deg, #0095A8, #00B4CC); }
+    .kpi.orange::before { background: linear-gradient(180deg, #F59E0B, #FBBF24); }
+    .kpi.green::before  { background: linear-gradient(180deg, #22C55E, #4ADE80); }
+    .kpi.info::before   { background: linear-gradient(180deg, #3B82F6, #60A5FA); }
+    .kpi.red::before    { background: linear-gradient(180deg, #EF4444, #F87171); }
+
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94A3B8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      line-height: 1;
+    }
+    .kpi-sub {
+      font-size: 11px;
+      font-weight: 400;
+      color: #94A3B8;
+      margin-top: 4px;
+    }
+    .kpi.navy .kpi-value   { color: #003366; }
+    .kpi.blue .kpi-value   { color: #0066B3; }
+    .kpi.teal .kpi-value   { color: #0095A8; }
+    .kpi.orange .kpi-value { color: #D97706; }
+    .kpi.green .kpi-value  { color: #16A34A; }
+    .kpi.info .kpi-value   { color: #2563EB; }
+    .kpi.red .kpi-value    { color: #DC2626; }
+
+    /* ── TEND ICON ── */
+    .tend-icon { display: flex; align-items: center; gap: 5px; }
+    .tend-line { width: 24px; height: 3px; background: #F59E0B; border-radius: 2px; }
+    .tend-arrow { color: #EF4444; font-size: 18px; font-weight: 900; }
+
+    /* ── RANKINGS ── */
+    .rankings {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 24px 32px 0;
+    }
+    .rank-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px 28px;
+      border: 1px solid #E8ECF1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .rank-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .rank-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .rank-icon.green { background: rgba(34,197,94,0.1); }
+    .rank-icon.red   { background: rgba(239,68,68,0.1); }
+    .rank-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .rank-title.green { color: #16A34A; }
+    .rank-title.red   { color: #DC2626; }
+
+    .rank-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .rank-row:last-child { border-bottom: none; }
+    .rank-num {
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+    .rank-num.gold   { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+    .rank-num.silver { background: linear-gradient(135deg, #94A3B8, #B0BEC5); }
+    .rank-num.bronze { background: linear-gradient(135deg, #CD7F32, #D4944A); }
+    .rank-num.r1     { background: linear-gradient(135deg, #EF4444, #F87171); }
+    .rank-num.r2     { background: linear-gradient(135deg, #F97316, #FB923C); }
+    .rank-num.r3     { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+
+    .rank-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1E293B;
+    }
+    .rank-bar-wrap {
+      width: 100px;
+      height: 6px;
+      background: #F1F5F9;
+      border-radius: 3px;
+      margin-right: 14px;
+      overflow: hidden;
+    }
+    .rank-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .rank-bar.green  { background: linear-gradient(90deg, #22C55E, #4ADE80); }
+    .rank-bar.orange { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .rank-bar.red    { background: linear-gradient(90deg, #EF4444, #F87171); }
+
+    .rank-pct {
+      font-size: 14px;
+      font-weight: 800;
+      min-width: 44px;
+      text-align: right;
+    }
+    .rank-pct.green  { color: #16A34A; }
+    .rank-pct.red    { color: #DC2626; }
+    .rank-pct.orange { color: #D97706; }
+
+    /* ── EXPORT ── */
+    .export-row { margin: 24px 32px 0; display: flex; gap: 12px; }
+    .btn-export {
+      background: linear-gradient(135deg, #003366, #0066B3);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 28px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.4px;
+      box-shadow: 0 4px 14px rgba(0,51,102,0.25);
+      transition: all 0.2s;
+    }
+    .btn-export:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,51,102,0.35);
+    }
+
+    /* ── CHART CARD ── */
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      margin: 24px 32px 32px;
+      padding: 28px;
+      border: 1px solid #E8ECF1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      position: relative;
+    }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+    .chart-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: 0.2px;
+      line-height: 1.3;
+    }
+    .chart-subtitle {
+      font-size: 12px;
+      font-weight: 400;
+      color: #94A3B8;
+      margin-top: 2px;
+    }
+    .btn-expand {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748B;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      font-family: 'Sebino', sans-serif;
+    }
+    .btn-expand:hover { background: #F1F5F9; border-color: #CBD5E1; color: #334155; }
+
+    .chart-area { width: 100%; height: 300px; position: relative; }
+
+    /* ── CHART ELEMENTS ── */
+    .chart-legend { display: flex; gap: 28px; justify-content: center; margin-bottom: 20px; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748B;
+    }
+    .legend-dot  { width: 12px; height: 12px; border-radius: 4px; }
+    .legend-line { width: 22px; height: 3px; border-radius: 2px; }
+    .legend-dash { width: 22px; height: 0; border-top: 3px dashed; }
+
+    .bars-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 240px;
+      padding: 0 36px;
+      position: relative;
+    }
+    .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .bar {
+      width: 100%;
+      background: linear-gradient(180deg, #3B82F6 0%, #93C5FD 100%);
+      border-radius: 4px 4px 0 0;
+      min-width: 8px;
+      opacity: 0.75;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .bar:hover { opacity: 1; transform: scaleY(1.02); transform-origin: bottom; }
+    .meta-line {
+      position: absolute;
+      left: 36px; right: 36px;
+      border-top: 2px dashed #22C55E;
+      opacity: 0.5;
+    }
+
+    .y-axis {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .y-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: #94A3B8;
+      text-align: right;
+      width: 32px;
+    }
+
+    /* ── FONT SPECIMEN SECTION ── */
+    .specimen {
+      background: #fff;
+      border-radius: 14px;
+      margin: 0 32px 24px;
+      padding: 32px;
+      border: 1px solid #E8ECF1;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .specimen-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94A3B8;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .specimen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 28px;
+    }
+    .specimen-item { }
+    .specimen-weight {
+      font-size: 10px;
+      font-weight: 700;
+      color: #0066B3;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .specimen-sample {
+      color: #0F172A;
+      line-height: 1.3;
+    }
+
+    /* ── DIVIDER ── */
+    .section-divider {
+      margin: 32px 32px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #E2E8F0, transparent);
+    }
+    .section-divider span {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94A3B8;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── PREVIEW BADGE ── */
+    .preview-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 99999;
+      background: linear-gradient(135deg, #001D3D, #003366, #0066B3);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 10px 22px;
+      border-radius: 28px;
+      letter-spacing: 0.6px;
+      box-shadow: 0 6px 20px rgba(0,51,102,0.4);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .preview-badge span { opacity: 0.6; font-weight: 400; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .header { padding: 0 16px; }
+      .filters, .kpi-row, .rankings, .export-row, .chart-card, .specimen { margin-left: 16px; margin-right: 16px; }
+      .rankings { grid-template-columns: 1fr; }
+      .kpi-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ PREVIEW BADGE ══ -->
+<div class="preview-badge">SEBINO FAMILY <span>— full weight preview</span></div>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-box">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5991 4192" width="64" height="42" style="shape-rendering:geometricPrecision">
+        <polygon style="fill:#fff;fill-rule:nonzero" points="461,466 461,2795 922,2795 922,932 1383,932 1383,2795 1844,2795 1844,932 2304,932 2304,3261 0,3261 0,0 5991,0 5991,466 "/>
+        <path style="fill:#fff;fill-rule:nonzero" d="M4148 2329l0 -1397 -1383 0 0 2329 1383 0 0 -466 -922 0 0 -466 922 0zm-461 -466l-461 0 0 -466 461 0 0 466z"/>
+        <path style="fill:#fff;fill-rule:nonzero" d="M5991 932l-1382 0 0 2329 922 0 0 466 -5531 0 0 465 5991 0 0 -3260zm-461 1863l-461 0 0 -1398 461 0 0 1398z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">Dashboard de Produção</div>
+      <div class="header-sub">abnerf · Atualizado às 20:15:09</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-header btn-tv">TV</button>
+    <button class="btn-header btn-sair">Sair</button>
+  </div>
+</div>
+
+<!-- ══ TAB BAR ══ -->
+<div class="tab-bar">
+  <div class="tab">Apontamento</div>
+  <div class="tab active">Dashboard</div>
+  <div class="tab">Histórico</div>
+  <div class="tab">Metas</div>
+  <div class="tab">Feedbacks</div>
+</div>
+
+<!-- ══ FILTERS ══ -->
+<div class="filters">
+  <div class="filter-group">
+    <label>De</label>
+    <input type="date" value="2026-04-01"/>
+  </div>
+  <div class="filter-group">
+    <label>Até</label>
+    <input type="date" value="2026-04-01"/>
+  </div>
+  <div class="filter-group">
+    <label>Máquina</label>
+    <select><option>Todas</option></select>
+  </div>
+  <div class="filter-group">
+    <label>Turno</label>
+    <select><option>Todos</option></select>
+  </div>
+  <div class="sub-tabs">
+    <div class="sub-tab">Resumo</div>
+    <div class="sub-tab">Detalhado</div>
+    <div class="sub-tab">Turnos</div>
+    <div class="sub-tab">Gráficos</div>
+    <div class="sub-tab active">Analytics</div>
+  </div>
+</div>
+
+<!-- ══ KPI ROW ══ -->
+<div class="kpi-row">
+  <div class="kpi navy">
+    <div class="kpi-label">Produção Total</div>
+    <div class="kpi-value">33.735</div>
+    <div class="kpi-sub">peças</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Meta Total</div>
+    <div class="kpi-value">74.000</div>
+    <div class="kpi-sub">peças</div>
+  </div>
+  <div class="kpi teal">
+    <div class="kpi-label">OEE Global</div>
+    <div class="kpi-value">46%</div>
+    <div class="kpi-sub">eficiência ponderada</div>
+  </div>
+  <div class="kpi orange">
+    <div class="kpi-label">Tendência</div>
+    <div class="kpi-value">
+      <div class="tend-icon">
+        <div class="tend-line"></div>
+        <div class="tend-line"></div>
+        <span class="tend-arrow">&#9660;</span>
+      </div>
+    </div>
+    <div class="kpi-sub">vs mês anterior</div>
+  </div>
+  <div class="kpi red">
+    <div class="kpi-label">Tx. Apontamento</div>
+    <div class="kpi-value">22%</div>
+    <div class="kpi-sub">disciplina operac.</div>
+  </div>
+  <div class="kpi green">
+    <div class="kpi-label">Dias Consecutivos</div>
+    <div class="kpi-value">1</div>
+    <div class="kpi-sub">acima de 90%</div>
+  </div>
+  <div class="kpi info">
+    <div class="kpi-label">Registros</div>
+    <div class="kpi-value">4</div>
+    <div class="kpi-sub">lançamentos</div>
+  </div>
+  <div class="kpi green">
+    <div class="kpi-label">Máquinas Ativas</div>
+    <div class="kpi-value">4</div>
+    <div class="kpi-sub">de 6</div>
+  </div>
+</div>
+
+<!-- ══ RANKINGS ══ -->
+<div class="rankings">
+  <div class="rank-card">
+    <div class="rank-header">
+      <div class="rank-icon green">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+      </div>
+      <div class="rank-title green">Top 3 Melhores</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num gold">1</div>
+      <div class="rank-name">A Granel</div>
+      <div class="rank-bar-wrap"><div class="rank-bar green" style="width:64%"></div></div>
+      <div class="rank-pct green">64%</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num silver">2</div>
+      <div class="rank-name">Montagem Diversos</div>
+      <div class="rank-bar-wrap"><div class="rank-bar green" style="width:40%"></div></div>
+      <div class="rank-pct green">40%</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num bronze">3</div>
+      <div class="rank-name">Horizontal 1</div>
+      <div class="rank-bar-wrap"><div class="rank-bar orange" style="width:39%"></div></div>
+      <div class="rank-pct orange">39%</div>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-header">
+      <div class="rank-icon red">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      </div>
+      <div class="rank-title red">Precisam de Atenção</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num r1">1</div>
+      <div class="rank-name">Vertical Placas / Sup. 2</div>
+      <div class="rank-bar-wrap"><div class="rank-bar red" style="width:26%"></div></div>
+      <div class="rank-pct red">26%</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num r2">2</div>
+      <div class="rank-name">Horizontal 1</div>
+      <div class="rank-bar-wrap"><div class="rank-bar orange" style="width:39%"></div></div>
+      <div class="rank-pct orange">39%</div>
+    </div>
+    <div class="rank-row">
+      <div class="rank-num r3">3</div>
+      <div class="rank-name">Montagem Diversos</div>
+      <div class="rank-bar-wrap"><div class="rank-bar orange" style="width:40%"></div></div>
+      <div class="rank-pct orange">40%</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EXPORT ══ -->
+<div class="export-row">
+  <button class="btn-export">Exportar Relatório</button>
+</div>
+
+<!-- ══ CHART ══ -->
+<div class="chart-card">
+  <div class="chart-head">
+    <div>
+      <div class="chart-title">Tendência 30 dias + Média Móvel 7d</div>
+      <div class="chart-subtitle">Produção diária vs meta global de 60.000 peças</div>
+    </div>
+    <button class="btn-expand">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      Expandir
+    </button>
+  </div>
+
+  <div class="chart-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(180deg,#3B82F6,#93C5FD)"></div> Produção Diária</div>
+    <div class="legend-item"><div class="legend-line" style="background:#003366"></div> Média Móvel 7d</div>
+    <div class="legend-item"><div class="legend-dash" style="border-color:#22C55E"></div> Meta 60k</div>
+  </div>
+
+  <div class="chart-area">
+    <div class="y-axis">
+      <span class="y-label">70k</span>
+      <span class="y-label">60k</span>
+      <span class="y-label">50k</span>
+      <span class="y-label">40k</span>
+      <span class="y-label">30k</span>
+      <span class="y-label">20k</span>
+    </div>
+    <div class="meta-line" style="bottom:68%"></div>
+    <div class="bars-container">
+      <div class="bar-group"><div class="bar" style="height:18%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:22%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:15%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:28%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:25%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:32%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:30%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:38%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:35%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:48%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:42%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:40%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:50%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:46%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:55%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:52%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:58%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:62%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:56%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:65%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:70%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:68%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:72%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:75%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:78%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:80%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:76%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:82%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:85%"></div></div>
+      <div class="bar-group"><div class="bar" style="height:88%"></div></div>
+    </div>
+    <svg style="position:absolute;left:36px;right:36px;top:0;bottom:0;width:calc(100% - 72px);height:100%;pointer-events:none" viewBox="0 0 300 240" preserveAspectRatio="none">
+      <polyline fill="none" stroke="#003366" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        points="5,200 15,190 25,205 35,178 45,182 55,168 65,172 75,155 85,160 95,132 105,142 115,146 125,125 135,133 145,115 155,120 165,108 175,98 185,110 195,92 205,78 215,83 225,74 235,68 245,60 255,54 265,62 275,50 285,42 295,34"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ══ FONT SPECIMEN ══ -->
+<div class="section-divider"><span>Sebino Family Specimen</span></div>
+
+<div class="specimen">
+  <div class="specimen-title">Hierarquia Tipográfica Completa</div>
+  <div class="specimen-grid">
+    <div class="specimen-item">
+      <div class="specimen-weight">Regular — 400</div>
+      <div class="specimen-sample" style="font-weight:400; font-size:15px;">
+        Corpo de texto, descrições e informações secundárias. A Sebino Regular oferece legibilidade limpa com personalidade geométrica distinta.
+      </div>
+    </div>
+    <div class="specimen-item">
+      <div class="specimen-weight">Medium — 500</div>
+      <div class="specimen-sample" style="font-weight:500; font-size:15px;">
+        Filtros, labels de formulário, navegação, sub-tabs. O peso Medium adiciona presença sem competir com elementos de destaque.
+      </div>
+    </div>
+    <div class="specimen-item">
+      <div class="specimen-weight">Bold — 700</div>
+      <div class="specimen-sample" style="font-weight:700; font-size:16px;">
+        Títulos de seção, headers de tabela, botões de ação primária. Bold traz autoridade e hierarquia clara.
+      </div>
+    </div>
+    <div class="specimen-item">
+      <div class="specimen-weight">Heavy — 800</div>
+      <div class="specimen-sample" style="font-weight:800; font-size:18px;">
+        Títulos de cards, rankings, chart headers. Heavy cria pontos focais fortes sem necessidade de tamanho excessivo.
+      </div>
+    </div>
+    <div class="specimen-item">
+      <div class="specimen-weight">Black — 900</div>
+      <div class="specimen-sample" style="font-weight:900; font-size:24px;">
+        KPI values, métricas hero. O peso máximo da família para dados numéricos de alto impacto visual.
+      </div>
+    </div>
+    <div class="specimen-item">
+      <div class="specimen-weight">Black Italic — 900i</div>
+      <div class="specimen-sample" style="font-weight:900; font-style:italic; font-size:24px;">
+        Destaques especiais, dados em contexto de variação. Italic Black para ênfase dramática pontual.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NUMERIC SPECIMEN ══ -->
+<div class="specimen" style="margin-bottom:80px;">
+  <div class="specimen-title">Escala Numérica — Sebino em Dados</div>
+  <div style="display:flex; gap:40px; flex-wrap:wrap; align-items:baseline;">
+    <div style="text-align:center;">
+      <div style="font-size:48px; font-weight:900; color:#003366; line-height:1; letter-spacing:1px;">33.735</div>
+      <div style="font-size:11px; font-weight:500; color:#94A3B8; margin-top:6px;">Black 900 · 48px</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:36px; font-weight:800; color:#0066B3; line-height:1;">74.000</div>
+      <div style="font-size:11px; font-weight:500; color:#94A3B8; margin-top:6px;">Heavy 800 · 36px</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:28px; font-weight:700; color:#0095A8; line-height:1;">46%</div>
+      <div style="font-size:11px; font-weight:500; color:#94A3B8; margin-top:6px;">Bold 700 · 28px</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:20px; font-weight:500; color:#475569; line-height:1;">1.250</div>
+      <div style="font-size:11px; font-weight:500; color:#94A3B8; margin-top:6px;">Medium 500 · 20px</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-size:14px; font-weight:400; color:#64748B; line-height:1;">peças/hora</div>
+      <div style="font-size:11px; font-weight:500; color:#94A3B8; margin-top:6px;">Regular 400 · 14px</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
