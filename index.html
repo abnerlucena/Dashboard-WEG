@@ -4,7 +4,17 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Dashboard de Produção</title>
-  <style>html,body{margin:0;padding:0;overflow-x:hidden}body{min-height:100vh;background:#F5F6FA}</style>
+  <style>
+    @font-face{font-family:'Sebino';src:url('sebino font/Sebino-Font/Sebino-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+    @font-face{font-family:'Sebino';src:url('sebino font/sebino-medium_freefontdownload_org/sebino-medium/sebino-medium.ttf') format('truetype');font-weight:500;font-style:normal;font-display:swap}
+    @font-face{font-family:'Sebino';src:url('sebino font/Sebino-Font-bold/sebino-bold/sebino-bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+    @font-face{font-family:'Sebino';src:url('sebino font/sebino-heavy_freefontdownload_org/sebino-heavy/sebino-heavy.ttf') format('truetype');font-weight:800;font-style:normal;font-display:swap}
+    @font-face{font-family:'Sebino';src:url('sebino font/sebino-black_freefontdownload_org/sebino-black/sebino-black.ttf') format('truetype');font-weight:900;font-style:normal;font-display:swap}
+    html,body{margin:0;padding:0;overflow-x:hidden;font-family:'Sebino','Segoe UI',sans-serif}
+    body{min-height:100vh;background:#F5F6FA}
+    input[type="password"]::-ms-reveal,input[type="password"]::-ms-clear{display:none!important}
+    input::-webkit-credentials-auto-fill-button,input::-webkit-contacts-auto-fill-button{display:none!important;visibility:hidden}
+  </style>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 </head>
@@ -18,8 +28,8 @@
         <path style="fill:#003366;fill-rule:nonzero" d="M5991 932l-1382 0 0 2329 922 0 0 466 -5531 0 0 465 5991 0 0 -3260zm-461 1863l-461 0 0 -1398 461 0 0 1398z"/>
       </svg>
     </div>
-    <div style="color:#fff;font-size:15px;font-family:'Segoe UI',sans-serif;font-weight:500;letter-spacing:0.5px">Dashboard de Produção</div>
-    <div style="color:#8BACC8;font-size:13px;font-family:'Segoe UI',sans-serif">Carregando...</div>
+    <div style="color:#fff;font-size:16px;font-family:'Sebino','Segoe UI',sans-serif;font-weight:700;letter-spacing:0.5px">Dashboard de Produção</div>
+    <div style="color:#8BACC8;font-size:13px;font-family:'Sebino','Segoe UI',sans-serif;font-weight:400">Carregando...</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>

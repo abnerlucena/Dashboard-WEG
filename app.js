@@ -83,12 +83,25 @@ const normDate = d=>{
 const pctCol   = p=>p===null?C.gray:p>=100?C.green:p>=80?C.yellow:C.red;
 const num      = v=>{ const x=Number(v); return isNaN(x)?0:x; };
 const rowStyle = i=>({background:i%2===0?"#F8FAFC":"#fff",borderBottom:"1px solid #E5E7EB"});
-const IS = {border:"1px solid #D1D5DB",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none",transition:"border-color .15s,box-shadow .15s"};
+const IS = {border:"1px solid #D1D5DB",borderRadius:6,padding:"7px 10px",fontSize:14,background:"#fff",outline:"none",transition:"border-color .15s,box-shadow .15s",fontFamily:"inherit",fontWeight:500};
 const SS = {...IS,cursor:"pointer"};
-const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",transition:"filter .15s",...ex});
+const BTN= (bg,ex={})=>({background:bg,color:"#fff",border:"none",borderRadius:8,padding:"9px 22px",fontWeight:700,fontSize:14,cursor:"pointer",transition:"filter .15s",fontFamily:"inherit",...ex});
 const esc= s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 // ─── PUSH BUTTON 3D (CSS) ────────────────────────────────────
+var FONT_CSS=`
+@font-face{font-family:'Sebino';src:url('sebino font/Sebino-Font/Sebino-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Sebino';src:url('sebino font/sebino-medium_freefontdownload_org/sebino-medium/sebino-medium.ttf') format('truetype');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Sebino';src:url('sebino font/Sebino-Font-bold/sebino-bold/sebino-bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Sebino';src:url('sebino font/sebino-heavy_freefontdownload_org/sebino-heavy/sebino-heavy.ttf') format('truetype');font-weight:800;font-style:normal;font-display:swap}
+@font-face{font-family:'Sebino';src:url('sebino font/sebino-black_freefontdownload_org/sebino-black/sebino-black.ttf') format('truetype');font-weight:900;font-style:normal;font-display:swap}
+@font-face{font-family:'Sebino';src:url('sebino font/sebino-black-italic_freefontdownload_org/sebino-black-italic/sebino-black-italic.ttf') format('truetype');font-weight:900;font-style:italic;font-display:swap}
+*,*::before,*::after{font-family:'Sebino','Segoe UI','Inter',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+input,select,button,textarea{font-family:inherit}
+input[type="password"]::-ms-reveal,input[type="password"]::-ms-clear{display:none!important}
+input::-webkit-credentials-auto-fill-button{display:none!important;visibility:hidden;pointer-events:none}
+input::-webkit-contacts-auto-fill-button{display:none!important;visibility:hidden;pointer-events:none}
+`;
 var TOAST_CSS=`@keyframes toast-in{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.95)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}`;
 var LOADER_CSS=`.save-loader{position:relative;display:inline-block;width:50px;height:24px}.save-loader .sl-bar,.save-loader .sl-bar:before,.save-loader .sl-bar:after{background:#fff;animation:sl-bounce .8s infinite ease-in-out;width:6px;height:16px;border-radius:2px}.save-loader .sl-bar{display:inline-block;position:relative;animation-delay:.16s!important}.save-loader .sl-bar:before,.save-loader .sl-bar:after{position:absolute;top:0;content:""}.save-loader .sl-bar:before{left:-10px}.save-loader .sl-bar:after{left:10px;animation-delay:.32s!important}@keyframes sl-bounce{0%,80%,100%{opacity:.75;box-shadow:0 0 currentColor;height:16px}40%{opacity:1;box-shadow:0 -4px currentColor;height:20px}}.save-loader-header .sl-bar,.save-loader-header .sl-bar:before,.save-loader-header .sl-bar:after{background:#fde68a;width:4px;height:12px}.save-check{display:inline-flex;align-items:center;justify-content:center}.save-check svg{animation:sl-pop .35s cubic-bezier(.3,.7,.4,1.5)}@keyframes sl-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}`;
 var PUSH_CSS=`.push-btn{position:relative;border:none;background:transparent;padding:0;cursor:pointer;outline-offset:4px;transition:filter 250ms;user-select:none;touch-action:manipulation}.push-btn .pb-sh{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px;will-change:transform;transform:translateY(2px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn .pb-edge{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:10px}.push-btn .pb-front{display:block;position:relative;padding:8px 20px;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:.4px;will-change:transform;transform:translateY(-4px);transition:transform 600ms cubic-bezier(.3,.7,.4,1)}.push-btn:hover{filter:brightness(110%)}.push-btn:hover .pb-front{transform:translateY(-6px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-front{transform:translateY(-2px);transition:transform 34ms}.push-btn:hover .pb-sh{transform:translateY(4px);transition:transform 250ms cubic-bezier(.3,.7,.4,1.5)}.push-btn:active .pb-sh{transform:translateY(1px);transition:transform 34ms}.push-btn:focus:not(:focus-visible){outline:none}.push-tv .pb-sh{background:hsl(0deg 0% 0%/.12)}.push-tv .pb-edge{background:linear-gradient(to left,hsl(210 18% 78%) 0%,hsl(210 14% 90%) 8%,hsl(210 14% 90%) 92%,hsl(210 18% 78%) 100%)}.push-tv .pb-front{background:#fff;color:#003366}.push-sair .pb-sh{background:hsl(0deg 0% 0%/.25)}.push-sair .pb-edge{background:linear-gradient(to left,hsl(345 100% 16%) 0%,hsl(345 100% 32%) 8%,hsl(345 100% 32%) 92%,hsl(345 100% 16%) 100%)}.push-sair .pb-front{background:hsl(345 100% 47%);color:#fff}`;
@@ -654,14 +667,14 @@ function AuthScreen({onLogin}){
   }
 
   const isLogin=mode==="login";
-  return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#003366 0%,#0066B3 100%)"}},
-    el("div",{style:{background:"#fff",borderRadius:12,padding:"36px 32px",width:380,maxWidth:"95vw",boxShadow:"0 12px 48px rgba(0,33,66,0.35)"}},
+  return el("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#001D3D 0%,#003366 40%,#004E8C 100%)",fontFamily:"'Sebino','Segoe UI',sans-serif"}},
+    el("div",{style:{background:"#fff",borderRadius:14,padding:"40px 36px",width:390,maxWidth:"95vw",boxShadow:"0 16px 64px rgba(0,20,60,0.4)"}},
       el("div",{style:{textAlign:"center",marginBottom:28}},
         el("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",background:C.navy,borderRadius:4,padding:"10px 20px",marginBottom:12}},
           el(WEGLogoSVG,{height:38,color:"#fff"})
         ),
-        el("div",{style:{fontSize:15,fontWeight:700,color:C.navy,marginTop:2,letterSpacing:0.3}},"Dashboard de Produção"),
-        el("div",{style:{fontSize:13,color:"#94A3B8",marginTop:4}},isLogin?"Faça login para continuar":"Crie sua conta de acesso")
+        el("div",{style:{fontSize:16,fontWeight:800,color:C.navy,marginTop:2,letterSpacing:0.4}},"Dashboard de Produção"),
+        el("div",{style:{fontSize:13,fontWeight:400,color:"#94A3B8",marginTop:4}},isLogin?"Faça login para continuar":"Crie sua conta de acesso")
       ),
       el("div",{style:{display:"flex",background:"#F0F2F5",borderRadius:4,padding:4,marginBottom:22}},
         ...[["login","Entrar"],["register","Criar Conta"]].map(([k,l])=>
@@ -675,9 +688,9 @@ function AuthScreen({onLogin}){
         ),
         el("div",{style:{marginBottom:14}},
           el("div",{style:{fontSize:12,fontWeight:700,color:"#1E293B",marginBottom:5}},"SENHA"),
-          el("div",{style:{position:"relative"}},
-            el("input",{type:showPw?"text":"password",value:senha,onChange:e=>setSenha(e.target.value),placeholder:"Mínimo 4 caracteres",style:{...IS,width:"100%",paddingRight:42}}),
-            el("span",{onClick:()=>setShowPw(!showPw),style:{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",cursor:"pointer",fontSize:16,color:"#94A3B8"}},showPw?"Ocultar":"Mostrar")
+          el("div",{style:{position:"relative",overflow:"hidden",borderRadius:6}},
+            el("input",{type:showPw?"text":"password",value:senha,onChange:e=>setSenha(e.target.value),placeholder:"Mínimo 4 caracteres",autoComplete:"current-password",style:{...IS,width:"100%",paddingRight:72,borderRadius:6}}),
+            el("button",{type:"button",onClick:()=>setShowPw(!showPw),style:{position:"absolute",right:0,top:0,bottom:0,background:"transparent",border:"none",borderLeft:"1px solid #E5E7EB",padding:"0 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#94A3B8",whiteSpace:"nowrap",fontFamily:"inherit"}},showPw?"Ocultar":"Mostrar")
           )
         ),
         !isLogin&&el("div",{style:{marginBottom:14}},
@@ -1659,13 +1672,13 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
 
   // ── controles de data/turno (sticky no mobile) ──
   const controls=el("div",{style:{background:"#fff",borderRadius:mob?0:12,padding:mob?"12px 14px":"14px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:mob?0:16,display:"flex",gap:mob?10:14,flexWrap:"wrap",alignItems:"flex-end",position:mob?"sticky":"relative",top:mob?0:"auto",zIndex:mob?20:"auto",borderBottom:mob?"1px solid #E5E7EB":"none"}},
-    el("div",{style:{flex:1}},
+    el("div",{style:mob?{flex:1}:{}},
       el("div",{style:lbl},"DATA"),
-      el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:"100%",minHeight:mob?44:36,fontSize:mob?16:14}})
+      el("input",{type:"date",value:entryDate,onChange:e=>setEntryDate(e.target.value),style:{...IS,width:mob?"100%":"auto",minHeight:mob?48:36,fontSize:mob?16:14}})
     ),
-    el("div",{style:{flex:1}},
+    el("div",{style:mob?{flex:1}:{}},
       el("div",{style:lbl},"TURNO"),
-      el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:"100%",minHeight:mob?44:36,fontSize:mob?16:14}},
+      el("select",{value:entryTurno,onChange:e=>setEntryTurno(e.target.value),style:{...SS,width:mob?"100%":"auto",minHeight:mob?48:36,fontSize:mob?16:14}},
         ...TURNOS.map(t=>el("option",{key:t,value:t},t))
       )
     ),
@@ -1700,7 +1713,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
             // Big numeric input + meta
             el("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:10}},
               el("div",{style:{flex:1}},
-                el("input",{type:"number",inputMode:"numeric",pattern:"[0-9]*",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:"100%",fontSize:22,fontWeight:800,textAlign:"center",padding:"10px 12px",minHeight:52,borderColor:hasPending?"#F59E0B":"#D1D5DB",borderWidth:hasPending?2:1,borderRadius:10,background:hasPending?"#FFFBEB":"#fff",color:C.navy}})
+                el("input",{type:"number",inputMode:"numeric",pattern:"[0-9]*",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),style:{...IS,width:"100%",fontSize:26,fontWeight:900,textAlign:"center",padding:"10px 12px",minHeight:56,borderColor:hasPending?"#F59E0B":"#D1D5DB",borderWidth:hasPending?2:1,borderRadius:10,background:hasPending?"#FFFBEB":"#fff",color:C.navy,letterSpacing:"1px"}})
               ),
               m.hasMeta&&el("div",{style:{textAlign:"center",minWidth:60,flexShrink:0}},
                 el("div",{style:{fontSize:11,color:"#94A3B8",fontWeight:600,letterSpacing:"0.3px",marginBottom:2}},"META"),
@@ -1794,7 +1807,7 @@ function TabDashboard({machines,metas,dashData,machAgg,totProd,totMeta,chartProd
       {label:"MÁQUINAS ATIVAS", value:Object.keys(machAgg).length,                                  sub:`de ${machines.length}`, color:C.yellow},
     ].map(k=>el("div",{key:k.label,style:{background:"#fff",borderRadius:12,padding:isMobile?"12px 14px":"16px 18px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",borderLeft:`4px solid ${k.color}`}},
       el("div",{style:{fontSize:10.5,color:"#6B7280",fontWeight:700,letterSpacing:"0.6px",textTransform:"uppercase",marginBottom:6}},k.label),
-      el("div",{style:{fontSize:isMobile?20:26,fontWeight:800,color:k.color,lineHeight:1.1,marginBottom:3,display:"flex",alignItems:"center",gap:6}},
+      el("div",{style:{fontSize:isMobile?22:28,fontWeight:900,color:k.color,lineHeight:1.05,marginBottom:3,display:"flex",alignItems:"center",gap:6,letterSpacing:"0.5px"}},
         k.value,
         k.arrow!==undefined&&el("span",{style:{fontSize:14}},k.arrow?"▲":"▼")
       ),
@@ -3245,7 +3258,7 @@ function App(){
         el(WEGLogoSVG,{height:isMobile?20:26,color:"#fff"})
       ),
       el("div",{style:{padding:isMobile?"0 10px":"0 16px"}},
-        el("div",{style:{color:"#fff",fontSize:isMobile?13:15,fontWeight:600,letterSpacing:"0.3px"}},(isMobile?"Dashboard Produção":"Dashboard de Produção")),
+        el("div",{style:{color:"#fff",fontSize:isMobile?13:15,fontWeight:700,letterSpacing:"0.4px"}},(isMobile?"Dashboard Produção":"Dashboard de Produção")),
         !isMobile&&el("div",{style:{color:"#8BACC8",fontSize:11,marginTop:1}},`${user.nome} · `+(lastSync?`Atualizado às ${lastSync.toLocaleTimeString("pt-BR")}`:"Conectando..."),loading?" ...":"")
       )
     ),
@@ -3311,8 +3324,8 @@ function App(){
     })
   );
 
-  return el("div",{style:{fontFamily:"'Segoe UI','Inter',-apple-system,sans-serif",background:"#F5F6FA",minHeight:"100vh"}},
-    el("style",null,PUSH_CSS+LOADER_CSS+TOAST_CSS),
+  return el("div",{style:{fontFamily:"'Sebino','Segoe UI','Inter',-apple-system,sans-serif",background:"#F5F6FA",minHeight:"100vh"}},
+    el("style",null,FONT_CSS+PUSH_CSS+LOADER_CSS+TOAST_CSS),
     isMobile&&(syncSt==="ok"||syncSt==="error")&&el(Toast,{msg:"",type:syncSt}),
     editRec  &&el(EditModal,  {rec:editRec,  metas,machines,onSave:handleEdit,    onClose:()=>setEditRec(null),  saving:editSaving}),
     deleteRec&&el(DeleteModal,{rec:deleteRec,machines,     onConfirm:handleDelete,onClose:()=>setDeleteRec(null),deleting}),
