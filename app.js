@@ -1669,6 +1669,7 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
 
   const lbl={fontSize:11,color:"#6B7280",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"};
   const btnSaveColor=syncSt==="ok"?"linear-gradient(135deg,#16a34a,#22C55E)":syncSt==="error"?"linear-gradient(135deg,#dc2626,#EF4444)":"linear-gradient(135deg,#003366,#0066B3)";
+  const filledCount=Object.keys(inputs).filter(k=>inputs[k]!==undefined&&inputs[k]!=="").length;
 
   // ── controles de data/turno ──
   const controls=el("div",{style:{background:"#fff",borderRadius:mob?0:12,padding:mob?"10px 14px":"14px 18px",boxShadow:mob?"none":"0 1px 3px rgba(0,0,0,0.08)",marginBottom:mob?0:16,display:"flex",gap:mob?10:14,flexWrap:"wrap",alignItems:"flex-end",position:mob?"sticky":"relative",top:mob?0:"auto",zIndex:mob?20:"auto",borderBottom:mob?"1px solid #E5E7EB":"none"}},
@@ -1693,6 +1694,12 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
   if(mob){
     return el("div",{style:{paddingBottom:80}},
       controls,
+      el("div",{style:{padding:"5px 14px 5px",background:"#fff",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid #F1F5F9"}},
+        el("div",{style:{flex:1,background:"#E5E7EB",borderRadius:4,height:4,overflow:"hidden"}},
+          el("div",{style:{width:`${machines.length>0?(filledCount/machines.length)*100:0}%`,height:"100%",background:"#0066B3",borderRadius:4,transition:"width .35s ease"}})
+        ),
+        el("span",{style:{fontSize:10,fontWeight:700,color:"#94A3B8",flexShrink:0}},`${filledCount}/${machines.length}`)
+      ),
       el("div",{style:{display:"flex",flexDirection:"column",gap:10,paddingTop:12}},
         ...machines.map((m,i)=>{
           const val=getVal(m.id);
@@ -1701,33 +1708,52 @@ function TabEntrada({machines,metas,inputs,obsInputs,entryDate,setEntryDate,entr
           const metaVal=metas[m.id]||0;
           const pct=m.hasMeta&&metaVal>0&&val!==""?Math.round(num(val)/metaVal*100):null;
           const col=pctCol(pct);
-          return el("div",{key:m.id,style:{background:"#fff",borderRadius:12,padding:"14px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",border:"1px solid "+(hasPending?"#F59E0B":"#E5E7EB")}},
-            el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
-              el("div",{style:{fontSize:14,fontWeight:700,color:C.navy}},m.name),
-              hasPending&&el("span",{style:{fontSize:11,fontWeight:700,color:"#d97706"}},"● pendente")
+          return el("div",{key:m.id,style:{background:"#fff",borderRadius:12,padding:"14px 16px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",border:"1px solid "+(hasPending?"rgba(0,102,179,0.3)":"#E5E7EB"),transition:"border-color .2s,box-shadow .2s"}},
+            el("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}},
+              el("div",{style:{fontSize:13,fontWeight:700,color:C.navy,lineHeight:1.3,flex:1,paddingRight:8}},m.name),
+              pct!==null
+                ? el("span",{style:{fontSize:11,fontWeight:800,color:col,background:col+"18",borderRadius:20,padding:"2px 9px",flexShrink:0}},pct+"%")
+                : hasPending&&el("span",{style:{fontSize:10,fontWeight:700,color:"#d97706",background:"#FEF3C7",borderRadius:20,padding:"2px 8px",flexShrink:0}},val!==""?"digit.":"obs")
             ),
             el("div",{style:{display:"flex",alignItems:"center",gap:12}},
               el("input",{type:"number",inputMode:"numeric",pattern:"[0-9]*",min:"0",placeholder:"0",value:val,onChange:e=>setVal(m.id,e.target.value),
-                style:{...IS,flex:1,fontSize:24,fontWeight:800,textAlign:"center",padding:"10px",minHeight:52,borderColor:hasPending?C.yellow:"#D1D5DB",borderWidth:hasPending?2:1}}),
+                style:{...IS,flex:1,fontSize:24,fontWeight:800,textAlign:"center",padding:"10px",minHeight:52,borderColor:val!==""?"#0066B3":"#D1D5DB",borderWidth:val!==""?2:1,transition:"border-color .15s"}}),
               m.hasMeta&&el("div",{style:{textAlign:"right",minWidth:60,flexShrink:0}},
                 el("div",{style:{fontSize:10,color:"#94A3B8",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}},"Meta"),
-                el("div",{style:{fontSize:15,fontWeight:700,color:"#475569"}},metaVal.toLocaleString("pt-BR")),
-                pct!==null&&el("div",{style:{fontSize:14,fontWeight:800,color:pct>=100?"#16a34a":pct>=80?"#d97706":"#dc2626"}},(pct)+"%")
+                el("div",{style:{fontSize:15,fontWeight:700,color:"#475569"}},metaVal>0?metaVal.toLocaleString("pt-BR"):"—")
               )
             ),
+            pct!==null&&el("div",{style:{marginTop:8}},el(MiniBar,{pct,color:col})),
             el("input",{type:"text",placeholder:"Observação...",value:obsVal,onChange:e=>setObsVal(m.id,e.target.value),
-              style:{...IS,width:"100%",marginTop:10,fontSize:13,borderColor:obsVal!==""?C.blue:"#D1D5DB",borderWidth:obsVal!==""?2:1}})
+              style:{...IS,width:"100%",marginTop:8,fontSize:13,borderColor:obsVal!==""?C.blue:"#D1D5DB",borderWidth:obsVal!==""?2:1,transition:"border-color .15s"}})
           );
         })
       ),
-      el("div",{style:{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",right:16,zIndex:100}},
+      (pendingCount>0||syncSt==="syncing"||syncSt==="ok"||syncSt==="error")&&el("div",{style:{
+        position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 68px)",left:12,right:12,zIndex:100,
+        borderRadius:12,background:"linear-gradient(135deg,#003366 0%,#004E8C 100%)",
+        boxShadow:"0 4px 20px rgba(0,51,102,0.35)",
+        padding:"12px 14px",display:"flex",alignItems:"center",gap:10}},
+        el("div",{style:{flex:1,minWidth:0}},
+          el("div",{style:{color:"#fff",fontSize:12,fontWeight:700,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},
+            syncSt==="syncing"?"Salvando...":syncSt==="ok"?"Salvo com sucesso!":syncSt==="error"?"Erro ao salvar!":pendingCount+" máquina"+(pendingCount>1?"s":"")+" preenchida"+(pendingCount>1?"s":"")
+          ),
+          el("div",{style:{color:"rgba(255,255,255,0.5)",fontSize:10,marginTop:2}},entryDate+" · "+entryTurno)
+        ),
+        pendingCount>0&&syncSt!=="syncing"&&syncSt!=="ok"&&el("button",{
+          onClick:()=>{setInputs({});setObsInputs({});},
+          style:{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",
+            color:"rgba(255,255,255,0.75)",borderRadius:8,padding:"7px 12px",cursor:"pointer",
+            fontSize:12,fontWeight:600,fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}},"Limpar"),
         el("button",{onClick:handleSave,disabled:syncSt==="syncing"||pendingCount===0,
-          style:{width:56,height:56,borderRadius:28,background:btnSaveColor,border:"none",
-            boxShadow:"0 4px 16px rgba(0,51,102,0.3)",cursor:"pointer",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            opacity:pendingCount===0?.4:1,transition:"opacity .2s"}},
-          syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:24,color:"#fff"}):
-          el("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:"#fff",strokeWidth:2.5,strokeLinecap:"round",strokeLinejoin:"round"},el("polyline",{points:"20 6 9 17 4 12"}))
+          style:{background:syncSt==="ok"?"#22C55E":syncSt==="error"?"#EF4444":"#fff",border:"none",borderRadius:8,
+            padding:"9px 18px",cursor:"pointer",fontSize:13,fontWeight:800,
+            color:syncSt==="ok"||syncSt==="error"?"#fff":"#003366",
+            boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
+            opacity:pendingCount===0&&!syncSt?.4:1,
+            whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0,
+            display:"flex",alignItems:"center",gap:6,transition:"all .2s"}},
+          syncSt==="syncing"?el(SaveLoader):syncSt==="ok"?el(SaveCheck,{size:18,color:"#fff"}):"Salvar"
         )
       )
     );
@@ -3264,21 +3290,20 @@ function App(){
 
   // ── tabs (desktop top bar) ──
   const tabLabels=[["entrada","Apontamento"],["dashboard","Dashboard"],["historico","Histórico"],["metas","Metas"],["feedbacks","Feedbacks"]];
-  const tabs=!isMobile&&el("div",{style:{background:"#fff",display:"flex",gap:6,padding:"10px 24px",overflowX:"auto",borderBottom:"1px solid #E5E7EB"}},
+  const tabs=!isMobile&&el("div",{style:{background:"#002548",display:"flex",gap:2,padding:"6px 20px",overflowX:"auto",borderBottom:"2px solid rgba(0,0,0,0.18)"}},
     ...tabLabels.map(([k,l])=>{
       var isActive=tab===k;
       return el("button",{key:k,onClick:()=>setTab(k),
-        onMouseEnter:function(e){if(!isActive)e.currentTarget.style.background="#f9fafb";},
-        onMouseLeave:function(e){if(!isActive)e.currentTarget.style.background="#fff";},
+        onMouseEnter:function(e){if(!isActive)e.currentTarget.style.background="rgba(255,255,255,0.06)";},
+        onMouseLeave:function(e){if(!isActive)e.currentTarget.style.background="transparent";},
         style:{
-          background:isActive?"#eff6ff":"#fff",
-          border:isActive?"1px solid #0066B3":"1px solid #D1D5DB",
+          background:isActive?"rgba(0,102,179,0.18)":"transparent",
+          border:isActive?"1px solid #0066B3":"1px solid transparent",
           borderRadius:8,
-          color:isActive?"#003366":"#111827",
-          fontSize:14,fontWeight:isActive?700:600,lineHeight:"1.25rem",
-          padding:"10px 18px",
+          color:isActive?"#fff":"rgba(255,255,255,0.5)",
+          fontSize:14,fontWeight:isActive?700:500,lineHeight:"1.25rem",
+          padding:"9px 18px",
           textAlign:"center",whiteSpace:"nowrap",
-          boxShadow:isActive?"0 0 0 1px rgba(0,102,179,0.1)":"0 1px 2px 0 rgba(0,0,0,0.05)",
           cursor:"pointer",userSelect:"none",
           transition:"all .15s",fontFamily:"inherit",letterSpacing:"0.2px"
         }},l);
@@ -3295,10 +3320,10 @@ function App(){
   ];
   const bottomNav=isMobile&&el("div",{style:{
     position:"fixed",bottom:0,left:0,right:0,zIndex:50,
-    background:"#fff",
-    borderTop:"1px solid #E8ECF1",
+    background:"#002548",
+    borderTop:"1px solid rgba(0,0,0,0.25)",
     display:"flex",
-    boxShadow:"0 -4px 20px rgba(0,0,0,0.08)",
+    boxShadow:"0 -2px 16px rgba(0,0,0,0.2)",
     paddingBottom:"env(safe-area-inset-bottom,0px)"
   }},
     ...mobileNavItems.map(({k,label,svgD})=>{
@@ -3307,14 +3332,14 @@ function App(){
       return el("button",{key:k,onClick:()=>setTab(k),style:{
         flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
         padding:"10px 4px 10px",background:"none",border:"none",cursor:"pointer",
-        color:isActive?"#0066B3":"#9EAFBF",
+        color:isActive?"#fff":"rgba(255,255,255,0.38)",
         position:"relative",minHeight:58,
         transition:"color .2s"
       }},
         // Active indicator pill
         isActive&&el("div",{style:{
           position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",
-          width:32,height:3,borderRadius:"0 0 3px 3px",background:"#0066B3"
+          width:36,height:3,borderRadius:"0 0 4px 4px",background:"#0066B3"
         }}),
         el("div",{style:{position:"relative",marginBottom:3}},
           el("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:isActive?2.5:1.75,strokeLinecap:"round",strokeLinejoin:"round"},
@@ -3328,7 +3353,7 @@ function App(){
             boxShadow:"0 1px 4px rgba(239,68,68,0.4)"
           }},pendingCount>9?"9+":pendingCount)
         ),
-        el("div",{style:{fontSize:10,fontWeight:isActive?700:400,letterSpacing:"0.1px",lineHeight:1}},label)
+        el("div",{style:{fontSize:10,fontWeight:isActive?700:400,letterSpacing:"0.1px",lineHeight:1,color:isActive?"#7EAEE8":"rgba(255,255,255,0.38)"}},label)
       );
     })
   );
