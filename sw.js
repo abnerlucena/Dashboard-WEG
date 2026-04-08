@@ -2,16 +2,13 @@
 // Estratégia: cache-first para assets estáticos, network-only para API GAS
 // Para atualizar o cache: incremente o número da versão abaixo
 
-const CACHE_NAME = 'dashboard-weg-v1';
+const CACHE_NAME = 'dashboard-weg-v2';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/style.css',
-  '/app.js',
-  'https://unpkg.com/react@18/umd/react.production.min.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-  'https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js',
+  '/assets/index-DrDQ-YNE.js',
+  '/assets/index-Byr-zG8H.css',
 ];
 
 // ── Install: pré-cacheia assets estáticos ────────────────────
