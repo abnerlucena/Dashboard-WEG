@@ -18,7 +18,12 @@
       "Bash(node -e \"const fs=require\\('fs'\\); const src=fs.readFileSync\\('c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js','utf8'\\); try{ new Function\\(src\\); console.log\\('OK'\\); }catch\\(e\\){ console.error\\(e.message\\); }\")",
       "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js','utf8'\\);try{new Function\\(src\\);console.log\\('OK - '+src.split\\('\\\\n'\\).length+' lines'\\)}catch\\(e\\){console.error\\(e.message\\)}\")",
       "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js','utf8'\\);try{new Function\\(src\\);console.log\\('OK - '+src.split\\('\\\\n'\\).length+' lines'\\)}catch\\(e\\){console.error\\('LINE ERROR:',e.message\\)}\")",
-      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js','utf8'\\);try{new Function\\(src\\);console.log\\('OK - '+src.split\\('\\\\n'\\).length+' lines'\\)}catch\\(e\\){console.error\\('ERRO:',e.message\\)}\")"
+      "Bash(node -e \"const fs=require\\('fs'\\);const src=fs.readFileSync\\('c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/app.js','utf8'\\);try{new Function\\(src\\);console.log\\('OK - '+src.split\\('\\\\n'\\).length+' lines'\\)}catch\\(e\\){console.error\\('ERRO:',e.message\\)}\")",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(python3 -)",
+      "Bash(node -e ':*)",
+      "Bash(npm run:*)"
     ]
   }
 }
