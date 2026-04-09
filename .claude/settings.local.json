@@ -23,7 +23,19 @@
       "Bash(npm install:*)",
       "Bash(python3 -)",
       "Bash(node -e ':*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(explorer \"C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dashboard-WEG\\\\dist\")",
+      "Bash(start dist:*)",
+      "Bash(cat .github/workflows/*.yml)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(curl -s https://abnerlucena.github.io/Dashboard-WEG/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://abnerlucena.github.io/Dashboard-WEG/assets/index-DrDQ-YNE.js\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://abnerlucena.github.io/Dashboard-WEG/assets/index-Byr-zG8H.css\")",
+      "Bash(git commit -m 'fix: invalidar cache do service worker para carregar novo frontend:*)",
+      "Bash(curl -s \"https://abnerlucena.github.io/Dashboard-WEG/\")",
+      "Bash(git rm:*)"
     ]
   }
 }
